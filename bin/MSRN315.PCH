@@ -1,0 +1,7 @@
+315 \x2313
+; For MS Kermit/IBM-PC Version 3.15 No terminal emulation, 15 Sept 1997
+; Put this file on your PC in the same directory with your MSKERMIT.INI file.
+; If necessary rename this file to be MSKERMIT.PCH.
+; Then start MS-DOS Kermit and give the command PATCH, or give the
+; command PATCH in MSKERMIT.INI.
+ds:1eae 30 31

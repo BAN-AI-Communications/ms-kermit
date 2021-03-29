@@ -1,0 +1,1216 @@
+CHANGES AND UPDATES TO MS-DOS KERMIT 3.15
+
+This file lists the changes and corrections in each Beta pre-release of
+MS-DOS Kermit 3.15, in reverse chronological order.
+
+The following Appendices are included at the end of this file:
+
+APPENDIX I:   LATIN-2 COMPOSE SEQUENCES
+APPENDIX II:  MS-DOS KERMIT AND PPP
+APPENDIX III: MEMORY MANAGEMENT
+
+____________________________________________
+Preliminary Final Release, 15 September 1997
+
+Beta 25 with Beta notice removed and new date, code freezed.  IBM PC and
+compatibles only.  Accompanying text files still need to be updated.
+
+FILENAME       SIZE   DESCRIPTION       
+
+MSK315.EXE   251768   Full-featured version
+MSR315.PCH      325   Initial patch for full-featured version
+MSK315M.EXE  199356   Medium version: no networks, serial connections only
+MSRM315.PCH     317   Patch for medium version
+MSK315N.EXE  164312   Lite version I: networks included, no terminal emulator 
+MSRN315.PCH     327   Initial patch for Lite version I
+MSK315L.EXE  113414   Lite version II: no terminal emulator or networks
+MSRL315.PCH     310   Initial patch for Lite version II
+
+_________________________
+Beta 25, 6 September 1997
+
+New commands:
+
+SET INPUT FILTER-ECHO { ON, OFF }
+   When ON (which is the default), only printable characters and controls
+   are sent to the screen when INPUT ECHO is ON.  When OFF, all incoming
+   characters (except NUL and DEL, which are discarded) are passed to the
+   screen, the idea being that a console driver (such as ANSI.SYS) will
+   process them and format the screen nicely -- this only works if the
+   escape and control sequences coming from the host are recognized by the
+   console driver; remember, MS-DOS Kermit's terminal emulator is NOT
+   active during INPUT commands.
+
+Bugs fixed:
+
+ . IF NUMERIC did not work for unsigned numbers longer than one digit.
+
+ . \frpad() and flpad() ignored a blank third argument and used the closing
+   paren instead.
+
+ . Array elements could not be assigned, e.g. by READ.
+
+ . Writing an empty array element into a file could cause MSK or DOS to crash.
+
+ . Assigning \%x variables inside SWITCH statement didn't work.
+
+ . SERVER <time> was broken; if a timeout value was given, it did not work
+   until and unless some packets were exchanged.
+
+ . S, I, and A packets and/or their ACKs could be sent that were longer than
+   the requested size; conversely, incoming packets that were longer than the
+   requested size could be rejected even when the actual buffer was long
+   enough to accommodate them.  Both conditions have been corrected.  This
+   problem was evident only when very short packet lengths were requested.
+
+____________________
+Beta 24, 15 Aug 1997
+
+The following bugs were fixed:
+
+ . Host-directed printing would not stop if the stop-printing sequence
+   was <ESC><CSI>4i, rather than simply <ESC>[4i or <CSI>4i.
+
+ . Under certain conditions, an overlong Kermit data packet could be sent.
+
+___________________
+Beta 23, 3 Aug 1997
+
+ANSI terminal emulation modified to allow use of the 25th line by
+direct cursor addressing and by scrolling.
+
+DG 217 emulation added.  Does not support UNIX mode.
+
+____________________
+Beta 21, 19 May 1997
+
+The status-line clock now can show elapsed time for the current connection
+via SET TERMINAL CLOCK { ON, OFF, ELAPSED-TIME }.  ON shows time of day,
+ELAPSED-TIME shows elapsed time.  Also the clock sampling and display
+mechanism were adjusted to prevent flickering in Windows, and so now
+is ON by default for both DOS and Windows 3.x.  The elapsed-time clock can
+also be set back to 0 with the new RESET CLOCK command.
+
+New \Kdebug Kverb added, to toggle SET DEBUG SESSION while in CONNECT
+mode, and assigned to Alt-d by default.  This removes the necessity to
+escape back, SET DEBUG SESSION, and reconnect to get terminal-screen
+debugging, and then escape back, SET DEBUG OFF, and reconnect to turn it
+off again.
+
+\Kreset (reset the terminal emulator) assigned to Alt-r for compatibility with
+Kermit 95.  It is also still on Alt-=, as before.
+
+Additional TCP/IP stack monitoring and debugging facilities (refer to Beta 10
+description below).  SET TCP/IP DEBUG ON now adds a performance meter to the
+CONNECT-mode status line.  Regular TCP/IP debugging material is displayed on
+the terminal screen by default, or if you have a transaction log active, it is
+written to the log instead.  But in both cases, the new fields are shown in
+the status line:
+
+  nnnnR = Number of microseconds to Receive an IP packet.
+  nnnnT = Number of microseconds to Transmit an IP packet.
+
+The packet times are displayed when a packet is transmitted, so the R field
+represents the most recent reception.  Smaller numbers mean fewer cpu cycles
+devoted to packet movement between Kermit and the LAN adapter; small is good.
+
+The most precise numbers occur when using Novell ODI drivers.  Packet drivers
+produce spuriously tiny reception values, because most of the board work
+occurs before Kermit is notified (and hence before Kermit can time the
+reception process).  In the case of reception Kermit measures the time between
+being first asked for a buffer and when the LAN driver finally reports the
+buffer is filled.  For transmission, Kermit initiates events and the time is
+between Kermit's initial command to the LAN driver to transmit a buffer and
+the LAN driver's final reply that it has done so.  The important point is the
+times measure Kermit to/from LAN driver events.
+
+______________________
+Beta 20, 23 April 1997
+
+Another adjustment to DHCP material to make sure the server ident field is not
+created spontaneously.  And to stop any misunderstandings about "time since
+boot" the client secs field is forced to 0 in all packets.  Plus protection
+against endless retries on rejected IP lease renewals; needs testing.
+
+______________________
+Beta 19, 13 April 1997
+
+Changes to DHCP client operation.  Xander Jansen pointed out that some new
+small-office routers, such as the 700 series from Cisco, have changed their
+expectation of what a DHCP client must say to gain service.  The prevailing
+formal rules were in RFC1541 and nearby documents.  Brand-new RFCs 2131 and
+2132 (April 1997) describe a method which is in direct contradiction to RFCs
+1541 1533.  When testing MS-DOS Kermit 3.15 Beta 18 against the small router,
+Xander found the router rejected the client.  In Beta 19, the DHCP support was
+changed to be compatible with both ways of being a DHCP client, trying first
+the RFC2132/2133 method and if that is rejected then the RFC1541 method.
+
+SHOW COMMUNICATIONS now distinguishes DHCP from BOOTP.
+
+_________________________
+Beta 18, 14 February 1997
+
+Corrections:
+
+ . Long-standing bug of being unable to delete characters via CSI P which are
+   within four columns of the left margin while in 132 column video mode.
+
+ . Bug introduced into beta 17 while adding \f(filespec). This forced the
+   requested filename pattern to be prepended as a path to individual
+   filenames of an incoming GET request, resulting in failure to find the
+   files.
+
+Changes:
+
+ . Modify the VT100 terminal ident from very long standing vanilla ESC ? 1 c
+   to be ESC ? 1; 0 c to satisfy some string matching style remote
+   programs.  Similarly use ESC ? 6; 0 c for VT102.
+
+________________________
+Beta 17, 9 February 1997
+
+Beta 17 fixes the following bugs:
+
+ . A TAKE file once opened was never closed.
+
+ . Macro argument variables, \%0..\%9, were not removed after the last nested
+   macro exited and thus collided with possible non-macro use of the same
+   variable names.
+
+ . A harmless message occurred if a macro expected several arguments and fewer
+   were provided on the invocation line.
+
+ . A correction for Data General terminal emulation to clear video attributes
+   adversely affected VTxxx emulations, leading to unwanted underlining, etc,
+   after an erasure operation. This occurred only in Beta 16.
+
+ . SET KEY definitions involving a macro name were not parsed properly in a
+   few annoying cases.
+
+And adds the following new feature:
+
+ . New variable \v(filespec) shows the filename pattern most recently used for
+   sending or receiving files. It may contain wild cards and paths, depending
+   on what the user typed.
+
+________________________
+Beta 16, 6 February 1997
+
+In this issue we try to resolve known problems with the INPUT
+command.  Some coding errors were discovered and fixed.
+
+The length of SET KEY definitions is down to 150 bytes maximum, because
+borrowing a longer buffer causes internal interference (MSK 3.15 Beta 15
+introduced the much longer buffer (borrowed)).  A consequence of that
+interference was loss of ability to invoke macros within key definitions
+
+Finally, an undiscovered omission in Data General terminal emulation
+was pointed out by Jeff Altman: underlining was not turned off when a Form
+Feed command arrived.
+
+________________________
+Beta 15, 3 February 1997
+
+Key definitions can now be up to 1K in length.  The previous maximum length
+was 127 bytes.
+
+Some glitches fixed in the INTRO screen.
+
+There is now a new SET PARITY option.  It is mostly untested, so testing is
+needed by those in a position to test it:
+
+  SET PARITY { EVEN, ODD, MARK, SPACE, NONE }
+
+behave as before: SET PARITY none establishes 8 data bits, no parity; the
+others 7 data bits and 1 parity bit.  The new option is:
+
+  SET PARITY HARDWARE { EVEN, ODD, MARK, SPACE }
+
+When this command is given, MS-DOS Kermit uses 8 data bits and 1 parity bit,
+and parity is handled by the hardware (i.e. the UART).  This feature is added
+for the benefit of certain devices that can only communicate with 8 data bits
+and one parity bit, and should not be used except when absolutely necessary,
+since hardware checking of parity is a great deal less intelligent and
+tolerant than the normal software handling done by MS-DOS Kermit itself.
+SET PARITY HARDWARE works only on real serial ports; not on BIOS ports,
+FOSSIL ports, or network connections.
+
+_______________________
+Beta 14, 27 January 1997
+
+New REGET command.  REGET is to GET as RESEND is to SEND: file transfer
+recovery of interrupted binary-mode transfers, in this case when downloading
+from a Kermit server.  Works only when Kermit's FILE TYPE is BINARY.
+
+\v(date) format changed to "27 Jan 1997" for compatibility with C-Kermit.
+Language-independent numeric (Julian) dates are available as \v(ndate), as
+always.
+
+The new CONNECT-mode status-line clock (with blinking colon) is turned off
+when running under Windows, even in a full-screen DOS box), to stop flickering
+of the display caused by Windows recovering from a polling DOS call to get the
+time of day.
+
+The CONNECT-mode status line is now refreshed to show the proper printing
+status if a printer is unavailable, rather than leaving a ghost "PRN"
+indication if printing has been terminated.
+
+_______________________
+Beta 13, 4 January 1997
+
+SET KEY syntax simplified; curly braces no longer required when mixing
+Kverbs, Kmacros, and text strings except to resolve ambiguities or to
+preserve leading and/or trailing whitespace.  Thus:
+
+  set key \315 \kkp4\kkp5 foo \kkp6
+
+is now a legal definition, resulting in those three verbs being seen at
+keypress time, and the embedded string is sent in the middle of them.  The
+old, more complicated syntax, is still accepted.
+
+_________________________
+Beta 12, 26 December 1996
+
+A timer-related problem was fixed that could cause MS-DOS Kermit to block
+(hang) on a TCP/IP connection for up to a minute or more if a sent packet
+were lost while slowly sending tiny packets. This problem was most
+frequently observed in Telnet terminal sessions, while typing.
+
+IF commands containing variables were being overevaluated; e.g.:
+
+  if = \%i 4 decrement \%i
+
+Such statements now work again.
+
+The following command-related changes were made for compatibility with
+C-Kermit 6.0:
+
+ . The LOCAL command now works with macro names as well as \%x variable 
+   names.  So, for example:
+
+     LOCAL FOO BAR \%A
+
+   declares three local variables, foo, bar, and \%a.  FOO and BAR are macro
+   names, which can be used either as "local subroutines" or as long-named
+   variables accessible via the \m(name) construction.
+
+ . The LOCAL command can now be used not only in macro definitions, but also
+   in command files.  This allows construction of portable command procedures
+   with private data, without danger of conflict with variable names already
+   in use by other procedures.
+
+ . MSLEEP added as a synonym for MPAUSE (millisecond sleep).
+
+(There was no open Beta 11)
+
+_________________________
+Beta 10, 18 December 1996
+
+New items:
+
+ . Add built-in Cyrillic support for the terminal emulator:
+   SET TERMINAL CHARACTER-SET { CYRILLIC-ISO, KOI8, SHORT-KOI },
+   SET TERMINAL CODE-PAGE CP866.  Previously this was done with command
+   files (lots of SET TRANSLATE INPUT and SET KEY commands), but that did
+   not work well with ISO 2022 character-set designation and invocation
+   (G0, G1, G2, G3 switching, VT220 line-drawing characters, etc).
+
+ . Modify commands ASSIGN, DEFINE, UNDEFINE, _ASSIGN, and _DEFINE for the
+   syntax expressing array names.  Each permits expressions and variables
+   within the [index] field.  Assign, define, and undefine do not permit
+   substitution in the spelling of the array name of \&<character>; _assign
+   and _define do permit it.
+
+ . Add keyword IF to the list for command CHECK.  CHECK IF reports that
+   extended IF statements are present.
+
+ . Add UNDEFINE variable/macro to undefine an item. This is the same as the
+   DEFINE command with no definition text.
+
+ . Add XECHO string to display the string without the leading CR/LF.
+
+ . Add variable \v(connection) which always returns string "local".
+
+ . Add function \fbasename(filename) which returns the filename without
+   its drive letter and path prefix.
+
+ . Keyboard definitions to invoke named macros had used definitions of the
+   form {\kmacro-name}. The surrounding curly braces are no longer required,
+   but they may be used with older material.  This also means the syntax for
+   specifying keyboard "verbs" and macros is now the same.
+
+Corrections:
+
+ . SET KEY \xxx {\Kmacroname} was broken in earlier betas.
+
+ . DEC User Defined Keys returned illegally and crashed the program.
+
+ . Correct a small bug with processing DEC Sixel graphics.
+
+ . SET PRINTER to a file which could not be opened crashed the program.
+
+ . LOCAL list of \%<char> variables failed to skip items in the list which
+   were not of the form \%<char>.
+
+ . Revise the TCP/IP protocol stack code to be less agressive in sending long
+   groups of packets but more agressive in responding to network
+   congestion.  The result should be fast transfers with fewer packets lost
+   from too many packets per second on the wire.
+
+ . Add code to catch errors of delivering TCP/IP packets from the LAN adapter
+   driver to Kermit. The error of interest is when a packet buffer is
+   allocated from Kermit but the LAN driver fails to signal that the buffer
+   has been filled with a new packet.  Failures are visible when command SET
+   TCP DEBUG ON is given, and they may be made invisible but recorded in the
+   Transaction log if command LOG TRANSACTION filename is stated.
+ 
+ . Included in the TCP debug information are arriving ARP broadcasts (good for
+   testing if the LAN adapter is still receiving) and IP packet transit time
+   details. For specialists, the timing details appear as lines like this
+   example, where fields are:
+
+     time=2093 rtt=1 avg=0 std_dev=1 s->rto=5
+
+   time since the TCP stack started, current IP packet round trip time (rtt),
+   smoothed average rtt, standard deviation of the difference, and the round
+   trip timeout, all in units of Bios clock ticks (18.2 of them per
+   second). Message "Failed to put packet on wire" is written if the lan
+   adapter is unable to perform a transmission requests; Kermit retries the
+   attempt.
+
+ . Add a test for Control-C or Control-BREAK being typed while waiting for a
+   TCP byte stream to be delivered to the remote host.  This is an attempt to
+   break free of waiting while Kermit file transfer packets are held back
+   because TCP is waiting for an ACK to previously sent material.  Such waits
+   can be several minutes in bad cases.  This test is of limited usefulness.
+
+ . Fill in a Reverse ARP request field which is normally empty and ignored but
+   might be looked at anyway.
+
+ . Fixed a problem which crashes the program when going between text and
+   graphics screens when neither extended nor expanded memory is used to
+   preserve the graphics screen.
+   
+ . Time-of-day clock added to status line, with blinking colon.  If this
+   produces any unwanted effects, use "set term clock off" to disable it.
+
+(Beta 9 was skipped)
+_________________________
+Beta 8, 10 September 1996
+
+New items:
+
+ . Add keyboard verbs \Ksession1 through \Ksession6 to select 
+   a particular Telnet session of the six available (versus the 
+   \Knextsession toggle). These new verbs are not preassigned
+   to keys.
+
+Fixes:
+
+ . Current directory, as shown in prompt, was over-evaluated.
+
+ . Bug with UDKs fixed.
+
+ . \v(drive) value had a spurious null character on the end.
+
+ . SET PRINTER problems displayed gibberish rather than a proper 
+   error message.   
+
+ . No Ping response was generated for SLIP connections.
+
+ . SHOW SESSIONS did not wait for a confirming Enter key.
+
+ . \v(input) lost its text.
+
+ . Invoking macros within macros which used END to leave had
+   confused the END command.
+
+------------------------
+Beta 7, 7 September 1996
+
+New items:
+
+Modify assign/define/undefine/_assign/_define for array name syntax.  All
+permit expressions and variables within the [index] field.  Assign, define,
+and undefine do not permit substitution in the array name of \&<character>;
+_assign and _define do permit it.
+
+Add keyword IF to the list for CHECK.  CHECK IF always succeeds, indicating
+the script programming language is present.
+
+Add UNDEFINE variable/macro to undefine an item.  This is the same as the
+DEFINE command with no definition text.
+
+Add XECHO <string> to display the <string> without adding CR/LF.
+
+Add variable \v(connection) which always returns string "local".
+
+Add function \fbasename(filename) which returns the filename without is drive
+letter and path prefix.
+
+Corrections:
+
+DEC User Defined Keys returned illegally, could crash program.
+
+SET PRINTER to a file which could not be opened crashed the program.
+
+LOCAL list of \%<char> variables failed to skip non-\%<char> items in the list.
+
+------------------------
+Beta 6, 2 September 1996:
+
+Bug fixes:
+
+ . END/POP statement acted too strongly and exited all macros rather
+   than just the current macro.
+
+ . Consecutive spaces in strings were collapsed to single spaces,
+   such as ECHO 1 2   3   showed 1 2 3, and INPUT 10 {WORD   WORD}
+   expected only a single space.
+
+ . Declaration of arrays of size 14 eventually led to memory corruption.
+
+ . INPUT ignored bytes read during preceeding script commands, such
+   as PAUSE or OUTPUT.
+
+-----------------------
+Beta 5, 27 August 1996:
+
+New commands:
+
+NOPUSH
+  Hidden, one-way command, prevents PUSH/RUN
+
+SET TERMINAL ESCAPE-CHARACTER {ENABLED, DISABLED}
+  Determines whether the Connect mode escape character, normally Control-],
+  is an escape or is sent to the host as an ordinary character.
+
+Added TCP keepalive probes when using a TCP passive open (Listen).  Times out
+a session after about 100 seconds of no response to a series of five probes.
+
+Fixed bugs with arrays having more than 14 elements.
+
+-----------------------
+Beta 4, 19 August 1996:
+
+ o Correct bug of losing the first two characters of the first argument
+   word in the DIAL command.
+ o Add new command SET TERMINAL CR-DISPLAY {Normal, CR-LF}, default is
+   normal.  The alternative adds a Line Feed after each received Carriage
+   return.
+ o Correct bugs in INPUT and MINPUT.
+ o Adds three new commands: SWITCH, MOVE, and RETRIEVE.
+
+   SWITCH <variable-name> {
+     :label1, command, command, ... BREAK
+     :label2, command, command, ... BREAK
+     :label3, command, command, ... BREAK
+     ...
+     :DEFAULT, command, command, ...
+   }
+
+This is similar to the C-language switch statement, and identical to the
+switch statement in C-Kermit 6.0 Beta.  Like both, it can be nested.  Example:
+
+SWITCH \v(nday) {
+  :0, echo Sunday, break
+  :1, echo Monday, break
+  :2, echo Tuesday, break
+  :3, echo Wednesday, break
+  :4, echo Thursday, break
+  :5, echo Friday, break
+  :6, echo Saturday, break
+  :default, echo When did the week get more than 7 days?
+}
+
+The MOVE command is just like SEND, except that after sending the file
+succesfully, MS-DOS Kermit deletes its copy.  Thus the file is actually moved
+from your PC to the other computer, rather than copied.
+
+The RETRIEVE command, to be sent by a client to a server, is just like GET
+except that it tells the server to delete each file after -- and if and only
+if -- it has been sent successfully.  Thus it is like MOVE, but in the other
+direction.  Requires a server on the other end that understands this command.
+As of yet, only MS-DOS Kermit qualifies.  The next beta edit of C-Kermit will
+have this feature too (both ends, server and client).
+
+-----------------------
+Beta 3, 11 August 1996:
+
+Correction to DHCP lease renewal procedure.
+
+-------------------------------------------------
+Second (unnumbered) test version, 11 August 1996:
+
+Corrections to reported bugs:
+ o STOP <digit> string now properly displays the string.  The DIAL command
+   uses this syntax when the dialing script is not found.
+ o SET PROMPT allows \numbers again.
+ o INPUT <timeout> single-byte no longer hangs in an infinite loop.
+ o MINPUT <timeout> {string} {another string} ... 
+   now properly recognizes each string.
+ o \v(minput) now properly reports the index of the string matched by MINPUT.
+ o Loss of modem Carrier Detect may now be recognized promptly during file 
+   transfers, but the changes are untested.  Probably more work is needed.
+ o \$(DOS Environment variable) now finds both uppercase and lower case
+   variables, but not mixed case variables.  Windows 3.1x creates variable
+   "windir" in lower case, as can be observed within the DOS box, so this is
+   a way for MS-DOS Kermit to check whether it is running under Windows 3.x.
+
+Additional features:
+ o \fchecksum(string) yields the decimal value of the 32-bit unsigned sum
+   of the code values of each byte in string, e.g. \fcheck(ABCD) = 266.
+ o SET TCP ADDRESS has new option, DHCP, as a synomym for BOOTP.
+ o SET TCP ADDRESS DHCP or BOOTP  both try DHCP negotiation and accept
+   the first response of possibly many, whether DHCP or Bootp responses.
+   Special note for users of Novell's DHCPSRVR.NLM server v2.0: 
+   use  SET TCP BROADCAST 255.255.255.255  to avoid a bug in that server
+   which is triggered by using a directed broadcast address.
+
+Question on a requested enhancement:
+   TCP/IP SOCKS support requires a choice of authentication mechanism.
+   People asking for SOCKS support need to tell us which mechanism they 
+   require since one needs to be written into the code. The two choices are
+   no authentication and plaintext username/password, neither of which
+   provides any security, and the latter is a big security hole.
+
+--------------------------------
+First (unnumbered) test version, 18 July 1996:
+
+ERROR CORRECTIONS
+
+1. All patches issued for MS-DOS Kermit version 3.14 are incorporated into
+   version 3.15
+
+2. Unpatchable problem with ARP affecting some remote hosts is fixed in
+   version 3.15
+
+3. Unpatchable bug which prevented communications between LAN adapters from
+   the same vendor (the first three octets of the hardware address were the
+   same), fixed in version 3.15
+
+4. Correction of a fatal bug when using internal TCP/IP over ARCnet ODI
+   drivers.
+
+5. Failure to act upon 8-bit control codes SS2 and SS3 in VT220/320 terminal
+   emulation, even though their 7-bit equivalents were implemented.
+
+FILE TRANSFER IMPROVEMENTS
+
+Kermit file transfer protocol and TCP/IP internal protocol stack:
+
+1. Dynamic Kermit packet retry timing, based on measured round trip times.
+   This should provide faster recovery from lost packets.
+
+2. Congestion avoidance strategy during packet transmission.  Both (1) and
+   (2) are directly from TCP/IP rules and procedures by Van Jacobson.  This
+   should improve performance on busy comms lines of all kinds.
+
+3. Improved timing of IP packets within the internal TCP/IP stack, to deal
+   with today's steadily deteriorating Internet performance.
+
+4. Improvement of TCP keepalive probe detection techniques, to keep Telnet
+   connections alive forever even if no user activity occurs.
+
+5. Optional announcement in Kermit packets of the kind of operating system
+   so that two alike systems would exchange files in BINARY mode
+   automatically, and without filename conversion.  The new command:
+
+     SET TRANSFER MODE { AUTOMATIC, MANUAL }
+
+   controls this feature, with the default being MANUAL for no announcement.
+   If the "sysid" mode is used it overrides user choice of binary or text
+   mode file transfers when like systems converse.  Works with C-Kermit
+   16.0.192 (in Beta), Kermit 95 1.1.5 or later, IBM Mainframe Kermit 4.3.2
+   (soon to be announced), and of course MS-DOS Kermit 3.15 itself.
+
+6. Automatic recognition of Kermit packets while in terminal emulation
+   mode.  See next section.
+
+TERMINAL EMULATION IMPROVEMENTS
+
+1. Kermit can now use extended memory (raw memory above 1MB) in place of
+   expanded memory for screen rollback space. The command below has been
+   enhanced to include choices EXTENDED and EXPANDED.
+
+     SET TERMINAL EXPANDED-MEMORY { OFF, EXPANDED, EXTENDED, ON }
+
+   The default is ON, which means try expanded memory first, and if that
+   fails then try extended.  With Extended in use Kermit does not need an
+   expanded memory page frame (located in UMB memory).  The default ON
+   results in operation the same as for version 3.14 of MS-DOS Kermit.
+
+2. Automatic recognition of incoming Kermit packets while in terminal
+   emulation mode.  The new command:
+
+     SET TERMINAL AUTODOWNLOAD { ON, OFF } 
+
+   controls this feature, with the default being ON.  When the remote host
+   sends a Kermit "I" or "S" packet to initiate a file transfer in either
+   direction (via a SEND or GET command) then MS-DOS Kermit switches to file
+   transfer mode, performs the file transfer, then returns to CONNECT mode.
+ 
+   To download a file, just tell the remote Kermit to send it, e.g. (for
+   C-Kermit on the remote end):
+
+     kermit -s <filespec>          ; To download in text mode
+     kermit -is <filespec>         ; To download in binary mode
+
+   or (at the Kermit prompt):
+
+     C-Kermit> set file type text  ; (or "binary")
+     C-Kermit> send <filespec>
+
+   To upload a file, tell the remote Kermit to GET it, e.g.:
+
+     kermit -g <pc-filespec>       ; To upload in text mode 
+     kermit -ig <pc-filespec>      ; To upload in binary mode 
+
+   or:
+
+     C-Kermit> set file type text  ; (or "binary")
+     C-Kermit> get <pc-filespec>
+
+3. The Compose Key (verb \Kcompose, assigned by default to Alt-c) now
+   works not only for Latin-1 (Western European) character sets, but also
+   Latin-1 (Eastern European) character sets.  Latin-2 compose sequences
+   are accepted when your local code page is CP852 and your terminal
+   character-set is Latin-2; otherwise, Latin-1 sequences are used, as
+   before.  See Appendix I.
+
+SCRIPT PROGRAMMING IMPROVEMENTS
+
+1. New command functions, \fname(arguments):
+
+   \frindex(pattern,string,position)
+     Right Index.  Returns 1-based position of first occurrence of pattern in
+     string, looking from right to left, starting "position" bytes from from
+     the right (default position is 0).  Returns 0 if pattern not found.
+
+   \feval(math expression)
+     Returns numerical result of a math expression.
+     Numbers are 32-bit signed integers in calculations.
+     Math operators are:
+
+       +, -, *, /  Add, subtract, multiply, divide
+       + and - are also unary operators
+
+       %  modulo, remainder
+       ^  exponent, to power of 
+       !  factorial
+       ~  logical bit-wise NOT, one's complement
+       &  bit-wise AND 
+       |  bit-wise OR
+       #  bit-wise Exclusive-OR 
+       @  Greatest Common Divisor 
+      ( ) Clustering symbols, to 8 deep.
+
+   \fipaddr(string)
+     Returns IP address in dotted decimal form found within string.  Can
+     be used with \v(input) to obtain IP address during SLIP login.
+
+   \ftod2secs(hh:mm:ss)
+     Converts hours:minutes:seconds to seconds.
+
+   \fverify(pattern, string, offset)
+     Checks that all characters in string are in pattern, starting search at
+     offset of string.  Returns 0 if all match, else 1-based position of first
+     mismatch in string.
+
+   Function names may be abbreviated to uniqueness, such as \fmin().
+
+2. Mathmatical expressions, such as (1992+3*3-5), can be used almost
+   everywhere to represent a single numercial value.  The rules of what 
+   is an expression are the same as for \feval() and follow common usage.
+   If spaces occur then use ( ) around the entire expression.
+
+   Numbers can be expressed as implicit decimal, 1996, or have a base
+   associated with them such as \x1b for hexadecimal (27 dec).  Numbers 
+   may be signed and results are retained to 32-bits.
+
+   Single byte numerical values, \x1b, are permitted in text strings and
+   represent one byte.  To use backslash as itself double it, \\.  Note 
+   that a number may terminate from its value filling a byte.  For example:
+
+     ECHO testing \12345   
+
+   produces:
+
+     testing {45  
+
+   because \123 makes a full byte (visually a left curly brace).
+
+3. To assist the CD, DIR, and RUN commands single byte \number conversion no
+   longer occurs.  Thus one may now safely say CD \4DOS.
+
+4. Command word spelling may be composed on the fly from substitution
+   variables, such as 
+
+	define \%a minal
+	set ter\%a type vt320
+
+   This concept is extended to spelling of \function names, labels,
+   and even the names of substitution variables themselves.
+
+5. Substitution variables now support the notion of arrays of strings:
+
+   DECLARE \&<char>[size]
+     Allocates space for "size" number of strings. If size is 0 then the
+     structure becomes undefined.
+
+   \&<char>[index]
+     Is member index of the array <char>.  Use DEFINE or ASSIGN to create the
+     array member.  Index starts at 1 and should not exceed the declared
+     "size."  Strings are limited in length to 1KB which is the limit of a
+     Kermit command. Not all members need be created, only the ones you
+     wish. An empty definition removes that member.
+
+6. Multiple match patterns for script INPUT statements, via new command
+
+   	MINPUT <optional timeout> pattern1 patttern2 pattern3...
+
+   This behaves the same as INPUT except each of the patterns is examined
+   and the first match terminates the command.  Patterns containing spaces
+   should be placed within curly braces, e.g. {three word pattern}.  The
+   pattern which is matched is revealed in new variable \v(minput): 1
+   if the first one was matched, two if the second, and so on, or 0 if
+   none were matched.
+
+     NOTE: For compatibility with C-Kermit, the optional timeout in the
+     MINPUT, INPUT, and REINPUT commands, should always be included.
+
+7. New variables:
+
+   \v(instatus)
+     Status of most recent INPUT or MINPUT command:
+      -1 for not initialized yet
+       0 for success
+       1 for timed out
+       2 for user level Control-C interrupt
+       4 for connection lost
+
+   \v(minput)
+     Shows which search pattern was matched by the MINPUT command, which
+     is a script INPUT command with one or more match patterns.  The 
+     variable is 0 if no match was obtained.
+
+    \v(return)
+     The text string given by a "RETURN string" command. See RETURN below.
+
+    \v(input)
+     This is the contents of the INPUT command buffer, but with two changes
+     from version 3.14.  Now \v(input) is the entire buffer rather than up to
+     the first Carriage Return, and control codes are retained intact (and
+     thus are invisble). To see the control codes visually use command
+     SHOW SCRIPT where controls are displayed in "caret-character" notation
+     such that null is ^@, 1 is ^A, 2 is ^B and so on.
+
+8. Program control functions FOR, WHILE, XIF, ELSE.  They are:
+
+     FOR <variable-name> <start> <end> <increment> { <command>, ... }
+
+     WHILE <logical-test> { <command>, ... }
+
+     XIF <logical-test> { <command>, ... } ELSE { <command>, ... }
+
+     IF <logical-test> <command>
+     ELSE <command>
+
+   where:
+
+   <variable-name> 
+     Is a substitution variable, \%<character>, which holds the loop index;
+     <start>, <end>, and <increment> are numbers, and yes, loops can run
+     backward by using negative increments.
+
+   <command>
+     Is any MS-DOS Kermit command.
+
+   { <command>, ... }
+     Is curly braces surrounding one or more Kermit commands, with commands
+     separated by commas to represent end of line, or multiple lines of Kermit
+     commands where the physical end of line acts automatically as a command
+     terminator.  A side effect of this is commands using { will be continued
+     automatically by the next line until a closing } is encountered; each
+     input line will have a comma prepended.
+
+   <logical-test> is any of the IF statement tests.
+
+   XIF may have the ELSE word in the middle of a command line, but ELSE must
+   not be a separate command line. Only the IF statement uses ELSE as a
+   separate command line (see below).
+
+   The IF statement has been extended to allow an optional second line of ELSE
+   Kermit command.  ELSE must be at the start of the next line rather than on
+   the same line as the IF main body.
+
+   BREAK terminates a FOR or WHILE loop. Control resumes at the next outer
+   statement, if any.
+
+   CONTINUE continues FOR and WHILE statements the at the bottom, skipping
+   statements between itself and the bottom of the loop.
+
+   These statements may be nested.
+
+9. RETURN string
+
+    Used by macros to return "string" to new variable \v(return) and then
+    terminate the macro. Termination is otherwise the same as by POP or END.
+
+10. SETENV name=string
+
+    Puts NAME=string into the DOS master environment.
+    Example script sequence:
+	input 10 Your IP number today is
+	input 10 Please record it now.
+	setenv myip=\fipaddr(\v(input))
+
+    where the remote machine sends "Your IP number today is 123.111.222.123.
+    Please record it now." The DOS master enviroment would have the new
+    line "MYIP=123.111.222.123" at the end.
+
+    Note that changing the master environment does not affect the copy
+    existing within Kermit nor any processes launched while in Kermit.
+
+11. Local variables
+
+In macros, you can declare any \%x (x = any letter) variable to be local to
+the macro.  Syntax:
+
+  LOCAL <variable-name> [ <variable-name> [ ... ] ]
+
+APPENDIX I: LATIN-2 COMPOSE SEQUENCES
+
+Accented Letters.
+Enter in the desired case (upper or lower).
+Key 1 (K1) and Key 2 (K2) can be entered in either order.
+
+Character Name          K1   K2
+
+A acute                 A    '
+A breve                 A    %
+A circumflex            A    ^
+A diaeresis             A    "
+A ogonek                A    =
+C acute                 C    '
+C caron                 C    &
+C cedilla               C    ,
+D caron                 D    &
+D stroke                D    -
+E acute                 E    '
+E caron                 E    &
+E diaeresis             E    "
+E ogonek                E    =
+I acute                 I    '
+I circumflex            I    ^
+L acute                 L    '
+L caron                 L    &
+L with stroke           L    /
+N acute                 N    '
+N caron                 N    &
+O acute                 O    '
+O circumflex            O    ^
+O diaeresis             O    "
+O double acute          O    #
+R acute                 R    '
+R caron                 R    &
+S acute                 S    '
+S caron                 S    &
+S cedilla               S    ,
+T caron                 T    &
+T cedilla               T    ,
+U acute                 U    '
+U diaeresis             U    "
+U double acute          U    #
+U ring                  U    *
+Y acute                 Y    '
+Z acute                 Z    '
+Z caron                 Z    &
+Z dot above             Z    .
+
+ss (German sharp s)     s    s  (lowercase only)
+
+Accents and special characters; enter K1 and K2 in the order shown:
+
+Character Name          K1   K2
+
+Acute accent            '    '   (two apostrophes)
+Breve                   %    %   (two percent signs)
+Caron                   &    &   (two ampersands)
+Cedilla                 ,    ,   (two commas)
+Currency sign           X    0   (or X O, or x 0, or x o)
+Degree sign             0    ^   (zero and circumflex)
+Diaeresis               :    :   (two colons)
+Division sign           -    :   (hyphen and colon)
+Dot above               .    .   (two periods)
+Double acute            #    #   (two number or pound signs)
+Multiplication sign     X    X   (or x x)
+Ogonek                  =    =   (two equal signs)
+Paragraph sign          S    !   (or S 0 or S O, upper or lower case)
+Soft hyphen             -    -   (two hyphens)
+
+APPENDIX II: MS-DOS KERMIT AND PPP
+
+Here is a brief description of how to set up and use MERIT's PPP driver
+PPP.EXE (available in the Crynwr Collection of Packet Drivers).  The
+documentation available for PPP.EXE is not very clear, hence this note.
+
+  NOTE: We have not tested every variety and version of DOS PPP software.
+  The version discussed here is University of Michigan Merit Network PPP
+  1.9.49 Beta, which seems to work satisfactorily, and which can be obtained
+  with anonymous from kermit.columbia.edu, directory packet-drivers/ppp.
+  Other versions might be available from the master site:
+
+    ftp://merit.edu/pub/ppp/pc/etherppp.zip
+
+  We do not necessarily recommend any version besides the 1.9.49 one, which
+  has been tested successfully.
+
+Note that the term "EtherPPP" is often used to refer to the Merit PPP driver,
+because that is the name of ZIP file in which is it is packaged.
+
+First, install PPP on your PC.
+
+Step 1: Download the SLIP files IN BINARY MODE to your PC's KERMIT
+        directory (wherever you keep MS-DOS Kermit).
+
+Step 2: In AUTOEXEC.BAT or elsewhere add a line like the following, which
+        specifies the path of the Merit PPP configuration file, CONFIG.PPP.
+
+          SET CONFIG.PPP=C:\PPP
+
+Step 3: Edit the sample CONFIG.PPP file, which looks like this:
+
+	  ppp trace 0
+	  ppp pap user myusername mypassword
+	  ppp pap timeout 20
+	  ppp quick
+	  ppp lcp open
+
+        Replace "myusername" and "mypassword" with your own PPP username and
+        password.
+
+Step 4: Create a STARTPPP.BAT file in your KERMIT directory.
+
+STARTPPP.BAT starts PPP.EXE and it contains one line that looks like this:
+
+ppp /c 1 /s 57600 /d none /k 6 /v 1
+
+When we run it MERIT's PPP driver starts up on the existing telphone
+connection.  The parameters are as follows; replace them by parameters that
+are appropriate to your setup:
+
+  /d none
+     No dialing by the driver; use the connection that's already there.
+
+  /k 6
+     Present a SLIP interface to the TCP/IP stack (rather than an Ethernet
+     interface).  NOTE: "/k 6" is important.  The driver must be configured
+     as a SLIP driver, not an Ethernet driver, or else the TCP/IP stack will
+     falsely believe that it should be doing broadcasts such as ARP.
+
+  /v 1       
+     Be verbose (so you can see error messages)
+
+  /c 1
+     Use COM1.  Replace this by "/c 2" if you are using COM2, etc.
+
+  /s 57600
+     Set the speed of the given COM port to 57600 bps.  Replace this by
+     the highest speed that can be used with your modem.
+
+Once PPP is installed, you won't need to repeat the steps above.
+
+Now to make a PPP connection, there are three major steps:
+
+ 1. Use Kermit to dial up your Internet Service Provider (ISP).
+ 2. Start PPP on the connection from Step 1.
+ 3. Have Kermit make TCP/IP connections over the PPP connection from Step 2.
+
+Begin by using MS-DOS Kermit ot dial up the terminal server at your Internet
+Service Provider and tell it who you are and what protocol you wish to use
+over the line.  A Kermit script works well for this, but the example below is
+typed by hand (MS-Kermit> is Kermit's prompt, you don't type it):
+
+  MS-Kermit> set port 1
+  MS-Kermit> set speed 57600
+  MS-Kermit> set flow rts/cts
+  MS-Kermit> connect
+
+If you are using port 2 or other port, then specify that instead of port 1.
+You can use other speeds too, but obviously the higher the better -- use the
+highest one that works with your modem.  Use the same port and speed as you
+have specified in STARTPPP.BAT.
+
+Now make the phone call.  In this example we type "ATDT" followed by the phone
+number, and then press the Enter key (of course there are also other ways to
+make Kermit dial the phone, but all that is covered elsewhere):
+
+  atdt73456
+
+A few seconds later you should get back a message from the modem:
+
+  CONNECT 57600/LAPM
+
+If instead it says BUSY or NO CARRIER, etc, then try again later.
+
+Now you should see a message from your ISP.  If you don't see anything, try
+pressing the Enter key one or more times.  Here is an example showing the
+dialog at Utah State University:
+
+  Welcome to the USU modem pools.
+
+  Enter: vms, library, telnet, or your PPP (or SLIP) username.
+  nb1 login: jrd-ppp
+  Password: xxxxxxx
+
+  Enabled IPCP address negotiation for jrd-ppp-ppp
+  Added interface jrd-ppp-ppp for IPX
+  Packet mode enabled
+  ~}#A!}!} } }8}!}$}%}"}&} } } } }%}&}$U}$}'}"}(}"3¢~
+
+NOTE: Other service providers will have different dialogs.  Some services
+are "PPP-only" and you will not get any kind of recognizable greeting or
+prompt -- instead you will get either garbage (similar to the last line in
+the example above), or nothing at all -- just a blank screen.  In that case,
+there is no way to log in "by hand"; instead the user ID and password will
+be sent by PPP.EXE itself (after you start it), from your CONFIG.PPP file.
+
+Now return to the MS-Kermit> prompt by pressing ALT-x, and EXIT from
+MS-DOS Kermit.
+
+Now that the PPP connection is running on the remote side we need to perform
+step two: start PPP on our client machine and tell Kermit the current IP
+address.  After the driver finishes negotiating with the remote side it
+displays the current IP number for us; we write it down and then tell Kermit
+to use it.
+
+Step 1: Start Kermit again.
+
+Step 2: At the MS-Kermit> prompt, type "run startppp.bat" (and press Enter).
+        You should see something like this:
+
+  C>ppp /c 1 /s 57600 /d none /k 6 /v 1
+  PPP: version 1.9.49 beta
+  PPP command line parameters:
+	  --class=6 --int=0x60
+	  --com=1 --irq=4 --base=0x3F8
+	  --speed=57600 --hard=0 --fifo=1 --quit=0
+	  --dial='none'
+  16650A detected
+
+  IP address set to 129.123.246.5
+
+Step 3: Now you see what your IP address is.  Tell Kermit what it is:
+
+  MS-Kermit> set tcp add 129.123.246.5
+
+Step 4: Now you can make a Telnet connection to any host on the Internet:
+
+  MS-Kermit> set port tcp xyzcorp.com
+  MS-Kermit> connect
+
+When the session has completed the phone line might be disconnected by the
+remote end.  If it isn't then you can make another Telnet connection, or you
+can just exit from Kermit but in this case you should use the Packet Driver
+support program TERMIN to terminate the connection.  After Kermit puts you
+back at the DOS prompt, just type:
+
+  termin 0x60
+
+APPENDIX III: MEMORY MANAGEMENT
+
+  (*** Reconcile this with section 19 of KERMIT.BWR ***)
+
+MS-DOS Kermit can use large amounts of memory to store the terminal emulator
+screen rollback buffer, Telnet session controls, and graphics mode screens.
+Where these items are stored is up to you and thus you need to be aware of the
+selection process.  There are three choices:
+
+ 1. Conventional memory (lower 640K).  Advantages: easy, no extra work
+    needed, can work everywhere.  Disadvantages: Conventional memory is
+    limited and precious; the amount of rollback screens is limited by
+    available conventional memory; ability to run DOS commands or programs
+    under Kermit is limited, etc.
+
+ 2. Expanded memory (EMS).  Any or all memory you might have installed
+    beyond 1MB, accessed through a 64KB chunk (Upper Memory Blocks, UMB) in
+    Conventional memory.  This is the fastest "extra-memory" option, but
+    requires Requires a memory manager and configuration thereof by the
+    user, which can be confusing and risky.  dedicating 64KB of conventional
+    memory.
+
+ 3. Extended memory (XMS).  Any or all memory you might have installed
+    beyond 1MB, accessed "directly".  Slower than EMS but does not require
+    the 64K UMB in Conventional Memory.
+
+OVERVIEW
+
+If the computer is running just DOS (by itself) and has no memory management
+facility loaded, then Kermit stores its large buffers in conventional memory
+Today almost all PCs use some form of memory management software, including
+that provided by Microsoft Windows 3.1, 95 and NT.  EMM386.EXE is a familiar
+manager from Microsoft; QEMM/386 is one from Quarterdeck.  With a memory
+manager Kermit can use memory above 1MB to hold these buffers.
+Memory above 1MB is commonly either extended or expanded memory.
+
+EXTENDED MEMORY
+
+Extended is provided by memory managers but can be slower to access than
+expanded memory (which can be deselected by the user).
+
+EXPANDED MEMORY
+
+Expanded memory is in two pieces, one large piece above 1MB and a 64KB piece
+in Upper Memory Blocks (UMB, between 640KB and 1MB).  Expanded memory needs
+to be controlled by the user.  For example, EMM386.EXE provides expanded
+memory unless the phrase NOEMS is used on its command line.  Windows
+provides both automatically.  QEMM provides expanded memory upon request
+when configuring the machine; its "stealth" mode requires it.  Expanded
+memory provides faster access than extended memory, but it costs that 64KB
+area in UMB.
+
+Placement of the expanded memory 64KB working area can be left to the memory
+manager or more wisely it can be located by the user in a safe UMB location.
+Please see the instructions of your memory manager about details of placement,
+but the common control is phrase FRAME=d000 or similar keyword.  Do not
+located it below C000 (video space) nor on an existing BIOS nor on shared
+memory clients (often network adapters).  In the end configuring memory is a
+responsiblity of the user.
+
+MEMORY MANAGEMENT IN WINDOWS
+
+(this needs to be filled in -- presumably users do not -- and most should
+not -- mess with memory configuation in Windows, esp Win95 and NT -- and so
+which kind of ex****ed memory do they get and what should they tell Kermit?)
+
+MEMORY MANAGEMENT AND MS-DOS KERMIT
+
+Kermit's choices of memory are decided by finding if a memory manager is
+active.  If there is none then conventional memory is used.  With a memory
+manager MS-DOS Kermit relies upon command SET TERMINAL EXPANDED-MEMORY
+<setting> to make a selection.  We may review the choice by giving command
+SHOW TERMINAL and viewing the setting of the EXPANDED-MEMORY line.
+
+The SET TERMINAL EXPANDED-MEMORY command has four choices: OFF, EXPANDED,
+EXTENDED, ON.  These correspond to use conventional memory, use expanded, use
+extended, or ON to try first expanded and if not successful then use extended
+memory.  The default is OFF, and a better choice for many people today is ON.
+The choice may be changed at any time but existing buffers will be lost by the
+change.
+
+Please be aware that locating the largest buffer, the screen rollback area, in
+conventional memory very quickly exhausts that memory.  Each screen consumes
+about 4KB, so saving say 100 screens uses 400KB and that's not enough to let
+Kermit use command.com for some commands.  The default number of saved screens
+is 10, and the number can be changed by DOS Environment command SET
+KERMIT=ROLL number-of-screens.
+
+Our recommendation is use a memory manager and enable expanded or extended
+memory usage by Kermit, by adding line
+
+  SET TERMINAL EXPANDED-MEMORY ON
+
+to your MSCUSTOM.INI file.
+
+(End)
