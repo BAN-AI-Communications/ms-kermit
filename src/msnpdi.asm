@@ -2,7 +2,7 @@
 ; File MSNPDI.ASM
 ; Packet Driver and ODI interface 
 ;
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -346,7 +346,7 @@ lslservice	dd	0		; LSL general services API entry point
 
 mlidcont 	dd	0		; MLID Control entry point
 
-ecbr_qty	equ	4		; number of receive ECB's to allocate
+ecbr_qty	equ	6;;4		; number of receive ECB's to allocate
 maketab	MACRO				; macro to make receiver ecbs
 cnt = 0
 	rept ecbr_qty - 1
@@ -464,7 +464,7 @@ pktdrvr	endp
 ; pdinit(&etheraddress)
 ; Initialize Packet Driver or ODI for use by this program. Stores Ethernet
 ; address (or MAC address). _kpdint is 0 to scan first for a Packet Driver
-; interrupt and fall back to search for ODI, or is a number 60h..7fh to
+; interrupt and fall back to search for ODI, or is a number 40h..7fh to
 ; target only that PD interrupt, or is 'DO' to target only ODI. If a PD is
 ; used then _kpdint is modified to be the found interrupt value.
 ; A 6 byte MAC level address is returned for convenience, even for SLIP. 
@@ -481,7 +481,9 @@ _pdinit	proc	near
 	mov	ax,DGROUP
 	mov	ds,ax
 
-	inc	_kdebug			; turn on to get overhead
+	mov	al,_kdebug
+	push	ax
+	or	_kdebug,2		; turn on timing option
 	cli				; compute timing overhead
 	call	rstart
 	call	rstop
@@ -508,7 +510,6 @@ pdinit8:mov	overhead,ax		; overhead, ticks
 	in	al,40h		; read MSB
 	xchg	al,ah		; order properly
 	sti
-	dec	_kdebug		; restore value
 	sub	ax,bx
 	jns	pdinit9
 	neg	ax
@@ -520,13 +521,13 @@ pdinit9:add	ax,500		; round up to 4+millisec
 	shr	ax,1		; get 1 or 2 for 1 millisec
 	and	al,3		; keep only two lower bits
 	mov	t0count,al	; remember for msnpdi.asm
-
-
+	pop	ax			; recover debug setting
+	mov	_kdebug,al
 	mov	ax,[bp+4+0]		; get offset of pktbuf
 	mov	pktbufoff,ax		; save locally
 	cmp	_kpdint,'DO'		; special indicator to use ODI?
 	je	short pdinit2		; e = yes, do ODI
-	mov	cx,60h			; interrupt range
+	mov	cx,40h			; interrupt range
 	cmp	_kpdint,0		; user value given for PD Int?
 	je	pdinit1			; e = no
 	mov	cx,_kpdint		; use it
@@ -554,7 +555,7 @@ pdinit2:call	odichk			; see if ODI is available now
 	cmp	_kpdint,'DO'		; special indicator to use ODI?
 	jne	pdinit5			; ne = no, have tried Packet Drivers
 	mov	_kpdint,0		; setup for Packet Driver test
-	mov	cx,60h			; scan from this interrupt
+	mov	cx,40h			; scan from this interrupt
 	jmp	pdinit1
 pdinit6:mov	useodi,1		; say using ODI
 	mov	_kpdint,'DO'		; signal ODI via PD interrupt variable
@@ -876,7 +877,7 @@ pdrcvr	proc	far			; Packet Driver receiver
 	push	ax			; assume DS:SI is one of our buffers
 	mov	ax,DGROUP
 	mov	ds,ax			; set ds to our data segment
-call rstop
+	call	rstop			; stop receive timer
 	or	si,si			; is it legal (from first upcall)?
 	jz	pdrcvr11		; z = no, ignore this call
 	sub	si,linksize		; backup to link info
@@ -1871,8 +1872,8 @@ pcontrol endp
 ; timer support routines
 rstart	proc	near
 	pushf
-	cmp	_kdebug,0
-	je	rstart1
+	test	_kdebug,2		; DEBUG_TIMING?
+	jz	rstart1
 	push	ax
 	in	al,40h		; 8254 timer channel T0, read LSB
 	xchg	ah,al
@@ -1886,8 +1887,8 @@ rstart	endp
 
 rstop	proc	near
 	pushf
-	cmp	_kdebug,0
-	je	rstop1
+	test	_kdebug,2		; DEBUG_TIMING?
+	jz	rstop1
 	push	ax
 	in	al,40h		; 8254 timer channel T0, read LSB
 	xchg	ah,al
@@ -1901,8 +1902,8 @@ rstop	endp
 
 tstart	proc	near
 	pushf
-	cmp	_kdebug,0
-	je	tstart1
+	test	_kdebug,2		; DEBUG_TIMING?
+	jz	tstart1
 	push	ax
 	in	al,40h		; 8254 timer channel T0, read LSB
 	xchg	ah,al
@@ -1916,16 +1917,16 @@ tstart	endp
 
 tstop	proc	near
 	pushf
-	cmp	_kdebug,0
-	je	tstop1
+	test	_kdebug,2		; DEBUG_TIMING?
+	jz	tstop1
 	push 	ax
 	in	al,40h		; 8254 timer channel T0, read LSB
 	xchg	ah,al
 	in	al,40h		; read MSB
 	xchg	al,ah		; order properly
-	sti				; for odixmt
+	sti			; for odixmt
 	mov	stopttic,ax
-	call	showtime		; display timing results
+	call	showtime	; display timing results (microseconds)
 	pop	ax
 tstop1:	popf
 	ret

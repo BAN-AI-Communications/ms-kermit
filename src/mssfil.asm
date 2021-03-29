@@ -1,7 +1,7 @@
 	NAME	mssfil
 ; File MSSFIL.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -25,7 +25,7 @@
 	public	cplatin, goopen, latininv, protlist, jpnxtof, templf
 	public	jpnftox, echrcnt, rcvpathflg, sndpathflg, atfile, atflag
 	public	l5cp866, lccp866r, k8cp866r, k7cp866r, cp866koi7, cp866koi8
-	public	cp866lci
+	public	cp866lci, crcword, lastfsize
 
 SIchar	equ	0fh
 SOchar	equ	0eh
@@ -35,6 +35,8 @@ data	segment
 	extrn	flags:byte, trans:byte, dtrans:byte, denyflg:word,dosnum:word
 	extrn	oldkbt:word, oldper:word, filtst:byte, rdbuf:byte, fsta:byte
 	extrn	curdsk:byte, fdate:byte, ftime:byte, wrpmsg:byte
+	extrn	rfileptr:word, findkind:byte, rpathname:byte, rfilename:byte
+	extrn	sendkind:byte
 
 ermes4  db	'Unable to make unique name',0
 ermes9	db	'Printer not ready',0
@@ -68,6 +70,8 @@ dchrcnt dw	0		; number of chars in the decode file buffer
 echrcnt dw	0		; number of chars in the encode file buffer
 dbufpnt dw	0		; position in file buffer, decoder
 ebufpnt dw	0		; position in file buffer, encoder
+crcword	dw	0		; CRC-16 accumulator
+lastfsize dw	0,0		; size of last transferred file
 
 	db	0		; this MUST directly preceed decbuf, jpnwrite
 decbuf	db	decbuflen dup (0) ; decoding source buffer
@@ -85,9 +89,8 @@ temprf	db	14 dup (0)	; temp for remote filename part
 auxfile	db	65 dup (0)	; auxillary filename for general use
 atfile	db	67 dup (0)	; at sign sending source file
 atflag	db	0		; non-zero if using at sign file sending
-diskio	filest	<>		; ditto, for ordinary file transfers
+diskio	filest	<>		; for ordinary file transfers
 buff	db	buffsz dup (?)	; use as our Disk Transfer Area
-havdot	db	0		; dot-found status in verify
 unum	dw	0		; unique filename generation number
 ifdef	no_terminal
 rcvpathflg db	0		; remove(0)/retain(1) remote paths on RECEIVE
@@ -129,6 +132,9 @@ chjapanold db	7,'I14/87E'	; Japanese-EUC: char count, ident (obsolete)
 ;linecnt dw	0			; LOAD command
 ;badvalue db	cr,lf,'?Bad value on line $'
 
+cacheptr	dw 0
+cachelen	dw 0
+cacheseg	dw 0
 data	ends
 
 data1	segment
@@ -843,12 +849,13 @@ data1	ends
 ;255     167     222     UNK    UNK                Cyrillic dze 
 
 code1	segment
-	extrn	isfile:far,decout:far
+	extrn	isfile:far,decout:far, rfprep:far, rgetfile:far, newfn:near
+extrn malloc:far
 	assume	cs:code1
 code1	ends
 
 code	segment
-	extrn	newfn:near,comnd:near
+	extrn	comnd:near
 	extrn	ermsg:near,clrfln:far,frpos:near,kbpr:near,perpr:near
 
 	assume  cs:code,ds:data,es:nothing
@@ -1080,6 +1087,8 @@ decod2:	mov	al,es:[si]		; pick up a char
 	dec	cx			; modify buffer count
 
 dcod2a:	xor	ah,ah			; assume no 8-bit quote char
+	or	dh,dh			; using 8-bit quoting?
+	jz	decod3			; z = no
 	cmp	al,dh			; is this the 8-bit quot char?
 	jne	decod3			; ne = no
 	mov	al,es:[si]		; yes, get the real character
@@ -1188,8 +1197,17 @@ decod6:	mov	dbufpnt,di    		; flush buffer before exiting decode
 	push	es
 	call	decoutp			; flush output buffer before final ret
 	pop	es
-decod7:	pop	cx
 
+	test	flags.remflg,dserial+dquiet ; serial/quiet mode display?
+	jnz	decod7			; nz = yes, skip kbyte and % displays
+	cmp	decoutp,offset outbuf	; decoding to disk?
+	jne	decod7			; ne = no
+	cmp	flags.xflg,0		; receiving to screen?
+	jne	decod7			; ne = yes
+	call	kbpr			; display kilobytes done
+	call	perpr			; display percentage done
+
+decod7:	pop	cx
 	pop	dx
 	pop	es
 	pop	di
@@ -1286,11 +1304,17 @@ outbu7:	push	bx
 	mov	bx,diskio.handle	; file handle
 	or	bx,bx
 	jle	outbf0			; le = illegal handle, fail
-	mov	ah,write2		; write cx bytes
+	mov	ah,write2		; write cx bytes from DS:DX
 	int	dos
 	pop	bx
 	jc	outbf0			; c set means writing error
-	cmp	ax,cx			; did we write all the bytes?
+	cmp	trans.xcrc,0		; do transfer CRC?
+	je	outbf7a			; e = no
+	push	cx
+	mov	cx,ax			; count to crc
+	call	crc			; compute CRC-16
+	pop	cx
+outbf7a:cmp	ax,cx			; did we write all the bytes?
 	je	outbf1			; e = yes
 	push	bx
 	mov	bx,offset decbuf
@@ -1313,13 +1337,7 @@ outbf1:	add	tfilsz,cx		; count received chars
 	adc	tfilsz+2,0
 	add	fsta.frbyte,cx
 	adc	fsta.frbyte+2,0
-	test	flags.remflg,dserial	; serial mode display?
-	jnz	outb11			; nz = yes, skip kbyte and % displays
-	cmp	flags.xflg,0		; receiving to screen?
-	jne	outb11			; ne = yes
-	call	kbpr			; display kilobytes done
-	call	perpr			; display percentage done
-outb11:	mov	dbufpnt,offset decbuf	; address for beginning
+	mov	dbufpnt,offset decbuf	; address for beginning
 	mov	dchrcnt,decbuflen	; size of empty buffer
 	clc				; return success
 	ret
@@ -1429,18 +1447,38 @@ jpnxtof	endp
 
 ; Get chars from file, encode them to pktinfo structure pointed to by si
  
-gtchr:	mov	[si].datlen,0		; say no output data yet
+gtchr	proc	near
+	mov	[si].datlen,0		; say no output data yet
 	cmp	filflg,0		; is there anything in the buffer?
 	jne	gtchr0			; ne = yes, use that material first
 	call	inbuf			; do initial read from source
 	jc	gtchr1			; c = no more chars, go return EOF
 gtchr0:	mov	encinp,offset inbuf	; buffer refiller routine
-	jmp	short encode
+	call	encode
+	test	flags.remflg,dserial+dquiet ; serial/quiet display mode?
+	jnz	gtchr2			; nz = yes, skip kbyte and % display
+	push	si
+	push 	ax
+	call	kbpr			; show kilobytes sent
+	call	perpr			; show percent sent
+	pop	ax
+	pop	si
+	clc
+gtchr2:	ret
 
 gtchr1:	mov	[si].datlen,0		; report EOF
 	mov	flags.eoflag,1		; say eof
-	stc				; return failure
+	test	flags.remflg,dserial+dquiet ; serial/quiet display mode?
+	jnz	gtchr3			; nz = yes, skip kbyte and % display
+	push	si			; do here so 100% sent shows
+	push 	ax
+	call	kbpr			; show kilobytes sent
+	call	perpr			; show percent sent
+	pop	ax
+	pop	si
+gtchr3:stc				; return failure
 	ret
+gtchr	endp
 
 ; Kermit encoding rules:
 ; Prefix codes per se are sent as <control prefix, #><data byte>
@@ -1811,6 +1849,10 @@ encod60:cmp	rptct,1			; doing repeats?
 encod60b:and	al,7fh			; turn off 8th bit in character
 	cmp	al,' '			; compare to a space
 	jae	encod61			; ae = not a control code
+	cmp	al,trans.ssoh		; always prefix this item
+	je	encod64
+	cmp	al,trans.seol		; always prefix this item
+	je	encod64
 	push	bx			; check for unprefixed selections
 	mov	bl,al			; as 1=7-bit, 80h=8-bit, 81h=both
 	xor	bh,bh
@@ -1825,8 +1867,7 @@ encod60b:and	al,7fh			; turn off 8th bit in character
 encod60a:pop	bx
 	jz	encod64			; z = char needs quoting
 	jmp	short encod67		; store char as-is
-encod61:
-	cmp	al,del			; delete?
+encod61:cmp	al,DEL			; delete?
 	je	encod64			; e = yes, go quote it
 	cmp	al,dl			; quote char?
 	je	encod65			; e = yes, go add it
@@ -1875,11 +1916,16 @@ inbuf0:	push	dx
 	shr	cx,1			; allow for double char encoding
 	mov	dx,offset rdbuf		; use this as source buffer
 inbuf0a:mov	ah,readf2		; read a record
-	int	dos
+	call	readcache		; use internal cache
+;;;	int	dos			;  if not using internal cache
 	jnc	inbuf7			; nc = no error
 	mov	flags.cxzflg,'X'	; error, set ^X flag
  	jmp	short inbuf1		; and truncate the file here
-inbuf7:	or	ax,ax			; any bytes read?
+inbuf7:	push	cx
+	mov	cx,ax			; count for crc
+	call	crc			; compute CRC-16
+	pop	cx
+	or	ax,ax			; any bytes read?
 	jnz	inbuf2			; nz = yes (the number read)
 inbuf1:	mov	flags.eoflag,1		; set End-of-File
 	mov	filflg,0		; buffer empty
@@ -1891,28 +1937,20 @@ inbuf1:	mov	flags.eoflag,1		; set End-of-File
 	ret
 
 inbuf2:	cmp	trans.xtype,1		;[HF]941012 type binary ?
-	je	inbuf2a			;[HF]941012 e = yes
+	je	inbuf3			;[HF]941012 e = yes
 	cmp	trans.xchset,xfr_japanese ; Japanese-EUC?
-	jne	inbuf2a			; ne = no
-	call	jpnread			; revise buffer for Japanese
-inbuf2a:add	tfilsz,ax		; total the # bytes transferred so far
+	jne	inbuf3			; ne = no
+	call	jpnread			; revise buffer for Japanese chars
+inbuf3:	add	tfilsz,ax		; total the # bytes transferred so far
 	adc	tfilsz+2,0		; it's a double word
 	mov	echrcnt,ax		; number of chars read from file
 	add	fsta.fsbyte,ax
 	adc	fsta.fsbyte+2,0
 	mov	filflg,1		; buffer not empty
-	test	flags.remflg,dserial	; serial display mode?
-	jnz	inbuf3			; nz = yes, skip kbyte and % display
-	push	si
-	push 	ax
-	call	kbpr			; show kilobytes sent
-	call	perpr			; show percent sent
-	pop	ax
-	pop	si
 					; Character set translation section
-inbuf3:	cmp	trans.xchset,xfr_xparent ; Transparent transfer char set?
-	je	inbuf6			; e = yes, no translation
 	cmp	trans.xtype,1		; File Type Binary?
+	je	inbuf6			; e = yes, no translation
+	cmp	trans.xchset,xfr_xparent ; Transparent transfer char set?
 	je	inbuf6			; e = yes, no translation
 	cmp	trans.xchset,xfr_japanese ; Japanese-EUC?
 	je	inbuf6			; e = yes, processed already
@@ -1968,6 +2006,101 @@ inbuf6:	pop	cx
 	clc				; success
 	ret
 inbuf	endp
+code	ends
+
+code1	segment
+	assume cs:code1
+
+; An automatic disk read cache
+cachesize equ 8192
+readcache	proc	far
+	cmp	cacheseg,0		; have cache buffer?
+	jne	readc1			; ne = yes
+	mov	cacheptr,0		; offset of zero in cache
+	mov	cachelen,0		; bytes of data in cache
+	mov	ax,cachesize		; cache size, bytes
+	call	malloc
+	mov	cacheseg,ax		; seg of cache
+	jnc	readc1			; nc = success
+	mov	cacheseg,0		; failed
+	stc
+	ret
+
+readc1:	cmp	filflg,0		; should cache be empty?
+	je	readc2			; e = yes, read from disk
+	cmp	cachelen,0		; bytes in cache
+	jne	readc4			; ne = have some cached bytes
+readc2:	mov	bx,diskio.handle	; get file handle
+	mov	cx,cachesize		; number of bytes wanted
+	push	ds
+	mov	ax,cacheseg
+	mov	ds,ax			; destination is ds:dx
+	xor	dx,dx			; offset zero
+	mov	ah,readf2		; read a record
+	int	dos
+	pop	ds
+	jnc	readc3			; nc = success, ax has byte count
+	push	es			; read failure
+	mov	ax,cacheseg
+	mov	es,ax			; seg of separately malloc'd buffer
+	mov	ah,freemem		; free it
+	int	dos
+	pop	es
+	xor	ax,ax
+	mov	cacheseg,ax
+	stc
+	ret				; return error
+
+readc3:	mov	cacheptr,0		; read from start
+	mov	cachelen,ax		; bytes now in cache
+	or	ax,ax			; end of file (ax = 0)?
+	jnz	readc4			; nz = no
+	push	es
+	mov	ax,cacheseg
+	mov	es,ax			; seg of separately malloc'd buffer
+	mov	ah,freemem		; free it
+	int	dos
+	pop	es
+	mov	cacheseg,0
+	xor	ax,ax			; report ax 0 and carry clear for EOF
+	clc
+	ret				; return empty
+
+readc4:	mov	cx,cachelen		; bytes in cache
+	cmp	cx,buffsz		; larger than buff?
+	jbe	readc5			; be = no
+	mov	cx,buffsz		; use smaller size
+readc5:	push	cx
+	push	si
+	push	di
+	push	es
+	push	ds
+	mov	si,ds
+	mov	es,si
+	mov	di,offset buff		; es:di is destination es:buff
+	mov	si,cacheptr		; ds:si is source cacheseg:cacheptr
+	mov	ax,cacheseg
+	mov	ds,ax
+	cld
+	shr	cx,1
+	rep	movsw			; do words
+	jnc	readc6			; nc = even byte count
+	movsb				; do odd byte
+readc6:	pop	ds
+	pop	es
+	pop	di
+	pop	si
+	pop	cx
+	add	cacheptr,cx		; where to read next
+	sub	cachelen,cx		; bytes remaining
+	mov	ax,cx			; return ax to caller
+	clc
+	ret
+readcache endp
+code1	ends
+
+code	segment
+	assume cs:code
 
 ; Japanese file transfer section (Hirofumi Fujii, keibun@kek.ac.jp)
 ; Read buffer rdbuf to convert from file character set Shift-JIS (Code Page 
@@ -2072,10 +2205,49 @@ jpnftox5:or	ax,8080h
 	ret
 jpnftox	endp
 
+; Calculate the CRC of the string whose address is in DS:DX, length CX bytes.
+; Returns the CRC in crcword.  Destroys CX.
+; The CRC is based on the SDLC polynomial: x**16 + x**12 + x**5 + 1.
+; Original by Edgar Butt  28 Oct 1987 [ebb].
+crc	proc	near
+	push	ax
+	push	bx
+	push	dx
+	mov	bx,dx			; point to buffer in ds:dx
+	mov	dx,crcword		; accumulated CRC-16
+	jcxz	crc1
+crc0:	push	cx
+	mov	ah,[bx]			; get the next char of the string
+        inc	bx
+        xor	dl,ah			; XOR input with lo order byte of CRC
+        mov	ah,dl			; copy it
+	mov	cl,4			; load shift count
+        shl	ah,cl			; shift copy
+        xor	ah,dl			; XOR to get quotient byte in ah
+        mov	dl,dh			; high byte of CRC becomes low byte
+        mov	dh,ah			; initialize high byte with quotient
+        xor	al,al
+        shr	ax,cl			; shift quotient byte
+        xor	dl,ah			; XOR (part of) it with CRC
+        shr	ax,1			; shift it again
+        xor	dx,ax			; XOR it again to finish up
+	pop	cx
+	loop	crc0
+crc1:   mov	crcword,dx		; accumulated CRC
+	pop	dx
+	pop	bx
+	pop	ax
+	ret
+crc	endp
+code	ends
+
+code1	segment
+	assume cs:code1
+
 ; GETFIL, called only by send code
 ; Enter with raw filename pattern in diskio.string
 ; Returns carry clear if success, else carry set
-getfil	proc	near
+getfil	proc	far
 	mov	dblbyteflg,0		; clear encoder state variable
 	mov	shiftstate,0		; locking shift state
 	mov	DLEseen,0		; escape state
@@ -2087,13 +2259,51 @@ getfil	proc	near
 	call	readatfile
 	jnc	getfil2			; nc = success
 	ret				; else return carry set for failure
-getfil2:mov	dx,offset diskio.dta	; data transfer address
-	mov	ah,setdma		; set disk transfer address
+getfil2:mov	al,1			; 1 = get files by rgetfile
+	or	al,sendkind		; recursive bit (4) from send routine
+	mov	findkind,al		; kind of operation to do
+	mov	dx,offset diskio.string ; filename string (may be wild)
+	cmp	sndpathflg,2		; use absolute path?
+	jne	getfil2c		; ne = no
+	mov	decbuf,0		; build buffer, clear it
+	xor	al,al			; mapped drive letter (0 = current)
+	mov	ah,gcurdsk		; get current disk
 	int	dos
-	xor	cx,cx			; attributes: find only normal files
+	inc	al			; make 1 == drive A (not zero)
+	mov	si,dx			; supplied text string
+	cmp	byte ptr [si+1],':'	; drive letter?
+	jne	getfil2a		; ne = no
+	mov	ax,[si]			; get drive letter:
+	mov	word ptr decbuf,ax	; start build buffer
+	and	al,not 20h		; to upper case
+	sub	al,'A'-1		; map A = 1 etc
+	add	si,2			; skip letter:
+getfil2a:cmp	byte ptr [si],'\'	; root indicator present?
+	je	getfil2b		; e = yes, done with prefix
+	push	si
+	mov	si,offset decbuf	; build buffer
+	mov	ah,al			; drive index (A = 1)
+	add	ah,'A'-1		; to ASCII
+	mov	[si],ah			; store letter
+	mov	word ptr [si+1],'\:'	; append :\ for rooting
+	add	si,3			; skip over drive:\
+	mov	ah,gcd			; get current directory
+	mov	dl,al			; get drive letter indicator
+	int	dos			; get ds:si = asciiz path (no drive)
+	mov	di,offset decbuf
+	mov	word ptr temp,0+'\'	; \ termination
+	mov	si,offset temp
+	call	strcat			; append termination, ASCIIZ
+	pop	si
+getfil2b:mov	di,offset decbuf	; build buffer
+	call	strcat			; append current path components
 	mov	dx,offset diskio.string ; filename string (may have wild cards)
-	mov	ah,first2		; DOS 2.0 search for first
-	int	dos			; get file's characteristics
+	mov	si,offset decbuf	; move from decbuf to diskio.string
+	mov	di,dx
+	call	strcpy			; move all to diskio.string in ds:dx
+getfil2c:call	strlen			; length of path\filename to CX
+	call	rfprep			; setup to search for items, ds:dx
+	call	rgetfile		; get filename from disk
 	pushf				; save c flag
 	mov	ah,setdma		; reset dta address
 	mov	dx,offset buff		; restore dta
@@ -2107,7 +2317,7 @@ getfil	endp
 
 ; GTNFIL called by send code to get next file.
 ; Returns carry clear for success, carry set for failure.
-gtnfil	proc	near
+gtnfil	proc	far
 	xor	al,al
 	mov	dblbyteflg,al		; clear encoder state variable
 	mov	shiftstate,al		; locking shift state
@@ -2120,11 +2330,7 @@ gtnfil	proc	near
 
 gtnfi1:	mov	filflg,al		; nothing in the DMA
 	mov	flags.eoflag,al		; not the end of file
-	mov	dx,offset diskio.dta	; point at dta
-	mov	ah,setdma		; set the dta address
-	int	dos
-	mov	ah,next2		; DOS 2.0 search for next
-	int	dos
+	call	rgetfile		; get next file
 	pushf				; save carry flag
 	mov	ah,setdma		; restore dta
 	mov	dx,offset buff
@@ -2137,42 +2343,56 @@ gtnfi1:	mov	filflg,al		; nothing in the DMA
 	ret				; carry	set means no more files found
 gtnfil	endp
 					; worker for getfil, gtnfil
-getfcom	proc	near
+getfcom	proc	far
 	push	si
 	push	di
-	mov	dx,offset diskio.string	; original file spec (may be wild)
-	mov	di,offset templp	; place for path part
-	mov	si,offset templf	; place for filename part
-	call	fparse			; split them
-	mov	si,offset diskio.fname	; current filename from DOS
-	call	strcat			; (di)= local path + diskio.fname
+	mov	si,rfileptr		; pointer to search dta
+	mov	di,offset diskio.dta	; global dta for this code
+	mov	cx,43			; bytes in a dta
+	push	es
+	cld
+	mov	ax,ds
+	mov	es,ax
+	rep	movsb			; copy work dta to diskio
+	pop	es
+	mov	di,offset encbuf	; name to send to host (no path)
+	mov	byte ptr [di],0
 	cmp	sndpathflg,0		; include SEND PATH?
 	je	getfco4			; e = no
 	cmp	auxfile,0		; already have an override name?
 	jne	getfco4			; ne = yes
-	mov	si,di			; source is local path +diskio.fname
-	cmp	byte ptr [si+1],':'	; disk drive included?
-	jne	getfco4			; ne = no
-	add	si,2			; yes, skip drive: part
-getfco4:mov	di,offset encbuf	; name to send to host (no path)
-	call	strcpy		      ; new string = old path + DOS's filename
-	push	bx
-	push	cx
+	mov	si,offset rpathname	; path
+	cmp	byte ptr [si+1],':'	; drive present?
+	jne	getfco5			; ne = no
+	add	si,2			; skip drive letter
+getfco5:cmp	sndpathflg,2		; use absolute path?
+	je	getfco6			; e = yes
+	cmp	byte ptr [si],'\'	; has leading \?
+	jne	getfco6			; ne = no
+	inc	si			; skip leading \
+getfco6:call	strcpy
+getfco4:mov	si,offset diskio.fname	; where workers see filename
+	call	strcat			; append found filename
+	mov	si,offset encbuf	; fwdslash uses si
+	call	fwdslash		; convert slashes to forward kind
 	test	flags.remflg,dquiet	; quiet display?
 	jnz	getfco1			; e = yes, do not display filename
 	call	clrfln			; position cursor & blank out the line
 	mov	dx,offset encbuf	; name host sees
 	call	prtasz
 getfco1:call	newfn			; update encbuf with "send as" name
-	pop	cx
-	pop	bx
+	mov	si,offset rpathname	; actual path
+	mov	di,offset diskio.string	; work buffer
+	call	strcpy
+	mov	si,offset diskio.fname	; plus found filename
+	call	strcat
+	mov	dx,di			; ds:dx is filename to open
 	mov	ah,open2		; file open
 	xor	al,al			; 0 = open readonly
 	cmp	dosnum,300h		; at or above DOS 3?
 	jb	getfco2			; b = no, so no shared access
 	or	al,40h			; open readonly, deny none
-getfco2:mov	dx,offset templp	; filename string with path
-	int	dos
+getfco2:int	dos
 	jc	getfco3			; c = failed to open the file
 	mov	diskio.handle,ax	; save file handle
 	xor	ax,ax
@@ -2279,6 +2499,10 @@ reada6:	cmp	diskio.string,0		; anything present?
 reada7:	clc				; say success
 	ret
 readatfile endp
+code1	ends
+
+code	segment
+	assume cs:code
 
 ; Get the file name from the data portion of the F packet or from locally
 ; specified override filename (in auxfile), displays the filename, does any
@@ -2289,12 +2513,13 @@ readatfile endp
  
 gofil	proc	near
 	mov	si,offset decbuf	; filename in packet
-	mov	di,offset diskio.string	; place where prtfn finds name
+	call	bakslash		; convert / to \
+	mov	di,offset diskio.string
 	call	strcpy			; copy pkt filename to diskio.string
 	mov	di,offset fsta.xname	; statistics external filespec area
 	call	strcpy			; record external name
 	cmp	rcvpathflg,0		; RECEIVE PATHNAMES enabled?
-	jne	gofil0c			; ne = ues
+	jne	gofil0c			; ne = yes
 	cmp	auxfile,0		; in use already?
 	jne	gofil0c			; ne = yes
 	mov	auxfile,'.'		; dot+nul forces use of current dir
@@ -2394,12 +2619,23 @@ gofil4:	mov	decbuf+64,0		; guard against long filenames
 	call	strlen			; get original size
 	push	cx			; remember it
 	call	fparse			; further massage filename
-	push	si			; put pieces back together
+
+	cmp	rcvpathflg,1		; receive relative etc pathnames?
+	je	gofil21			; e = relative
+	ja	gofil22			; a = absolute
+	mov	byte ptr [di],0		; remove remote path for no path
+	jmp	short gofil23
+gofil21:cmp	byte ptr [di],'\'	; rooted path when relative wanted?
+	jne	gofil22			; ne = no
+	inc	di			; skip leading '\'
+gofil22:call	mkpath			; make path from ds:di path string
+gofil23:push	si			; put pieces back together
 	call	verfil			; verify each char in temprf string
 	mov	si,di			; get path part first
-	mov	di,dx			; set destination
+	mov	di,dx			; set destination to decbuf
 	call	strcpy			; copy in path part
 	pop	si			; recover (new) filename
+
 	cmp	byte ptr [si],'.'	; does filename part start with a dot?
 	jne	gofil5			; ne = no
 	push	di			; save regs
@@ -2445,7 +2681,6 @@ gofil9b:mov	ah,flags.remflg		; display a following cr/lf?
 	mov	dx,offset crlf
 	int	dos
 gofi10:	mov	filtst.fstat2,0		; 0 = assume is a disk file
-	mov	dx,offset decbuf	; point to name
 	mov	ah,open2
 	xor	al,al			; open readonly
 	cmp	dosnum,300h		; above DOS 2?
@@ -2621,24 +2856,30 @@ goopen	endp
 ; (if not change it to an "X"), force max of three chars after a period (dot)
 ; Source is at ds:si (si is changed here).
 
-VERFIL	PROC	NEAR
+VERFIL	PROC	FAR
 	push	es			; verify each char in 'data'
 	push	cx
 	push	ds
 	pop	es
-	mov	havdot,0		; say no dot found in name yet
+	push	bx
+	xor	bx,bx			; bl = have dot, bh = 8 char count
 	cld
 verfi1:	lodsb				; get a byte of name from si
 	and	al,7fH			; strip any eighth bit
 	jz	verfi5			; z = end of name
 	cmp	al,'.'			; a dot?
 	jne	verfi2			; ne = no
-	cmp	havdot,0		; have one dot already?
+	cmp	bl,0			; have one dot already?
 	jne	verfi3			; ne = yes, change to X
 	mov	byte ptr [si+3],0    ; forceably end filename after 3 char ext
-	mov	havdot,1		; say have a dot now
+	mov	bl,1			; say have a dot now
 	jmp	short verfi4		; continue
-verfi2:	cmp	al,3ah			; colon?
+verfi2:	or	bl,bl			; have read a dot?
+	jnz	verfi2a			; nz = yes
+	inc	bh			; count base
+	cmp	bh,8			; done all base bytes?
+	ja	verfi1			; a = yes, discard excess
+verfi2a:cmp	al,3ah			; colon?
 	je	verfi4
 	cmp	al,5ch			; backslash path separator?
 	je	verfi4
@@ -2671,6 +2912,7 @@ verfi3:	push	di			; special char. Is it on the list?
 verfi4:	mov	[si-1],al		; update name
 	jmp	short verfi1		; loop thru rest of name
 verfi5:	mov	byte ptr[si-1],0	; make sure it's null terminated
+	pop	bx
 	pop	cx
 	pop	es
 	ret
@@ -2993,5 +3235,99 @@ PRTASZ	PROC	FAR
 	ret
 PRTASZ	ENDP
 
+; Convert \ in string at ds:si to forward slash. Preserve all but AX.
+fwdslash proc	far
+	push	si
+	push	di
+	push	es
+	cld
+	mov	ax,ds
+	mov	es,ax
+	mov	di,si
+fwds1:	lodsb
+	cmp	al,'\'			; backslash?
+	jne	fwds2			; ne = no
+	mov	al,'/'			; forward slash
+fwds2:	stosb
+	or	al,al			; end of string?
+	loopnz	fwds1			; loop while string
+	pop	es
+	pop	di
+	pop	si
+	ret
+fwdslash endp
+
+; Convert / in string at ds:si to back slash. Preserve all but AX.
+bakslash proc	far
+	push	si
+	push	di
+	push	es
+	cld
+	mov	ax,ds
+	mov	es,ax
+	mov	di,si
+baks1:	lodsb
+	cmp	al,'/'			; forward slash?
+	jne	baks2			; ne = no
+	mov	al,'\'			; back slash
+baks2:	stosb
+	or	al,al			; end of string?
+	loopnz	baks1			; loop while string
+	pop	es
+	pop	di
+	pop	si
+	ret
+bakslash endp
+
+; Create directories for path string in ds:di
+; Omit elements starting with a dot
+mkpath	proc	far
+	push	bx
+	push	dx
+	push	si
+	push	di
+	push	es
+	mov	si,ds
+	mov	es,si
+	cld
+	mov	si,di
+	mov	dx,di
+	mov	bx,dx		;start of current element
+mkp1:	lodsb
+	or	al,al
+	jz	mkp4		; z = end of string
+	cmp	al,'/'		; forward slash?
+	jne	mkp1a		; ne = no
+	mov	al,'\'		; convert to backslash
+mkp1a:	cmp	al,'\'		; path separator?
+	je	mkp2		; e = yes
+	stosb
+	jmp	short mkp1
+mkp2:	mov	byte ptr [di],0 ; terminator
+	cmp	byte ptr [bx],'.' ; element starts with dot?
+	jne	mkp3		; ne = no
+	mov	di,bx		; overwrite it
+	mov	byte ptr [di],0	; nullify it
+	jmp	short mkp1	; get next path element
+
+mkp3:	push	si
+	mov	si,bx		; si to start of this element
+	call	verfil		; mung string
+	mov	di,si		; where to write next
+	pop	si
+	mov	ah,39h		; mkdir from ds:dx
+	int	dos
+	dec	di
+	mov	al,'\'		; put back separator
+	stosb
+	mov	bx,di		; where next element starts
+	jmp	short mkp1
+mkp4:	pop	es
+	pop	di
+	pop	si
+	pop	dx
+	pop	bx
+	ret
+mkpath	endp
 code1	ends 
 	end

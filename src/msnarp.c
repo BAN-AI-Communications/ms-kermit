@@ -2,7 +2,7 @@
  * ARP and RARP packet processor
  *
  * Copyright (C) 1991, University of Waterloo.
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -141,7 +141,7 @@ arp_request(longword ip)
 	temp = htonl(ip);
 	bcopy(&temp, &op->sender_mac[MAC_len * 2 + PLEN], PLEN); /* host IP */
 	eth_send(sizeof(arp_header));    		/* send the packet */
-	if (kdebug)
+	if (kdebug & DEBUG_STATUS)
 		arp_display(op, my_ip_addr, ip);
 }
 
@@ -223,7 +223,7 @@ arp_handler(arp_header *in)
 	if ((in->opcode == ARP_REPLY) &&       	/* a resolution reply */
 		(arp_ptr = arp_search(his_ip, 0)) != NULL)
 		{				/* do not create entry */
-		if (kdebug) 
+		if (kdebug & DEBUG_STATUS) 
 			arp_display(in, his_ip, target_ip);
 		arp_ptr->expiry = set_timeout(MAX_ARP_ALIVE);
 		memset(arp_ptr->mac, 0, 6);	/* zero their MAC address */
@@ -244,7 +244,7 @@ arp_handler(arp_header *in)
 			/* Does someone want our hardware address? */
 	if ((in->opcode == ARP_REQUEST) && (target_ip == my_ip_addr))
 		{
-		if (kdebug)
+		if (kdebug & DEBUG_STATUS)
 			{
 			arp_display(in, his_ip, target_ip);
 			outs(" ARP Request is for our IP; replying.\r\n");
@@ -369,7 +369,7 @@ arp_resolve(longword ina, eth_address *ethap)
 			if (arp_ptr->flags == ARP_FLAG_NEED)
 				continue;
 			if (arp_ptr->flags & ARP_FLAG_IMPOSTER)
-				return (0);		/* IP imposter, fail*/
+				return (1);		/* IP imposter */
 			if (arp_ptr->flags & (ARP_FLAG_FOUND + ARP_FLAG_FIXED))
 				{
 				if (ethap != NULL)	/* get MAC address */

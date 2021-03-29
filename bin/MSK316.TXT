@@ -1,0 +1,149 @@
+	Changes to MS-DOS Kermit v3.16 beta 7 		4 May 1999
+1. When using DHCP the server's IP address was byte swapped on the
+   SHOW COMMUNICATIONS display.
+
+	Changes to MS-DOS Kermit v3.16 beta 6 		24 April 1999
+1. Correct an error where for resending a file to an MSK server the
+   size of the existing file fragment is not included in the disk space
+   available.
+
+	Changes to MS-DOS Kermit v3.16 beta 5 		18 April 1999
+
+1. Modify Enable/Disable list for server operations. Change item BYE 
+   which includes LOGOUT to be separate from FIN. Remove REMOTE SPACE
+   from the list, but leave the command present as a no-operation so
+   that older scripts will not fail.
+
+	Changes to MS-DOS Kermit v3.16 beta 3 		1 March 1999
+
+1. Add new variables \v(day) and \v(nday), in accordance with C Kermit.
+   These return day of the week as a three character string and the day
+   number of the week (0 is Sunday), respectively. Y2K compliant.
+
+	Changes to MS-DOS Kermit v3.16 beta 2 		18 Feb 1999
+
+1. Correct a bug in \fdate() and \fsize() when used with explicit filenames.
+
+	Changes between the MS-DOS Kermit v3.16 alpha 5 and alpha 4.
+								20 Mar 1998
+
+1. Accept TCP RST (reset) segment if ACK field is invalid.
+
+2. Don't count the trailing Carriage Return on commands sent to command.com.
+   Helps the current version of 4DOS.
+
+3. Remove a redundant conversion of \digits within lines passed to a WRITE
+   command.
+
+4. Add new command WRITELN which works the same as WRITE except it adds
+   CR and LF to the end of the text.
+
+	Changes between the MS-DOS Kermit v3.16 alpha 4 and alpha 3.
+								22 Feb 1998
+
+1. Correct bug where an IF statement's command ending in a substitution
+   variable causes the end of command to be missed and thus the text of
+   the following command is joined to this command. For example,
+   	..., if def \%3 set term type \%3, if success connect
+
+2. Modify the GET command to accept remote and local filenames on the
+   GET command line, to be in alignment with C Kermit. In this case a 
+   remote filename containing spaces must be placed within curly braces.
+   For example,  GET {remote filename with spaces} dosfile.txt.
+
+
+	Changes between the MS-DOS Kermit v3.16 alpha 3 and alpha 2.
+								15 Feb 1998
+
+1. Write the extra Line Feed to the session log when SET TERMINAL
+   CR-DISPLAY is CR/LF (CR arrives, act as if CR/LF had arrived).
+
+2. Correct bug in IF statments within SWITCH statments that read too
+   many bytes for the IF statment command and hence confused SWITCH too.
+
+
+	Changes between the MS-DOS Kermit v3.16 alpha 2 and alpha 1.
+								24 Jan 1998
+
+1. Correct bug in command SWITCH which resulted in loss of \%1..\%9.
+
+2. Stop a memory leak with keyboard macros.
+
+3. Correct bug whereby command REMOTE QUERY KERMIT would not permit \%char
+   variables to be replaced with their definition in the command argument.
+
+4. Add command REMOTE SET TRANSFER MODE {AUTOMATIC, MANUAL}.
+
+5. Correct a serious problem of sending incomplete Kermit packets over a
+   serial port connection. 
+
+6. Add display of optional message on the QUIT and EXIT commands.
+
+
+	Changes between the MS-DOS Kermit v3.15 and v3.16 alpha 1.
+								8 Dec 1997
+
+1.  Correct bug in IP intruder detection (conflicting IP addresses).
+
+2.  Correct bug which times out active TCP/IP Listen connections.
+
+3.  Correct bug which disabled use of macro on_exit.
+
+4.  Add TCP delayed ACKs to reduce network traffic on busy links. The
+    delay is nominally 50ms. This heuristic may be removed later.
+
+5.  Extend TCP reply timeout to several minutes, for especially slow links.
+
+6.  Turn off Kermit packet level timing during file transfers over internal
+    TCP/IP. This heuristic is subject to modification later.
+
+7.  Add granularity to command SET TCP DEBUG {OFF, STATUS, TIMING, ON}. 
+    ARP packets and round trip timing appears only with TIMING and ON.
+    TCP states and normal operating messages appear with STATUS and ON.
+    ON means both STATUS and TIMING.
+
+8.  Add an 8KB autocache for reading disk files during file transfers.
+
+9.  Add fast block-mode byte transfers while reading Kermit packet data
+    field bytes, as a speed improvment on fast comms links.
+
+10. Allow binary 0 to appear as an unprefixed code in Kermit packets.
+
+11. Enforce prefixing of codes 127, 255, packet start of header (normally
+    1, Control-A), packet end of line (normally 13, Carriage Return),
+    and 3 (Control-C).
+
+12. Revise SHOW CONTROL-PREFIXING to display both prefixed and unprefixed 
+    control codes.
+
+13. Add Kermit protocol streaming mode. SET STREAMING {ON, OFF}, default 
+    is off. Heuristics are still being adjusted. STATISTICS command has a 
+    new field saying streaming was used on last file transfer. Formatted 
+    file transfer screens show streaming rather than windowing information.
+    Fastest transfers use SET DISPLAY QUIET (reduces per-packet overhead)
+    and the file sender uses SET CONTROL UNPREFIX on as many codes as the
+    comms channel will support (but always prefix Control-C (3) and packet
+    start (1) and end (13) codes and their high-bit-set counterparts, plus
+    Telnet 127 and 255. In short form: set control unprefix all, set control
+    prefix 1, 3, 13, 127, 129, 131, 141, 255).
+
+14. Remove command SET RECEIVED IGNORE-CHAR for being obsolete and awkward.
+
+15. Add command SET TRANSFER CRC {ON, OFF}, default is off, and variable
+    \v(crc). This calculates the CCITT-16-CRC checksum across all files 
+    sent or received in a group.
+
+16. Add new options /RECURSIVE and /NONRECURSIVE to the SEND and GET commands
+    to send or request files from directory trees. Default is /nonrecursive.
+    MS-DOS Kermit Server mode also supports recursive requests. Directories
+    are created as needed. Recursive requests can be rooted or relative to 
+    the current location depending on the filename pattern given. The syntax
+    is SEND /RECURSIVE filespec and so on; a /switch is optional.
+
+17. Add functions \frdirectories() and \frfiles() to support recursive tree
+    walking. \frdirectories(pattern) yields the number of directory names
+    in the tree fitting the pattern, and \frfiles(pattern) does the same for
+    filenames. Function \fnextfile() remembers whether the recursive or plain
+    file counting functions, \frfiles() or \ffiles(), were invoked and it 
+    produces a new filename accordingly on each call.
+

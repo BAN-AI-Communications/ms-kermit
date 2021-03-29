@@ -1,7 +1,7 @@
 	NAME	mssset
 ; File MSSSET.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -56,6 +56,7 @@ data 	segment
 	extrn	protlist:byte, rcvpathflg:byte, sndpathflg:byte
 	extrn	fossilflag:byte, ifelse:byte, oldifelse:byte
 	extrn	domath_ptr:word, domath_cnt:word, domath_msg:word
+	extrn	streaming:byte
 
 rxtable	equ THIS BYTE		; build 256 byte Translation Input table
 	maketab			; table rxtable is used by Connect mode
@@ -99,9 +100,9 @@ srvtab	db	2			; SET SERVER table
 	mkeyw	'Timeout',2
 
 ifndef	no_network
-settab	 db	63					; Set table
+settab	 db	64					; Set table
 else
-settab	 db	63 - 3					; Set table
+settab	 db	64 - 3					; Set table
 endif	; no_network
 	mkeyw	'Alarm',setalrm
 	mkeyw	'Attributes',setatt
@@ -156,6 +157,7 @@ endif	; no_network
 	mkeyw	'Server',setsrv
 	mkeyw	'Speed',baudst
 	mkeyw	'Stop-bits',stopbit
+	mkeyw	'Streaming',strmmode
 	mkeyw	'Take',takset
 ifndef	no_tcp
 	mkeyw	'TCP/IP',tcpipset
@@ -183,8 +185,9 @@ setrep	db	2			; SET REPEAT
 	mkeyw	'Counts',0
 	mkeyw	'Prefix',1
 
-xfertab	db	4			; SET TRANSFER table
+xfertab	db	5			; SET TRANSFER table
 	mkeyw	'Character-set',0
+	mkeyw	'CRC',4
 	mkeyw	'Locking-shift',1
 	mkeyw	'Mode',3
 	mkeyw	'Translation',2
@@ -245,7 +248,7 @@ cntltab	db	2			; SET CONTROL table
 	mkeyw	'Prefixed',0		; 0 = send with prefix
 	mkeyw	'Unprefixed',1		; 1 = send as-is
 
-stsrtb	db	11			; Number of options
+stsrtb	db	10			; Number of options
 	mkeyw	'Packet-length',srpack
 	mkeyw	'Padchar',srpad
 	mkeyw	'Padding',srnpd
@@ -255,7 +258,6 @@ stsrtb	db	11			; Number of options
 	mkeyw	'End-of-packet',sreol
 	mkeyw	'Timeout',srtim
 	mkeyw	'Double-char',srdbl
-	mkeyw	'Ignore-char',srign
 	mkeyw	'Pathnames',srpath
 
 ontab	db	2
@@ -345,7 +347,13 @@ macrotab db	1			; SET MACRO table
 ;;	mkeyw	'Echo',0
 	mkeyw	'Error',1
 
-taketab	db	2			; SET TAKE table
+pathtab	db	3			; SET SEND/RECEIVE PATHNAMES
+	mkeyw	'off',0
+	mkeyw	'relative',1
+	mkeyw	'absolute',2
+
+taketab	db	3			; SET TAKE table
+	mkeyw	'Debug',2
 	mkeyw	'Echo',0
 	mkeyw	'Error',1
 
@@ -366,8 +374,9 @@ logtab	db	3			; LOG command
 	mkeyw	'Session',logses
 	mkeyw	'Transactions',logtrn
 
-srvdetab db	17			; Server Enable/Disable list
-	mkeyw	'All',0fffh
+srvdetab db	18			; Enable/Disable list for server
+	mkeyw	'All',0ffffh
+	mkeyw	'BYE',byeflg
 	mkeyw	'CD',cwdflg
 	mkeyw	'CWD',cwdflg
 	mkeyw	'Define',defflg
@@ -382,7 +391,7 @@ srvdetab db	17			; Server Enable/Disable list
 	mkeyw	'Retrieve',retflg
 	mkeyw	'Query',qryflg
 	mkeyw	'Send',sndflg
-	mkeyw	'Space',spcflg
+	mkeyw	'Space',0;;;spcflg	; obsolete, non-functional
 	mkeyw	'Type',typflg
 
 trnstab	db	2			; Set Translation table
@@ -409,6 +418,12 @@ tcptable db	14			; Telnet or TCP/IP command
 tcpmodetab db	2			; TCP/IP Mode
 	mkeyw	'NVT-ASCII',0
 	mkeyw	'Binary',1
+
+tcpdbtab db	4			; TCP Debug modes
+	mkeyw	'off',0
+	mkeyw	'status',1
+	mkeyw	'timing',2
+	mkeyw	'on' 3
 
 newlinetab db	3			; TCP/IP Newline mode
 	mkeyw	'off',0
@@ -475,6 +490,7 @@ takeerror db	0			; Take Error (0 = off)
 macroerror db	0			; Macro Error (0 = off)
 marray	dw	27 dup (0)		; pointers to macro array mem areas
 arraybad db	cr,lf,'? Array size is too large, 32000 max$'
+hidetmp	db	0			; 0..9 binary for hide prefix
 
 forstr1	db	'_forinc ',0 		; append 'variable step'
 forstr2 db	' if not > ',0		; append 'variable end'
@@ -505,8 +521,9 @@ prmmsg	db	cr,lf
 	db    ' Enter new prompt string or press Enter to regain default prompt.'
 	db	cr,lf,' Use \fchar(123) notation for special chars;'
 	db	' Escape is \fchar(27).$'
-rspathhlp db	cr,lf,' ON retains pathnames during file transfer,'
-	db	' OFF removes them$'
+rspathhlp db	cr,lf,' OFF removes pathnames during file transfer,'
+	db	cr,lf,' RELATIVE includes path from current location'
+	db	cr,lf,' ABSOLUTE includes path from root of drive$'
 	
 srxhlp1	db	cr,lf,' Enter   code for received byte   code for'
 	db	' local byte ',cr,lf,' use ascii characters themselves or'
@@ -586,9 +603,9 @@ fossilhlp db	cr,lf,' OFF to leave Fossil active (default), ON to disable'
 	db	' when done with port$'
 sdshlp	db	cr,lf,'DISABLE or ENABLE access to selected Server commands:'
 	db	cr,lf
-	db	' CD/CWD, DEFINE, DEL, DIR, FINISH (includes BYE & LOGOUT),'
+	db	' BYE (includes LOGOUT), CD/CWD, DEFINE, DEL, DIR, FINISH,'
 	db	' GET, HOST,',cr,lf
-	db	' KERMIT, LOGIN, PRINT, QUERY, RETRIEVE, SEND, SPACE, TYPE,'
+	db	' KERMIT, LOGIN, PRINT, QUERY, RETRIEVE, SEND, TYPE,'
 	db	' and ALL.$'
 
 xfchhlp	db	cr,lf,' Which character set to put on the wire during file'
@@ -614,49 +631,49 @@ opacehlp db	'Millisec to pause between OUTPUT bytes, 0 - 65000$'
 pophlp	db	'Status value to be returned  msg, nothing if no new value$'
 sethlp	db	cr,lf
 	db	'  Alarm    sec from now or HH:MM:SS  '
-	db	'  Local-echo        on/off           '
-	db	cr,lf
-	db	'  Attributes packets on/off          '
 	db	'  Mode-line         on/off'
 	db	cr,lf
-	db	'  Bell    on/off    at end of xfers  '
+	db	'  Attributes packets on/off          '
 	db	'  NetBios-name      (our local name)'
 	db	cr,lf
-	db	'  Block-check-type  checksum/CRC     '
+	db	'  Bell    on/off    at end of xfers  '
 	db	'  Output pacing (ms between bytes)  '
 	db	cr,lf
-	db	'  Carrier  sense modem Carrier Detect'
+	db	'  Block-check-type  checksum/CRC     '
 	db	'  Parity    even/odd/mark/space/none'
 	db	cr,lf
-	db	'  COM1 - COM4 port-address irq       '
+	db	'  Carrier  sense modem Carrier Detect'
 	db	'  Port (or Line)    1/2/COM1/COM2/etc'
 	db	cr,lf
-	db	'  Control prefixed/unprefixed  code  '
+	db	'  COM1 - COM4 port-address irq       '
 	db	'  Printer filespec   for Connect mode'
 	db	cr,lf
-	db	'  Count   number    a loop counter   '
+	db	'  Control prefixed/unprefixed  code  '
 	db	'  Prompt  string   (new Kermit prompt)'
 	db	cr,lf
-	db	'  Debug   on/off    display packets  '
+	db	'  Count   number    a loop counter   '
 	db	'  Receive parameter  many things'
 	db	cr,lf
-	db	'  Default-disk                       '
+	db	'  Debug   on/off    display packets  '
 	db	'  Repeat Counts (on/off)             '
 	db	cr,lf
-	db	'  Delay   secs  before Sending file  '
+	db	'  Default-disk                       '
 	db	'  Retry limit for packet send/receive'
 	db	cr,lf
-	db	'  Destination   Disk/Screen/Printer  '
+	db	'  Delay   secs  before Sending file  '
 	db	'  Rollback, terminal screens'
 	db	cr,lf
-	db	'  Display quiet/reg/serial show cnts?'
+	db	'  Destination   Disk/Screen/Printer  '
 	db	'  Send parameter    many things'
 	db	cr,lf
-	db	'  Dump filespec     screen to disk   '
+	db	'  Display quiet/reg/serial show cnts?'
 	db	'  Server parameter'
 	db	cr,lf
-	db	'  Duplex            half or full     '
+	db	'  Dump filespec     screen to disk   '
 	db      '  Speed or Baud     many speeds'	
+	db	cr,lf
+	db	'  Duplex            half or full     '
+	db	'  Streaming         on/off'
 	db	cr,lf
 	db	'  EOF Ctrl-Z/NoCtrl-Z  ^Z ends file? '
 	db	'  Stop-bits         always 1'
@@ -665,7 +682,7 @@ sethlp	db	cr,lf
 	db	'  Take Echo or Error on/off' 
 	db	cr,lf
 	db	'  Errorlevel number   for DOS Batch  '
-	db	'  Telnet address,mask,nameserver etc'
+	db	'  TCP/IP or Telnet  parameters'
 	db	cr,lf
 	db      '  Escape-char  ^]   or whatever      '
 	db	'  Terminal type and parameters'
@@ -674,7 +691,7 @@ sethlp	db	cr,lf
 	db	'  Timer     on/off  time packet waiting'
 	db	cr,lf
 	db	'  File (Character-set, Type, Warning)'
-	db	'  Translation IN  Connect mode rcv''d char'
+	db	'  Translation in  Connect mode rcv''d char'
 	db	cr,lf
 	db	'  Flow-control  none xon/xoff rts/cts'
 	db	'  Transfer Character-set (on wire) '
@@ -690,6 +707,8 @@ sethlp	db	cr,lf
 	db	cr,lf
 	db	'  Key         key-ident   definition '
 	db	'  Windows  number of sliding window slots'
+	db	cr,lf
+	db	'  Local-echo        on/off'
 	db	'$'
 
 ifndef	no_tcp
@@ -701,7 +720,7 @@ addrhelp db	cr,lf,'Internet address, decimal ddd.ddd.ddd.ddd, of this'
 	db	' machine or'
 	db	cr,lf,' BOOTP, DHCP, RARP, or Telebit-PPP$'
 iphelp	db	cr,lf,'Internet address, decimal ddd.ddd.ddd.ddd$'
-tcppdinthlp db	cr,lf,'Interrupt on PC for Packet Driver, \x60 to \x7f'
+tcppdinthlp db	cr,lf,'Interrupt on PC for Packet Driver, \x40 to \x7f'
 	db	' or use 0 for automatic search,'
 	db	cr,lf,' or ODI to use Novell''s ODI interface$'
 tcpttyhlp db	cr,lf,' Telnet Options terminal identification override '
@@ -828,8 +847,9 @@ docom5:	pop	es
 	ret
 
 docomx:	inc	taklev			; simulate Take closing
+	mov	hidetmp,0		; unhide only \% args
 	call	unhidemac		; recover hidden variables
-	dec	taklev
+       	dec	taklev
 	stc				; say failure
 	ret
 DOCOM	ENDP
@@ -970,6 +990,7 @@ localm4:mov	ax,[bx]			; get length of name
 localm5:pop	di
 	pop	si
 	pop	cx
+	mov	hidetmp,1		; hide locals
 	call	hidewrk			; hide macro pointed to by bx
 	jmp	localmac		; get next macro name
 localmac endp
@@ -1788,18 +1809,11 @@ takopen_macro	proc	far
 	jmp	takoma2
 
 takoma1:xor	ax,ax
-	xor	cx,cx
-	cmp	taklev,0		; at top level now?
-	je	takoma3			; e = yes
-	mov	bx,takadr
-	mov	ax,[bx].takargc		; get argument count
-	mov	cx,[bx].takctr		; get COUNT
-takoma3:add	takadr,size takinfo	; pointer to new Take structure
+	add	takadr,size takinfo	; pointer to new Take structure
 	inc	taklev
 	mov	bx,takadr		; pointer to new Take structure
-	mov	[bx].takargc,ax		; copy in old argc
-	mov	[bx].takctr,cx		; copy in old count
-	xor	ax,ax
+	mov	[bx].takargc,ax		; clear
+	mov	[bx].takctr,ax		; clear
 	mov	[bx].takbuf,ax		; no segment of Take buffer
 	mov	[bx].takcnt,ax		; number of unread bytes
 	mov	[bx].takptr,2		; init pointer to definition itself
@@ -1845,7 +1859,7 @@ takclo2:mov	al,[bx].taktyp
 	mov	bx,[bx].takhnd		; get file handle
 	mov	ah,close2		; close file
 	int	dos
-	jmp	short takclo6
+
 					; macros, remove argument array
 takclo3:cmp	[bx].takargc,0		; any arguments to macro?
 	je	takclo5			; e = no
@@ -1857,7 +1871,10 @@ takclo4:mov	di,offset settemp	; buffer remtab reads
 	inc	settemp+4		; next digit
 	cmp	settemp+4,'9'		; done last?
 	jbe	takclo4			; be = no
-takclo5:call	unhidemac		; rename previous hidden macros
+takclo5:mov	hidetmp,1		; unhide local
+	call	unhidemac		; rename previous hidden macros
+	mov	hidetmp,0		; unhide \% args
+	call	unhidemac		; rename previous hidden macros
 
 takclo6:mov	bx,takadr		; all kinds of Take
 	xor	al,al			; get a null
@@ -1878,10 +1895,11 @@ POPCMD	proc	near
 	mov	oldifelse,0		; don't permit ELSE after failed IF
 	mov	ifelse,0
 	mov	ah,cmword		; get optional error value and msg
-	mov	bx,offset rdbuf
+	mov	bx,offset rdbuf+2
 	mov	dx,offset pophlp	; help on numerical argument
 	mov	comand.cmcr,1		; bare c/r's allowed
 	call	comnd
+	mov	word ptr rdbuf,ax	; save length here
 	mov	comand.cmcr,0		; restore normal state
 	jc	popcmdx			; c = failure
 	mov	ah,cmline		; get optional error value and msg
@@ -1892,7 +1910,8 @@ POPCMD	proc	near
 	call	comnd
 	mov	comand.cmcr,0		; restore normal state
 	jc	popcmdx			; c = failure
-	mov	domath_ptr,offset rdbuf
+	mov	domath_ptr,offset rdbuf+2
+	mov	ax,word ptr rdbuf	; get length of string
 	mov	domath_cnt,ax
 	call	domath			; convert to number in ax
 	jc	popcmd2			; c = not a number
@@ -1981,10 +2000,15 @@ dialx:	mov	kstatus,kstake		; Take file command failure
 	ret
 dial	endp
 
+code	ends
+
+code1	segment
+	assume	cs:code1
+
 ; Worker for DIAL command. Find macro whose name is in offset decbuf+2
 ; and whose length is in word ptr decbuf.
 ; Return carry clear and macro seg in BX if success, else carry set.
-dialcom	proc	near
+dialcom	proc	far
 	push	si
 	push	di
 	push	es
@@ -2027,9 +2051,11 @@ dialcx:	pop	es
 	pop	di
 	pop	si			; no macro
 	ret
-
 dialcom	endp
+code1	ends
 
+code	segment
+	assume	cs:code
 ; This is the SET command
 ; Called analyzers return carry clear for success, else carry set.
 SETCOM	PROC	NEAR			; Dispatch all SET commands from here
@@ -2904,7 +2930,7 @@ setcp6:	mov	ax,dx			; place for filename for isfile
 	test	byte ptr filtst.dta+21,1fh ; file attributes, ok to write?
 	jnz	setcp14			; nz = no, use error exit	
 	mov	ah,open2		; open existing file
-	mov	al,1+1			;  for writing and reading
+	mov	al,1+1+20h		;  for writing and reading, deny write
 	int	dos
 	jc	setcp14			; if carry then error
 	mov	bx,ax			; file handle for seeking
@@ -3319,7 +3345,12 @@ takset2:or	al,al			; Take Echo command?
 	mov	flags.takflg,bl
 	clc
 	ret
-takset3:mov	takeerror,bl		; Take Error command
+takset3:cmp	al,2			; Take debug command?
+	jne	takset4			; ne = no
+	mov	flags.takdeb,bl		; on/off table
+	clc
+	ret
+takset4:mov	takeerror,bl		; Take Error command
 	clc
 	ret
 TAKSET	ENDP
@@ -3400,8 +3431,9 @@ sreol	PROC	NEAR
 	call	num0			; get numerical input
 	jc	sreol3			; c = error
 	cmp	stflg,'S'		; setting SEND paramter?
-	je	sreol1
+	je	sreol1			; e = yes
 	mov	trans.reol,al
+	mov	dtrans.reol,al
 	jmp	short sreol2
 sreol1:	mov	dtrans.seol,al
 sreol2:	mov	ah,dtrans.seol
@@ -3445,23 +3477,6 @@ srdbl	PROC	NEAR
 	clc
 srdbl1:	ret
 srdbl	ENDP
-
-; SET Receive Ignore-char
-
-srign	PROC	NEAR
-	mov	min,0			; lowest acceptable value
-	mov	max,0ffh		; largest acceptable value
-	mov	numhlp,offset dblhlp	; reuse help
-	mov	numerr,0		; error message address
-	call	num0			; get numerical input
-	jc	srign1			; c = error
-	cmp	stflg,'S'		; setting SEND paramter?
-	je	srign1			; e = yes, no action
-	mov	trans.rign,al		; store character to be ignored
-	mov	dtrans.rign,al
-	clc
-srign1:	ret
-srign	ENDP
 
 ; SET SEND and	RECEIVE TIMEOUT
 
@@ -3594,9 +3609,9 @@ srpau0:	popf
 	mov	spause,ax		; store value
 srpau1:	ret
 
-; SET RECEIVE REMOTE-PATH {enable, disable}
+; SET SEND/RECEIVE PATHNAMES {off, relative, absolute}
 srpath	proc	near
-	mov	dx,offset ontab
+	mov	dx,offset pathtab
 	mov	bx,offset rspathhlp
 	call	keyend
 	jc	srpath1
@@ -3624,6 +3639,17 @@ stopbit1:mov	bx,portval
 	clc
 	ret	
 stopbit	endp
+
+; SET Streaming {on, off}
+strmmode proc	near
+	mov	dx,offset ontab
+	xor	bx,bx
+	call	keyend
+	jnc	strmmod1
+	ret
+strmmod1:mov	streaming,bl		; update streaming flag
+	ret
+strmmode endp
 
 ; SET TCP/IP address nnn.nnn.nnn.nnn
 ; SET TCP/IP subnetmask nnn.nnn.nnn.nnn
@@ -3770,7 +3796,7 @@ tcpse13:cmp	bx,11			; newline mode?
 	ret
 tcpse14:cmp	bx,12			; debug mode?
 	jne	tcpse15			; ne = no
-	mov	dx,offset ontab		; on/off table
+	mov	dx,offset tcpdbtab
 	xor	bx,bx			; help
 	call	keyend
 	jc	tcpse20			; fail
@@ -3873,13 +3899,28 @@ sxfer3:	cmp	bx,2			; Translation table?
 	mov	trans.xchri,bl
 	clc
 	ret
-sxfer4:	mov	dx,offset xfertab3	; MODE table
+sxfer4:	cmp	bx,3			; MODE?
+	jne	sxfer5			; ne = no
+	mov	dx,offset xfertab3	; MODE table
 	mov	bx,offset xferhlp3	; help text
 	call	keyend
 	jc	sxfer1			; c = error
 	mov	dtrans.xmode,bl		; store file transfer mode sensing
 	mov	trans.xmode,bl
 	clc
+	ret
+
+sxfer5:	cmp	bl,4			; CRC?
+	jne	sxfer6			; ne = no
+	mov	dx,offset ontab		; on/off table
+	xor	bx,bx
+	call	keyend
+	jc	sxfer6			; c = error
+	mov	dtrans.xcrc,bl		; store crc usage
+	mov	trans.xcrc,bl
+	clc
+	ret
+sxfer6:	stc				; fail
 	ret
 sxfer	endp
 
@@ -4291,6 +4332,7 @@ hidemac proc	far
 	push	bx
 	push	cx
 	push	temp
+	mov	hidetmp,0		; use binary 0 prefix
 	mov	byte ptr temp,'0'	; start with this \%0 name
 hidema1:mov	bx,offset mcctab+1	; table of macro names, skip count
 	mov	cl,mcctab		; number of entries
@@ -4334,6 +4376,7 @@ hidewrk	proc	far
 	mov	si,offset settemp
 	mov	[si],ax			; len = old length plus <null><level>
 	xor	al,al			; prepare new prefix
+	mov	al,hidetmp		;  use 0..9 binary
 	mov	ah,taklev		; of <null><taklev>
 	mov	[si+2],ax		; new prefix
 	add	si,4			; count and prefix
@@ -4360,9 +4403,9 @@ hidewr1:mov	al,[bx+2]		; copy old name after prefix
 	pop	si
 	pop	cx
 	pop	bx
+	mov	hidetmp,0
 	ret
 hidewrk	endp
- 
 
 ; Removes all current \%0..\%9 macros and renames <null><taklev> macros by
 ; removing the first two characters of the names of form <null><taklev>foo.
@@ -4378,7 +4421,9 @@ unhide1:mov	di,offset mcctab+1	; table of macro names, skip count
 	jcxz	unhide5			; z = empty table
 	xor	dl,dl			; dx = macro prefix to examine
 	mov	dh,taklev		; di => length word, name string
-unhide2:cmp	word ptr [di+2],dx	; starts with <null><taklev> prefix?
+	mov	dl,hidetmp
+
+unhide2:cmp	word ptr [di+2],dx	; starts with <0/1><taklev> prefix?
 	jne	unhide4			; ne = no
 	mov	bx,di
 	mov	cx,[bx]			; length of definition
@@ -4408,7 +4453,7 @@ unhide3:mov	al,[bx]
 	mov	dx,offset settemp	; name string
 	mov	macptr,cx		; segment of definition
 	call	addtab			; add to table
-	jmp	short unhide1
+	jmp	unhide1
 
 unhide4:mov	ax,[di]			; get length of name
 	add	ax,4			; plus count and word pointer
@@ -4645,10 +4690,6 @@ defar6:	call	defar_rem		; clear current definition, if any
 	mov	dx,di			; for strlen
 	call	strlen			; length of definition
 	jcxz	defar7			; z = no definition, done
-	mov	ax,cx			; bytes needed
-	add	ax,2+2			; starts with byte count and elem 0
-	call	malloc			; get the space
-	jc	defarf			; c = failed
 	mov	si,marray[bx]		; segment of array
 	or	si,si			; if any
 	jz	defar7			; z = none
@@ -4656,6 +4697,14 @@ defar6:	call	defar_rem		; clear current definition, if any
 	mov	es,si
 	mov	si,temp			; array index
 	shl	si,1			; index words
+	mov	ax,es:[0]		; get array size
+	shl	ax,1			; in words
+	cmp	si,ax			; index versus size
+	ja	defar8			; a = out of bounds, ignore
+	mov	ax,cx			; bytes needed
+	add	ax,2+2			; starts with byte count and elem 0
+	call	malloc			; get the space
+	jc	defar8			; c = failed
 	mov	es:[si+2],ax		; remember segment of string def
 	mov	es,ax			; string definition seg
 	mov	es:[0],cx		; length of string
@@ -4666,6 +4715,7 @@ defar6:	call	defar_rem		; clear current definition, if any
 	pop	es
 defar7:	clc				; success
 	ret
+defar8:	pop	es
 defarf:	mov	kstatus,ksgen		; general command failure
 	stc				; failure exit
 	ret
@@ -4718,8 +4768,15 @@ docnv	proc	far
 	mov	dl,braceop		; opening brace (we count them up)
 	mov	dh,bracecl		; closing brace (we count them down)
 	mov	cx,es:[si]		; get string length
-	jcxz	docnv9			; z = empty
-	add	si,2			; where text starts
+	or	cx,cx
+	jnz	docnv1			; nz = non-empty string
+	pop	di
+	pop	si
+	pop	dx
+	pop	bx
+	pop	ax
+	ret
+docnv1:	add	si,2			; where text starts
 	mov	di,si			; si = source
 	cld
 	mov	ah,es:[si]		; record opening char
@@ -4758,7 +4815,7 @@ docnv6:	cmp	al,','			; comma?
 	jne	docnv7			; ne = no
 	or	bh,bh			; in paren clause?
 	jnz	docnv7			; nz = yes, treat comma as literal
-	cmp	bl,1			; in braced clause?
+	cmp	bl,0;;1			; in braced clause?
 	ja	docnv7			; a = yes, treat comma as literal
 	mov	al,CR			; replace bare comma with CR
 docnv7:	mov	es:[di],al

@@ -1,7 +1,7 @@
 	NAME	msscom
 ; File MSSCOM.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -48,7 +48,7 @@ crlf    db      cr,lf,'$'
 msgstl	db	'Internal Error: send packet is too long',cr,lf,0,'$'
 msgheader db	'<$'
 msgtmo	db	'Timeout$'
-msgchk	db	'Bad checksum$'
+msgchk	db	'Bad checksum $'
 msgint	db	'Interrupted$'
 msgptl	db	'Pkt too long$'
 msgbad	db	'Early EOL$'
@@ -66,6 +66,7 @@ spause	dw	0		; # millisec to wait before sending pkt
 timeval	db	0		; active receive timeout value, seconds
 prvtyp  db      0		; Type of last packet sent
 prvlen	dw	0		; bytes sent, for echo suppression
+portcount dw	0		; bytes in prtchr ready-to-read buffer
 chkparflg db	0		; non-zero to check parity on received pkts
 chklength db	1		; active checksum length
 prevchar db	0		; previous char from comms line (for ^C exit)
@@ -105,7 +106,6 @@ chksum	dw	0		; running checksum (two char)
 chrcnt	dw	0		; number of bytes in data field of a packet
 pktcnt	dw	0		; number of bytes sent/rcvd in this packet
 status	dw	0		; status of packet receiver (0 = ok)
-fairflg	dw	0		; fairness flag, for console/port reads
 rptim	db	4 dup (0)	; read packet timeout slots
 ninefive dw	95		; for mult/div with long packets
 bias	db	' '		; ascii bias for checksum calculations
@@ -114,12 +114,12 @@ temp	dw	0
 data	ends
 
 code1	segment
-	extrn	strlen:far, isdev:far, decout:far, dec2di:far
+	extrn	strlen:far, isdev:far, decout:far, dec2di:far, sndblk:far
 	assume	cs:code1
 code1	ends
 
 code	segment
-	extrn	prtchr:near, outchr:near
+	extrn	prtchr:near, outchr:near, prtblk:far
 	extrn	sppos:near, ermsg:near, clearl:near, rppos:near
 	extrn	pktcpt:near, pcwait:far, peekcom:far
 
@@ -233,8 +233,6 @@ spac13:	adc	ah,0		; propagate carry, yields overall new length
 	pop	dx
 	pop	ax
 	jmp	short spac14	; carry-on-regardless
-;	stc
-;	ret			; return bad
 
 spac14:	mov	lentyp,3	; assume regular packet
 	cmp	ax,94		; longer than a regular?
@@ -296,35 +294,45 @@ spac19:	mov	cx,bx		; where we stopped+1
 	jcxz	spac22		; nothing
 	mov	prvlen,cx	; count sent bytes for echo suppression
 	sub	prvlen,3	;  minus LEN, SEQ, TYPE
-spac20:	mov	al,[bx]		; prolog part
-	or	al,al		; at the end?
-	jz	spac22		; z = yes
-	inc	bx
-	call	spkout		; send byte to serial port
-	jnc	spac21		; nc = good send
-	jmp	spac28		; bad send
-spac21:	loop	spac20		; do all prolog parts
+	test	cardet,1	; Carrier detect, was on and is now off?
+	jnz	spac33		; nz = yes, fail
+	add	pktcnt,cx	; count number of bytes sent in this packet
+	push	es
+	push	ds
+	pop	es
+	call	sndblk		; block send cx bytes from es:bx
+	pop	es
+	jc	spac33		; c = bad send
 
-spac22:	push	es
+spac22:	test	cardet,1	; Carrier detect, was on and is now off?
+	jnz	spac33		; nz = yes, fail
+	push	es
 	mov	si,stemp	; address of pktinfo
 	les	bx,[si].datadr	; select from given data buffer
-	mov	dx,[si].datlen	; get the number of data bytes in packet
-	add	prvlen,dx	; count bytes sent
-spac23:	or	dx,dx		; any data chars remaining?
-	jle	spac25		; le = no, finish up
-	mov	al,es:[bx]	; get a data char
-	inc	bx		; point to next char
-spac24:	xor	ah,ah
-	add	chksum,ax	; add the char to the checksum [umd]
-	and	chksum,0fffh	; keep only low order 12 bits
-	dec	dx		; say sending one character
-	call	spkout		; send it
-	jnc	spac23		; nc = success, get more data chars
-	pop	es
-	jmp	spac28		; bad send
+	mov	cx,[si].datlen	; get the number of data bytes in packet
+	add	prvlen,cx	; count bytes sent
+	add	pktcnt,cx	; count number of bytes sent in this packet
+	push	cx
+	call	sndblk		; block send cx bytes from es:bx
+	pop	cx
+	jnc	spac23		; nc = success
+	pop	es		; clean stack
+	jmp	spac33		; bad send
 
-spac25:	mov	byte ptr es:[bx],0	; terminator of data field
-	pop	es
+spac23:	or	cx,cx		; any data chars remaining?
+	jle	spac25		; le = no, finish up
+	cmp	trans.chklen,2	; what kind of checksum are we using?
+	jg	spac25		; g = 3 characters, skip linear checksum
+	xor	ah,ah
+	mov	dx,chksum
+spac24:	mov	al,es:[bx]	; get a data char
+	inc	bx		; point to next char
+	add	dx,ax		; add the char to the checksum [umd]
+	loop	spac24
+	and	dx,0fffh	; keep only low order 12 bits
+	mov	chksum,dx
+
+spac25:	pop	es
 	mov	bx,offset epilog ; area for epilog
 	mov	cx,chksum
 	mov	bias,' '+1	; bias for checksum char (+1 for non-blank)
@@ -347,8 +355,7 @@ spac25:	mov	byte ptr es:[bx],0	; terminator of data field
 	inc	bx		; point to next char
 	jmp	short spac30
 
-spac26:	mov	byte ptr[bx],0	; null, to determine end of buffer
-	push	bx		; don't lose our place
+spac26:	push	bx		; don't lose our place
 	push	es
 	mov	bx,ds		; set up es for crcclc
 	mov	es,bx		; es:[bx] is src of data for crcclc
@@ -390,23 +397,28 @@ spac30:	mov	al,trans.seol	; get the EOL the other host wants
 	xor	ah,ah
 	mov	[bx],ax		; put eol and terminator in buffer
 	inc	bx
-spac32:	xor	ch,ch
+	xor	ch,ch
 	mov	cl,trans.chklen	; checksum length
 	cmp	cl,'B'-'0'	; special non-blank checksum?
-	jne	spac32a		; ne = no
+	jne	spac32		; ne = no
 	mov	cl,2		; Blank checksum is a two byte affair
-spac32a:add	prvlen,cx	; bytes sent
+spac32:	add	prvlen,cx	; bytes sent
 	inc	cx		; plus EOL char
+	add	pktcnt,cx	; count number of bytes sent in this packet
+	push	cx
+	push	es
+	mov	ax,seg epilog
+	mov	es,ax
 	mov	bx,offset epilog; where to find data
-spac33:	mov	al,[bx]
-	inc	bx
-	call	spkout		; send it
-	jc	spac28		; c = failure to send
-	loop	spac33
-	cmp	debflg,0
-	je	spac34
-	mov	dx,offset crlf
-	call	captdol
+	call	sndblk		; block send cx bytes from es:bx
+	pop	es
+	pop	cx		; epilog byte count
+       
+spac33:	pushf			; save carry of how got here
+	cmp	debflg,0	; recording material?
+	je	spac34		; e = no
+	call	showsend	; enter with CX holding epilog byte count
+
 spac34:	mov	ax,pktcnt	; number of bytes sent in this packet
 	add	fsta.psbyte,ax	; file total bytes sent
 	adc	fsta.psbyte+2,0	; propagate carry to high word
@@ -417,16 +429,12 @@ spac34:	mov	ax,pktcnt	; number of bytes sent in this packet
 	call	getbtime	; get Bios time of day to dx:ax
 	mov	word ptr [si].sndtime,ax ; low order sent time
 	mov	word ptr [si].sndtime+2,dx ; high order
+	popf			; restore carry from spac33
+	jc	spac35		; c = failure to send
 	clc			; carry clear for success
 	ret			; return successfully
-spac28:	mov	dx,offset msgbadsnd ; say sending error in log
+spac35:	mov	dx,offset msgbadsnd ; say sending error in log
 	call	captdol
-	mov	ax,pktcnt	; number of bytes sent in this packet
-	add	fsta.psbyte,ax	; file total bytes sent
-	adc	fsta.psbyte+2,0	; propagate carry to high word
-	add	fsta.pspkt,1	; statistics, count a packet being sent
-	adc	fsta.pspkt+2,0	;  ripple carry
-	mov	si,stemp	; restore pkt pointer
 	stc			; carry set for failure
 	ret			; bad send
 SPACK	ENDP 
@@ -461,6 +469,54 @@ spkour:	mov	ah,al		; foutchr wants char in ah
 	pop	bx		; carry set by foutchr if failure to send
 	ret
 spkout	endp
+
+; Log sent packet to debug area
+showsend proc	near
+	push	cx		; save epilog byte count
+
+	mov	bx,offset prolog ; place where prolog section starts
+	mov	cx,prolog_len
+	inc	cx		; include SOH
+	jz	showp		; should never be zero
+showp:	mov	al,[bx]
+	inc	bx
+	push	bx
+	push	cx
+	call	captchr
+	pop	cx
+	pop	bx
+	loop	showp
+
+showp1:	push	es
+	mov	si,stemp	; offset of given packet structure
+	les	bx,[si].datadr	; select from given data buffer
+	mov	cx,[si].datlen	; get the number of data bytes in packet
+	jcxz	showd1		; z = none
+showd:	mov	al,es:[bx]	; get a data char
+	inc	bx		; point to next char
+	push	bx
+	push	cx
+	call	captchr
+	pop	cx
+	pop	bx
+	loop	showd
+showd1:	pop	es
+
+	pop	cx		; recover epilog byte count
+	jcxz	showe1		; should never be zero
+	mov	bx,offset epilog
+showe:	mov	al,[bx]
+	inc	bx
+	push	bx
+	push	cx
+	call	captchr		; record in debugging log
+	pop	cx
+	pop	bx
+	loop	showe
+	mov	dx,offset crlf
+	call	captdol
+showe1:	ret
+showsend	endp
      
 ; Calculate the CRC of the string whose address is in ES:BX, length CX bytes.
 ; Returns the CRC in CX.  Destroys BX and AX.
@@ -510,28 +566,36 @@ crc1:   mov	cx,dx			; return CRC in CX
 RPACK	PROC	FAR
 	mov	rtemp,si		; save pkt structure address
 	xor	ax,ax			; get a zero
-	mov	fairflg,ax		; set fairness flag
 	mov	badpflag,al		; bad parity flag, clear it
 	mov	prevchar,al		; clear previous recv'd char area
 	mov	bias,al			; assume not using special B chksum
 	mov	[si].pktype,'T'		; assume 'T' type packet (timeout)
 	mov	[si].datlen,ax		; init to empty buffer
-	mov	ax,word ptr [si].sndtime ; time at which pkt was sent
+	cmp	flags.comflg,'t'	; internal Telnet?
+	jne	rpack11			; ne = no
+	mov	trans.stime,0		; no timeouts
+	jmp	rpack10
+rpack11:mov	ax,word ptr [si].sndtime ; time at which pkt was sent
 	or	ax,word ptr [si].sndtime+2
 	jnz	rpack10			; nz = have a send time
+	cmp	flags.timflg,0		; are timeouts turned off?
+	je	rpack10			; e = yes, just check for more input
+	cmp	trans.stime,0		; doing time outs?
+	je	rpack10			; e = no, go check for more input
 	call	getbtime		; get Bios time of day to dx:ax
 	sub	ax,2			; make two bios ticks ago
 	sbb	dx,0
 	mov	word ptr [si].sndtime,ax ; low order sent time
 	mov	word ptr [si].sndtime+2,dx ; high order
-rpack10:push	es
+rpack10:xor	ax,ax
+	push	es
 	les	bx,[si].datadr		; caller's data buffer
 	mov	word ptr es:[bx],ax	; clear storage areas (asciiz)
 	pop	es
 	mov	word ptr prolog,ax
 	mov	prolog_len,ax
 	mov	word ptr epilog,ax
-	mov	bx,offset prolog
+	mov	bx,offset prolog	; bx is buffer offset pointer
 	mov	pktcnt,ax		; number of bytes rcvd in packet
 	mov	al,trans.rsoh		; start of packet char
 	mov	SOHchar,al		; save, local copy is modified
@@ -603,7 +667,6 @@ rpack0a:mov	status,stat_suc		; assume success
 	mov	timeval,cl		; local timer value, seconds
 	call	inchr			; get a character. SOH
 	jnc	rpack0b			; nc = got one
-				; c=failure (eol, timeout, user intervention)
 	test	status,stat_eol		; hit eol from prev packet?
 	jnz	rpack0			; nz = yes, restart
 	jmp	rpack60			; timeout or user intervention
@@ -619,11 +682,10 @@ rpack0c:xor	ah,ah			; clear the terminator byte
 	mov	SOHchar,ah		; yes, set it to null for no matches
 
 rpack1:	cmp	flags.timflg,0		; are timeouts turned off?
-	je	rpack1h			; e = no
-	mov	timeval,2		; reduce local timer value to 2 secs
+	je	rpack1h			; e = yes
 	cmp	flags.comflg,'t'	; internal Telnet?
-	jne	rpack1h			; ne = no
-	mov	timeval,20		; long timeout
+	je	rpack1h			; e = yes, use TCP timing info
+	mov	timeval,2		; reduce local timer value to 2 secs
 rpack1h:call	inchr			; get a character. LEN
 	jc	rpack1a			; failure
 	and	al,7fh			; strip any parity bit
@@ -716,33 +778,74 @@ rpk3:	sub	al,ch			; minus checksum length, for all pkts
 	mov	chrcnt,dx
 	cmp	dx,[si].datsize		; material longer than data buffer?
 	jbe	rpk8c			; be = no
-;	ja	rpk8b			; a = yes, give up
-;	mov	dx,trans.rlong		; longest packet we should receive
-;	sub	dl,chklength		; minus checksum length
-;	sbb	dh,0			; propagate borrow
-;	cmp	dx,chrcnt		; is data too long?
-;	jae	rpk8c			; ae = not too big
 rpk8b:	or	status,stat_ptl		; failure status, packet too long
 	jmp	rpack40			; too big, quit now
 rpk8c:	les	bx,[si].datadr	 	; point to offset of data buffer
 	mov	word ptr es:[bx],0	; clear start of that buffer
-					; get DATA field characters
-rpack2:	cmp	chrcnt,0		; any chars expected?
-	jle	rpack3			; le = no, go do checksum
-	call	inchr			; get a character into al. DATA
-	jc	rpak2c			; c = Control-C, timeout, eol
-	cmp	al,SOHchar		; start of header char?
-	jne	rpak2b			; ne = no
-	jmp	rpack0			; yes, then go start over
-rpak2b:	add	chksum,ax		; inchr clears AH
-	dec	chrcnt			; one less char expected
-	jmp	short rpack2		; get another data character
-rpak2c:	test	status,stat_eol		; bare EOL in data part?
-	jz	rpak2d			; z = no
-	and	status,not stat_eol	; turn off status bit
-	jmp	short rpak2b		;  and carry on regardless
-rpak2d:	jmp	rpack40			; Control-C, timeout
 
+					; get DATA field characters
+rpack2:	push	chrcnt			; save data length to be examined
+	xor	cl,cl
+	xchg	debflg,cl		; debugging done in checksum section
+	push	cx			;  for data field bytes
+rpak21:	cmp	chrcnt,0		; done all?
+	jle	rpak25			; le = yes
+	cmp	portcount,0		; any bytes ready to read?
+	je	rpak22			; e = no, do timed read single byte
+	mov	cx,chrcnt		; bytes wanted
+	call	prtblk			; do block read of cx bytes to es:[bx]
+	mov	portcount,dx		; available bytes
+	jc	rpak22			; c = failed
+	add	pktcnt,cx		; count bytes received
+	sub	chrcnt,cx		; needed minus supplied = to be read
+	jmp	short rpak21		; try to read more
+
+					; do 1 byte timed read and check
+rpak22:	call	inchr			; get a character into al. DATA
+	jc	rpak23			; c = Control-C, timeout, eol
+	dec	chrcnt			; count byte read
+	cmp	al,SOHchar		; start of header char?
+	jne	rpak21			; ne = no, read more data
+	jmp	short rpak24		; yes, then go start over
+rpak23:	test	status,stat_eol		; bare EOL in data part?
+	jz	rpak24			; z = no, must be bad news, quit
+	and	status,not stat_eol	; turn off status bit
+	dec	chrcnt			; accept byte
+	jmp	short rpak21		;  and carry on regardless
+
+rpak24:	pop	cx			; failure
+	xchg	debflg,cl		; restore debugging
+	mov	cx,chrcnt		; bytes remaining to be read
+	pop	chrcnt			; recover length of data field
+	sub	chrcnt,cx		; reduce length available to log
+	cmp	debflg,0		; recording material?
+	je	rpak24b			; e = no
+	call	rlogdata		; log data bytes
+rpak24b:jmp	rpack40			; failed
+
+rpak25:	pop	cx
+	xchg	debflg,cl		; restore debugging
+	pop	chrcnt			; recover length of data field
+	cmp	debflg,0		; recording material?
+	je	rpak26			; e = no
+	call	rlogdata		; log data field bytes
+rpak25a:cmp	chklength,2		; which checksum length is in use?
+	ja	rpack3			; a = Three char CRC, skip chksum
+rpak26:	mov	cx,chrcnt		; length of data field
+	jcxz	rpack3			; z = empty, nothing to do
+	mov	dx,chksum		; linear checksum thus far
+	push	si
+	push	ds
+	lds	si,[si].datadr	 	; point to offset of data buffer
+	xor	ah,ah
+	cld
+rpak27:	lodsb
+	add	dx,ax			; add bytes to checksum
+	loop	rpak27
+	pop	ds
+	pop	si
+	mov	chksum,dx
+ 
 rpack3:	and	chksum,0fffh	; keep only lower 12 bits of current checksum
 	mov	bx,offset epilog	; record debugging in epilog buffer
 	mov	ax,seg epilog
@@ -945,6 +1048,7 @@ peekreply proc	far
 	ret				; return carry set for nothing to do
 peekrp1:cmp	cx,6			; enough for basic NAK?
 	jb	peekrp2			; be = no
+	mov	si,offset rpacket	; reset pointer needed at start
 	jmp	rpack			; go decode the packet
 peekrp2:stc				; say nothing to do
 	ret
@@ -1041,6 +1145,7 @@ getln3:	xor	dx,dx		; ditto, high part
 	jc	getln4		; c = failure
 	add	chksum,ax
 	sub	al,20h		; subtract space, apply unchar()
+	js	getln4		; sign set is failure
 	mov	si,rtemp
 	add	[si].datlen,ax	; add to overall length count
 	loop	getln3		; cx preset earlier for type 0 or type 1
@@ -1075,23 +1180,13 @@ getlen	endp
 ; Return carry set if timeout or console char or EOL seen,
 ; return carry clear and char in AL for other characters.
 ; Sets status of stat_eol if EOL seen.
-; Fairflg allows occassional reads from console before looking at serial port.
 inchr	proc	near
 	mov	timeit,0	; reset timeout flag (do each char separately)
 	push	es		; save debug buffer pointer es:bx
 	push	bx
-	cmp	fairflg,500	; look at console first every now and then
-	jbe	inchr1		; be = not console's turn yet
-	mov	fairflg,0	; reset fairness flag for next time
-	call	chkcon		; check console
-	jnc	inchr1		; nc = nothing to interrupt us
-	pop	bx		; clean stack
-	pop	es
-	ret			; return failure for interruption
-
 inchr1:	call	prtchr1		; read a serial port character
+	mov	portcount,dx	; bytes remaining in ready-to-read buffer
 	jc	inchr2		; c = nothing there
-	mov	timeit,0	; say not timing missing byte
 	pop	bx		; here with char in al from port
 	pop	es		; debug buffer pointer
 	mov	ah,al		; copy char to temp place AH
@@ -1101,17 +1196,15 @@ inchr1:	call	prtchr1		; read a serial port character
 	je	inchr1a		; e = no
 	call	captchr		; log char in al
 inchr1a:inc	pktcnt		; count received byte
-	cmp	al,trans.rign	; char in al to be ignored?
-	je	inchr		; e = yes, do so
 	test	flags.remflg,dserver ; acting as a server?
 	jz	inchr6		; z = no
 	cmp	ah,'C'-40h	; Control-C from comms line?
 	jne	inchr6		; ne = no
 	cmp	ah,prevchar	; was previous char also Control-C?
 	jne	inchr6		; ne = no
-	cmp	ah,SOHchar	; could this also be an SOH?
+	cmp	ah,SOHchar	; could Control-C also be an SOH?
 	je	inchr6		; e = yes, do not exit
-	cmp	ah,trans.reol	; could this also be an EOL?
+	cmp	ah,trans.reol	; could Control-C also be an EOL?
 	je	inchr6		; e = yes
 	test	denyflg,finflg	; is FIN enabled?
 	jnz	inchr6		; nz = no, ignore server exit cmd
@@ -1139,19 +1232,16 @@ inchr7:	or	status,stat_eol	; set status appropriately
 	stc			; set carry to say eol seen
 	ret			; and return qualified failure
 	
-inchr2:	push	bx
-	mov	bx,portval
+inchr2:	mov	bx,portval
 	cmp	[bx].portrdy,0	; is port not-ready?
-	pop	bx
 	jne	inchr2c		; ne = no, port is ready, just no char
 	or	status,stat_int	; interrupted
-;;;;;;;;;	mov	flags.cxzflg,'C'; set Control-C flag
 	stc			; return failure (interruption)
 	pop	bx
 	pop	es
 	ret
 
-inchr2c:call	chkcon		; check console
+inchr2c:call	chkcon		; check console (about 250 microseconds)
 	jnc	inchr2a		; nc = nothing to interrupt us
 	pop	bx		; clean stack
 	pop	es
@@ -1162,9 +1252,8 @@ inchr2a:cmp	flags.timflg,0	; are timeouts turned off?
 	cmp	timeval,0	; turned off running timeouts on receive?
 	je	inchr1		; e = yes
 	cmp	trans.stime,0	; doing time outs?
-	jne	inchr2b		; ne = yes
-	jmp	inchr1		; go check for more input
-inchr2b:push	cx		; save regs
+	je	inchr1		; e = no, go check for more input
+	push	cx		; save regs
 	push	dx
 	cmp	timeit,0	; have we gotten time of day for first fail?
 	jne	inchr4		; ne = yes, just compare times
@@ -1350,6 +1439,30 @@ captw1:	test	flags.capflg,logpkt ; logging active?
 captw2:	ret
 captworker endp
 
+; Log bytes received in data 
+rlogdata proc	near
+	push	cx
+	mov	cx,chrcnt		; bytes in data field
+	jcxz	rlogda2			; z = none
+	push	si			; log data field
+	push	es
+	les	si,[si].datadr	 	; point to offset of data buffer
+	xor	ah,ah
+	cld
+rlogda1:mov	al,es:[si]
+	inc	si
+	push	cx
+	push	si
+	call	captchr			; log char in al
+	pop	si
+	pop	cx
+	loop	rlogda1
+	pop	es
+	pop	si
+rlogda2:pop	cx
+	ret
+rlogdata endp
+
 parchk	proc	near			; check parity of pkt prolog chars
 	cmp	chkparflg,0		; ok to check parity?
 	jne	parchk0			; ne = yes
@@ -1358,6 +1471,7 @@ parchk0:push	ax
 	push	bx
 	push	cx
 	push	dx
+	mov	chkparflg,0		; don't check again until asked
 	mov	ax,word ptr prolog	; first two prolog chars
 	or	ax,word ptr prolog+2	; next two
 	test	ax,8080h		; parity bit set?
@@ -1787,8 +1901,7 @@ getbtime proc	far
 	push	cx
 	xor     ax,ax
         mov     es,ax
-getbt1:
-	mov	cx,es:[biosclk+0]
+getbt1:	mov	cx,es:[biosclk+0]
 	mov	dx,es:[biosclk+2]
 	in	al,61h			; pause
 	in	al,61h
@@ -1854,11 +1967,11 @@ krto4:	pop	dx
 	ret
 krto5:	push	ax			; Internal TCP/IP stack provides rto
 	mov	ax,tcp_rto		; Bios ticks from TCP/IP stack
-	add	ax,18			; bias up by one second
+	add	ax,18 * 2		; bias up by two seconds
 	mov	k_rto,ax
 	pop	ax
+	mov	timeit,0		; cancel previous timeout
 	ret
 krto	endp
-
 code1	ends
 	end

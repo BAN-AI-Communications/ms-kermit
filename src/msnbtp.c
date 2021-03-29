@@ -2,7 +2,7 @@
  * Bootp requestor
  *
  * Copyright (C) 1991, University of Waterloo.
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -17,7 +17,7 @@
  *  Utah State University, jrd@cc.usu.edu, jrd@usu.Bitnet.
  *
  * Last edit
- * 12 Aug 1996 v3.15
+ * 31 Oct 2000 v3.16
  *
  *   BOOTP - Boot and DHCP Protocols, RFCs 951, 1048, 1395, 1531, 1541, 1533
  *   and successors 2131 and 2132.
@@ -73,6 +73,7 @@ typedef struct bootp {
 #define	DHCPACK	       5
 #define	DHCPNAK	       6
 #define	DHCPRELEASE    7
+#define DHCPINFORM     8
 #define DHCPRENEWING	100
 
 /* DHCP command code, 53 decimal */
@@ -86,24 +87,40 @@ typedef struct bootp {
 static longword DHCP_server_IP;		/* IP of DHCP server */
 static long DHCP_lease, DHCP_renewal, DHCP_rebind;
 static byte DHCP_state;
-static longword xid;
+static longword xid;			/* opaque msg ident */
 static use_RFC2131;			/* Use RFC2131 REQUESTs */
-static longword master_timeout;		/* hard shutdown grace interval */
+
+/* Values for request_busy word */
+#define REQ_IDLE 0			/* have not sent datagram yet */
+#define REQ_SENT 1			/* have sent datagram */
+#define REQ_BUSY 4			/* request() has not exited yet */
+int request_busy = REQ_IDLE;		/* DHCP request() lock */
 
 /* global variables */
 longword bootphost = 0xffffffffL;	/* broadcast IP */
+
 byte hostname[MAX_STRING+1] = {0};	/* our fully qualified IP name */
 extern word arp_hardware, MAC_len;	/* media details from msnpdi.asm */
 extern byte kdomain[];			/* our IP domain string */
 extern byte kbtpserver[];		/* IP of responding server */
 extern	eth_address eth_addr;		/* six byte array */
-extern	byte kdebug;
-extern	byte bootmethod;
-int request_busy = 0;			/* DHCP request() lock */
+extern	byte kdebug;			/* general debugging kind control */
+extern  char tcpflag;			/* from msntni.asm, 2 if doing Int 8*/
+extern	byte bootmethod;		/* which boot techinque to try */
+
+static int status;			/* return value from request() */
+static longword master_timeout;		/* hard shutdown grace interval */
+static longword sendtimeout;		/* timeout between sends */
+static longword readtimeout;		/* timeout for reading */
+static word magictimeout = 1;		/* current read timeout interval */
+struct bootp bootppkt, *bp = &bootppkt;	/* Bootp/DHCP structure */
+static udp_Socket bsock;		/* UDP socket structure */
 
 static int request(void);		/* send request, decode reply */
 static void decode(struct bootp *, int);	/* decode Options */
-static int notdhcp(struct bootp *, int);	/* detect non-DHCP pkt */
+static int notdhcp(struct bootp *, int);	/* detect DHCP pkt */
+static int tasksr(void);		/* task level send/receive */
+static int bootptick(void);		/* worker for tasksr */
 
 /*
  * do_bootp - Do Bootp or DHCP negotiations.
@@ -123,11 +140,11 @@ do_bootp()
 	DHCP_server_IP = 0L;		/* DHCP server IP address, 0 = none */
 	DHCP_lease = 0L;		/* no lease expiration */
 	DHCP_state = DHCPDISCOVER;	/* discover a DHCP server */
-	request_busy = 0;		/* request() lock, unlock it */
+	request_busy = REQ_IDLE;	/* request() lock, unlock it */
 	master_timeout = 0;		/* kill hard shutdown timer */
 	kbtpserver[0] = 0;		/* found server's IP address */
 	xid = htonl(set_timeout(0));	/* set xid as tod in Bios ticks */
-	if (request() == -1)		/* Bootp/DHCP request, get response */
+	if (tasksr() == -1)		/* do send receives */
 		return (-1);		/* fail */
 
 	if (DHCP_server_IP == 0L)	/* no DHCP response, use Bootp */
@@ -135,21 +152,22 @@ do_bootp()
 		bootmethod = BOOT_BOOTP;
 		return (my_ip_addr != 0? 0: -1); /* -1 for fail, 0 for succ */
 		}
+
 					/* DHCP negotiations, continued */
 	DHCP_lease = 0L;		/* no lease expiration, yet */
 	bootmethod = BOOT_DHCP;
 	DHCP_state = DHCPREQUEST;	/* set conditions for request() */
 	xid++;		/* change id tag so competing responses are ignored */
 	use_RFC2131 = 1;		/* use revision RFC2131 of DHCP */
-	if (request() == -1)		/* send/process DHCP REQUEST and ACK*/
+	if (tasksr() == -1)		/* do send receives */
 		return (-1);		/* fail */
 	if (DHCP_state == DHCPNAK	/* if Request refused */
 		&& use_RFC2131)		/* and we used new style request */
 		{
 		use_RFC2131 = 0;	/* try again with RFC1541 style */
 		DHCP_state = DHCPREQUEST; /* set conditions for request() */
-		if (request() == -1)	/* send/process DHCP REQUEST and ACK*/
-			return (-1);	/* fail */
+		if (tasksr() == -1)		/* do send receives */
+			return (-1);		/* fail */
 		}
 
 	use_RFC2131 = 1;		/* reset for next attempt */
@@ -159,157 +177,179 @@ do_bootp()
 	return (my_ip_addr != 0? 0: -1); /* -1 for failure, 0 for success */
 }
 
-/* Request Bootp/DHCP information and decode DHCP ACK */
-/* Global int request_busy is non-zero to prevent calling this routine
-   as a result of calling tcp_tick() within it.
+/* Run at task level, not from Int 8. Do timed send and receives, with
+   checking for aborts by Control-C and net failure. Calls tcp_tick()
+   to read fresh packets.
+*/
+int
+tasksr(void)
+{
+			/* send/process DHCP REQUEST and ACK*/
+		sendtimeout = set_timeout(BOOTPTIMEOUT);
+		magictimeout = 1;
+		bootptick();		/* check for aborts, do send/receive*/
+		while (request_busy != REQ_IDLE)
+			status = bootptick();
+		if (status == -1)
+			return (-1);		/* fail */
+}
+
+/* worker for tasksr(). Does its work minus the timed retries. */
+int
+bootptick(void)
+{
+	/* if not running from Int 8 background tick, check keyboard */
+	if (tcpflag != 2 && chkcon() != 0)	/* Control-C abort */
+		{
+		outs(" Canceled by user");
+		sock_close(&bsock);
+		request_busy = REQ_IDLE;	/* done */
+		return (-1);			/* failing status */
+		}
+
+	/* if no data yet and not running from Int 8 background tick */
+	if (bsock.rdatalen == 0 && tcpflag != 2 &&
+		bsock.sisopen == SOCKET_OPEN) 
+		if (tcp_tick(&bsock) == 0)		/* read packets */
+			{		/* major network error if UDP fails */
+			outs(" Network troubles, quitting");
+			sock_close(&bsock);
+			request_busy = REQ_IDLE;	/* unlock access */
+			return (-1);			/* fail */
+			}
+	return (request());			/* do send/receives */
+}
+
+/* Request Bootp/DHCP information and decode responses
+   This can be called at task level by do_bootp(), and at Int 8 background
+   level via DHCP_refresh(). To prevent reentrancy problems request_busy sets
+   the REQ_BUSY bit. To keep state on whether we need to transmit or receive
+   bit REQ_SENT is used to say have transmitted so instead do receive code.
+   Flag byte tcpflag value of 2 (from msntni.asm) means we are running from
+   Int 8 and may not do calls to the Bios or DOS and we must be fast.
 */
 static int
 request(void)
 {
-	udp_Socket bsock;
-	struct bootp sendbootp;				/* outgoing data */
-	struct bootp rcvbootp;				/* incoming data */
-	struct bootp register * rbp, * sbp;
-	longword sendtimeout, bootptmo;
-	word magictimeout = 1;
 	int reply_len;
 
-	request_busy = 1;			/* lock out tcp_tick() */
-	sbp = &sendbootp;			/* outgoing request */
-	rbp = &rcvbootp;			/* incoming response */
-	memset((byte *)sbp, 0, sizeof(struct bootp));
-	memset((byte *)rbp, 0, sizeof(struct bootp));
+/* if have sent datagram and receive waiting has time to go, then receive */	
 
-	sbp->bp_op = BOOTREQUEST;
-	sbp->bp_htype = (byte)(arp_hardware & 0xff); /* hardware type */
-	bcopy(eth_addr, sbp->bp_chaddr, MAC_len); /* hardware address */
-	sbp->bp_hlen = (byte) MAC_len;		/* length of MAC address */
-	sbp->bp_xid = xid;			/* identifier, opaque */
-	sbp->bp_ciaddr = htonl(my_ip_addr);	/* client IP identifier */
-	*(long *)&sbp->bp_vend[0] = VM_RFC1048;	/* magic cookie longword */
+	request_busy |= REQ_BUSY;	/* say we have entered request() */
+
+	if (request_busy & REQ_SENT && chk_timeout(readtimeout) != TIMED_OUT)
+		goto inprogress;	/* not timed out reading */
+
+	if (chk_timeout(sendtimeout) == TIMED_OUT) /* sent for too long */
+		{			/* failed attempt, no respondent */
+		sock_close(&bsock);
+		request_busy = REQ_IDLE;
+		return (-1);				/* fail */
+		}
+
+	memset((byte *)bp, 0, sizeof(struct bootp));
+
+	bp->bp_op = BOOTREQUEST;
+	bp->bp_htype = (byte)(arp_hardware & 0xff); /* hardware type */
+	bcopy(eth_addr, bp->bp_chaddr, MAC_len); /* hardware address */
+	bp->bp_hlen = (byte) MAC_len;		/* length of MAC address */
+	bp->bp_xid = xid;			/* identifier, opaque */
+	bp->bp_ciaddr = htonl(my_ip_addr);	/* client IP identifier */
+	*(long *)&bp->bp_vend[0] = VM_RFC1048;	/* magic cookie longword */
+	bp->bp_vend[4] = OPTION_END;		/* end of Options, BOOTP */
 
 	if (bootmethod == BOOT_DHCP)		/* DHCP details */
 		{
-		sbp->bp_vend[4] = DHCP_COMMAND;	/* option, DHCP command */
-		sbp->bp_vend[5] = 1;		/* length of value */
-		sbp->bp_vend[6] = DHCPREQUEST;	/* Request data */
-		sbp->bp_vend[7] = OPTION_END;	/* end of Options */
+		bp->bp_vend[4] = DHCP_COMMAND;	/* option, DHCP command */
+		bp->bp_vend[5] = 1;		/* length of value */
+		bp->bp_vend[6] = DHCPREQUEST;	/* Request data */
+		bp->bp_vend[7] = OPTION_END;	/* end of Options */
 		if (DHCP_state == DHCPDISCOVER)	/* if first probe */
 			{
-			sbp->bp_flags = htons(1); /* set DHCP Broadcast bit */
-			sbp->bp_vend[6] = DHCPDISCOVER; /* DHCP server discov*/
+			bp->bp_flags = htons(1); /* set DHCP Broadcast bit */
+			bp->bp_vend[6] = DHCPDISCOVER; /* DHCP server discov*/
 			}
 		if (DHCP_state == DHCPREQUEST)	/* if Request, not Renewal */
 			{
-			sbp->bp_vend[7] = OPTION_SERVERID; /* server id */
-			sbp->bp_vend[8] = 4;		/* length of value */
-			*(long *)&sbp->bp_vend[9] = htonl(DHCP_server_IP);
-			sbp->bp_vend[13] = OPTION_END;	/* end of Options */
+			bp->bp_vend[7] = OPTION_SERVERID; /* server id */
+			bp->bp_vend[8] = 4;		/* length of value */
+			*(long *)&bp->bp_vend[9] = htonl(DHCP_server_IP);
+			bp->bp_vend[13] = OPTION_END;	/* end of Options */
 			if (use_RFC2131)	  /* if not using RFC1541 */
 				{
-				sbp->bp_ciaddr = 0; /* no client identifier */
-				sbp->bp_vend[13] = 50;	/* Requested IP Addr*/
-				sbp->bp_vend[14] = 4;	/* length of value */
+				bp->bp_ciaddr = 0; /* no client identifier */
+				bp->bp_vend[13] = 50;	/* Requested IP Addr*/
+				bp->bp_vend[14] = 4;	/* length of value */
 						/* our IP address goes here */
-				*(long *)&sbp->bp_vend[15] = htonl(my_ip_addr);
-				sbp->bp_vend[19] = OPTION_END;
+				*(long *)&bp->bp_vend[15] = htonl(my_ip_addr);
+				bp->bp_vend[19] = OPTION_END;
 				}
 			my_ip_addr = 0;     /* now forget IP from DISCOVER */
 			}
 		}
 
+	if (bsock.sisopen == SOCKET_OPEN) 
+		sock_close(&bsock);			/* just in case */
 	if (udp_open(&bsock, IPPORT_BOOTPC, bootphost, IPPORT_BOOTPS) == 0)
 		{
-		request_busy = 0;		/* clear lock */
+		request_busy = REQ_IDLE;		/* clear lock */
 		sock_close(&bsock);
-       		return (-1);
+       		return (-1);				/* fail */
 		}
-	bootptmo = set_timeout(BOOTPTIMEOUT);
-	magictimeout = 1;			/* one second */
 
-    while (chk_timeout(bootptmo) != TIMED_OUT) /* repeat datagrams */
-    	{	/* send only bootp length requests, accept DHCP replies */
+		/* send only bootp length requests, accept DHCP replies */
+						/* send datagram */
 	bsock.rdatalen = 0;			/* clear old received data */
-	reply_len = 0;				/* no reply yet */
-	sbp->bp_xid = xid++;			/* identifier, opaque */
-	sock_write(&bsock, (byte *)sbp,	sizeof(struct bootp) - 248);
-	if (bootmethod == BOOT_BOOTP || DHCP_state == DHCPDISCOVER)
-		outs(".");			/* progress indicator */
-
-	sendtimeout = set_timeout(magictimeout++);
+	sock_write(&bsock, (byte *)bp, sizeof(struct bootp) - 248);
+	readtimeout = set_timeout(magictimeout++); /* receiver timeout */
 	if (magictimeout > 8)
 		magictimeout = 8;		/* truncate waits */
+	if (bootmethod == BOOT_BOOTP || DHCP_state == DHCPDISCOVER)
+		outs(".");			/* progress indicator */
+	request_busy = REQ_SENT;		/* exiting but not done */
+	return (-1);			/* next call does reading thread */
 
-	while (chk_timeout(sendtimeout) != TIMED_OUT)
+inprogress:			/* here we read UDP responses */
+
+	reply_len = sock_fastread(&bsock, (byte *)bp, 
+						sizeof(struct bootp));
+
+	if ((reply_len < sizeof(struct bootp) - 248) || /* too short */
+	    (bp->bp_xid != xid) ||			/* not our ident */
+	    (bp->bp_yiaddr == 0) ||		/* no IP address for us */
+	    (*(long *)&bp->bp_vend != VM_RFC1048) ||	/* wrong vendor id */
+	    (bootmethod == BOOT_DHCP && DHCP_state != DHCPDISCOVER &&
+			(DHCP_server_IP != ntohl(bp->bp_siaddr) ||
+			notdhcp(bp, reply_len))) )
+			/* no DHCP server IP, no DHCP msg */
 		{
-		if (chkcon() != 0)			/* Control-C abort */
-			{
-			outs(" Canceled by user");
-			sock_close(&bsock);
-			request_busy = 0;		/* unlock access */
-			return (-1);			/* fail */
-			}
+		request_busy = REQ_SENT; 		/* not done yet */
+		return (-1);		/* not a required DHCP response */
+		}
 
-    		if (tcp_tick(&bsock) == 0)		/* read packets */
-			{		/* major network error if UDP fails */
-			outs(" Network troubles, quitting");
-			sock_close(&bsock);
-			request_busy = 0;		/* unlock access */
-			return (-1);			/* fail */
-			}
-
-		reply_len = sock_fastread(&bsock, (byte *)rbp, 
-							sizeof(struct bootp));
-		bsock.rdatalen = 0;		/* clear old received data */
-
-		if (reply_len < sizeof(struct bootp) - 248)
-			continue;		/* reply is too short */
-
-		if (rbp->bp_xid != sbp->bp_xid)	/* not our ident? */
-               		continue;		/* not for us */
-
-		if (rbp->bp_yiaddr == 0)	/* no IP address for us */
-			if (bootmethod == BOOT_BOOTP) /* 0 for DHCP NAKs */
-	               		continue;		/* not for us */
-
-		if (*(long *)rbp->bp_vend != *(long *)sbp->bp_vend)
-			continue;		/* magic cookie mismatch */
-
-		if (bootmethod == BOOT_DHCP &&
- 			DHCP_state != DHCPDISCOVER &&
-			notdhcp(rbp, reply_len))
-			continue;	/* not a required DHCP response */
-		break;
-		}		/* end of while (chk_timeout(sendtimeout) */
-
-	if (reply_len == 0)
-		continue;		/* no data yet, send again */
-
-	decode(rbp, reply_len);		/* extract response data */
+	decode(bp, reply_len);		/* extract response data */
 
 	if (my_ip_addr == 0L)		/* if first time through */
 		{
-		my_ip_addr = ntohl(rbp->bp_yiaddr); /* bootp header */
-		ntoa(kbtpserver, ntohl(rbp->bp_siaddr));
+		my_ip_addr = ntohl(bp->bp_yiaddr); /* bootp header */
+		if (DHCP_server_IP == 0) 	/* if no DHCP server addr */
+			ntoa(kbtpserver, ntohl(bp->bp_siaddr)); /* bootp */
+		else
+			ntoa(kbtpserver, DHCP_server_IP); /* decode() swaps */
 		}
-	break;
-	}				/* end while (chk_timeout(bootptmo) */
 	sock_close(&bsock);
-	request_busy = 0;		/* unlock access */
-	if (chk_timeout(bootptmo) == TIMED_OUT)
-		return (-1);		/* fail */
+	request_busy = REQ_IDLE;		/* done processing */
 	return (my_ip_addr != 0? 0: -1); /* -1 for fail, 0 for success */
 }
 
-/* Return non-zero if reply does not contains DHCP Command, else return 0 */
-
+/* Return zero if reply contains a DHCP Command, else return non-zero */
 static int
-notdhcp(struct bootp * rbp, int reply_len)
+notdhcp(struct bootp * bp, int reply_len)
 {
 	byte *p, *q;
 
-	p = &rbp->bp_vend[4];		/* Point just after magic cookie */
-	q = &rbp->bp_op + reply_len;	/* end of all possible vendor data */
+	p = &bp->bp_vend[4];		/* Point just after magic cookie */
+	q = &bp->bp_op + reply_len;	/* end of all possible vendor data */
 
 	while (*p != 255 && (q - p) > 0)
 		switch(*p)
@@ -330,14 +370,16 @@ notdhcp(struct bootp * rbp, int reply_len)
 
 /* Decode Bootp/DHCP Options from received packet */
 static void
-decode(struct bootp * rbp, int reply_len)
+decode(struct bootp * bp, int reply_len)
 {
 	byte *p, *q;
 	word len;
 	longword tempip;
+	extern word arp_last_gateway;	/* in msnarp.c */
+	extern int last_nameserver;	/* in msndns.c */
 
-	p = &rbp->bp_vend[4];		/* Point just after magic cookie */
-	q = &rbp->bp_op + reply_len;	/* end of all possible vendor data */
+	p = &bp->bp_vend[4];		/* Point just after magic cookie */
+	q = &bp->bp_op + reply_len;	/* end of all possible vendor data */
 
 	while (*p != 255 && (q - p) > 0)
 		switch(*p)
@@ -350,11 +392,13 @@ decode(struct bootp * rbp, int reply_len)
 			p += *(p+1) + 2;
 			break;
 		case 3: /* gateways */
+			arp_last_gateway = 0; 		/* clear old values */
 			for (len = 0; len < *(p+1); len += 4)
 			  arp_add_gateway(NULL,ntohl(*(longword*)(&p[2+len])));
 			p += *(p+1) + 2;
 			break;
 		case 6: /* Domain Name Servers (BIND) */
+			last_nameserver = 0;		/* clear old values */
 			for (len = 0; len < *(p+1); len += 4)
 		    	add_server(&last_nameserver, MAX_NAMESERVERS,
 			def_nameservers, ntohl(*(longword*)(&p[2 + len])));
@@ -381,9 +425,15 @@ decode(struct bootp * rbp, int reply_len)
 					{
 					if (DHCP_lease > 0x0ffffL)
 						DHCP_lease = 0x0ffffL;
+
 					DHCP_lease = set_timeout((int)(0xffff 
 						& DHCP_lease));
 					}
+				/* below: safety if server does not state */
+				if (DHCP_renewal == 0L)
+					DHCP_renewal = DHCP_lease;
+				if (DHCP_rebind == 0L)
+					DHCP_rebind = DHCP_lease;
 				}
 			p += *(p+1) + 2;
 			break;
@@ -423,7 +473,6 @@ decode(struct bootp * rbp, int reply_len)
 				DHCP_lease = DHCP_rebind =
 				set_timeout((int)(0xffff & DHCP_rebind));
 				}
-
 			p += *(p+1) + 2;
 			break;
 
@@ -442,39 +491,36 @@ decode(struct bootp * rbp, int reply_len)
 void
 end_bootp(void)
 {
-	udp_Socket bsock;
-	struct bootp sendbootp;				/* outgoing data */
-	struct bootp register * sbp;
 	longword wait;
 
-	if (DHCP_state != DHCPACK)
+	if (bootmethod != BOOT_DHCP)
 		return;				/* not using DHCP */
 
 	if (DHCP_lease == 0)			/* infinite lease */
 		return;
 
-	sbp = &sendbootp;
-	memset((byte *)sbp, 0, sizeof(struct bootp));
+	memset((byte *)bp, 0, sizeof(struct bootp));
 
 	udp_open(&bsock, IPPORT_BOOTPC, bootphost, IPPORT_BOOTPS);
-	sbp->bp_op = BOOTREQUEST;
-	sbp->bp_htype = (byte)(arp_hardware & 0xff);
-	bcopy(eth_addr, sbp->bp_chaddr, MAC_len);
-	sbp->bp_hlen = (byte) MAC_len;		/* length of MAC address */
-	sbp->bp_xid = xid;
-	*(long *)&sbp->bp_vend[0] = VM_RFC1048;	/* magic cookie longword */
-	sbp->bp_vend[4] = DHCP_COMMAND;	/* option, DHCP command */
-	sbp->bp_vend[5] = 1;		/* length of value */
-	sbp->bp_vend[6] = DHCPRELEASE;	/* value, release DHCP server */
-	sbp->bp_vend[7] = OPTION_SERVERID; /* server identification */
-	sbp->bp_vend[8] = 4;		/* length of IP address */
-	*(long *)&sbp->bp_vend[9] = htonl(DHCP_server_IP);
-	sbp->bp_vend[13] = OPTION_END;	/* end of options */
+	bp->bp_op = BOOTREQUEST;
+	bp->bp_htype = (byte)(arp_hardware & 0xff);
+	bcopy(eth_addr, bp->bp_chaddr, MAC_len);
+	bp->bp_hlen = (byte) MAC_len;		/* length of MAC address */
+	bp->bp_xid = ++xid;
+	*(long *)&bp->bp_vend[0] = VM_RFC1048;	/* magic cookie longword */
+	bp->bp_vend[4] = DHCP_COMMAND;	/* option, DHCP command */
+	bp->bp_vend[5] = 1;		/* length of value */
+	bp->bp_vend[6] = DHCPRELEASE;	/* value, release DHCP server */
+	bp->bp_vend[7] = OPTION_SERVERID; /* server identification */
+	bp->bp_vend[8] = 4;		/* length of IP address */
+	*(long *)&bp->bp_vend[9] = htonl(DHCP_server_IP);
+	bp->bp_vend[13] = OPTION_END;	/* end of options */
 
-	sock_write(&bsock, (byte *)sbp, sizeof(struct bootp));
+	sock_write(&bsock, (byte *)bp, sizeof(struct bootp) - 248);
 	wait = set_ttimeout(1);		/* one Bios clock tick */
 	while (chk_timeout(wait) != TIMED_OUT) ;	/* pause */
-	sock_write(&bsock, (byte *)sbp, sizeof(struct bootp)); /* repeat */
+							/* repeat */
+	sock_write(&bsock, (byte *)bp, sizeof(struct bootp) - 248);
 	sock_close(&bsock);
 
  	DHCP_server_IP = 0L;		/* DHCP server IP address, 0 = none */
@@ -492,6 +538,8 @@ DHCP_refresh()
 {
 	longword temp;
 
+	if (request_busy & REQ_BUSY)
+		return (0);			/* request() not exited yet */
 	if (DHCP_lease == 0 ||			/* infinite lease */
 		chk_timeout(DHCP_renewal) != TIMED_OUT)
 		return (0);			/* nothing to do yet */
@@ -501,13 +549,20 @@ DHCP_refresh()
 		else
 			return (0);		/* still in grace interval */
 
-	if (request_busy)			/* don't reenter request() */
-		return (0);			/* return success */
 	DHCP_state = DHCPRENEWING;		/* set new state */
-	if (request() != -1)			/* send/got DHCP info */
+	sendtimeout = set_timeout(BOOTPTIMEOUT); /* sending timeout limit */
+	magictimeout = 1;			/* one second */
+	status = request();			/* send and read replies */
+	if (request_busy != REQ_IDLE)
+		return (0);			/* not done yet */
+
+	if (status == 0)			/* if success */
+		{
 		if (DHCP_lease == 0 ||		/* infinite lease */
 		chk_timeout(DHCP_renewal) != TIMED_OUT) /* lease renewed */
 			return (0);		/* success, lease renewed */
+		}
+
 	outs("\r\n Failed to renew DHCP IP address lease");
 	outs("\r\n Shutting down TCP/IP system in ");
 	temp = DHCP_lease - set_ttimeout(0);	/* ticks from now */

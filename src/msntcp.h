@@ -2,7 +2,7 @@
  * Main include file for TCP/IP, as revised and modified for MS-DOS Kermit.
  *
  * Copyright (C) 1991, University of Waterloo.
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -164,6 +164,9 @@ typedef struct {
 #define SOCKET_OPEN	1		/* if socket structure is active */
 #define SOCKET_CLOSED	0
 #define TIMED_OUT	1		/* if a timer has expired */
+
+#define DEBUG_STATUS	1		/* Set TCP DEBUG for general info */
+#define DEBUG_TIMING	2		/* for round trip timing */
 /*
  * UDP socket definition, must match start of tcp_socket.
  */
@@ -186,7 +189,8 @@ typedef struct sendqstat {
 	longword	timeout;	/* Bios ticks when dgram times out */
 	longword	next_seq;	/* seq number of start of next dgram */
 };
-#define NSENDQ	20
+#define NSENDQ	20			/* number of timed segments */
+#define DELAY_ACKS			/* define to use delayed ACKs */
 
 /*
  * TCP Socket definition
@@ -225,8 +229,12 @@ typedef struct tcp_socket {
     longword	    notimeseq;	    /* seq number below which repeats sent */
     longword	    idle;	    /* timeout for last xmission + rto */
     longword	    winprobe;	    /* timeout on window probes */
-    word	    probe_wait;	    /* ticks between window probes */
     longword	    keepalive;	    /* timeout on passive open'd keepalives */
+#ifdef DELAY_ACKS
+    longword	    delayed_ack;    /* timeout on pending delayed ACK */
+#endif
+    word	    probe_wait;	    /* ticks between window probes */
+    word	    window_last_sent; /* our window, last sent value */
     byte	    send_kind;	    /* flag, nosend, sendnow */
     int		    sendqnum;	    /* number of active entries in sendq */
     struct sendqstat sendq[NSENDQ]; /* send queue stats per IP datagram */

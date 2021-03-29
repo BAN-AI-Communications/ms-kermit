@@ -1,5 +1,5 @@
 ; File MSSDEF.H
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -35,13 +35,13 @@ endif	; no_terminal
 ; if defining no_network or no_tcp then omit files msn*.c, msn*.asm, msn*.h.
 ; if defining no_terminal then omit the above plus msuibm.asm and mszibm.asm.
 
-version equ	315		; master version number
+version equ	316		; master version number
 verdef	macro
-	db	' MS-DOS Kermit: 3.15'
+	db	' MS-DOS Kermit: 3.16 Beta 10'
 ifdef	nls_portuguese
 	db	' Portuguese'
 endif	; nls_portuguese
-	db	' 15 Sept 1997'
+	db	' 22 April 2001'
 	endm
 
 BELL	EQU	07H
@@ -281,6 +281,7 @@ cmdonum	db 0		; non-zero to allow \number -> byte expansion
 cmcomma db 0		; non-zero to convert comma to space separator
 cmcnvkind db 0		; see cmcnv_* for parser output filter kinds
 cmarray	db 0		; non-zero to allow substitution in array brackets
+cmswitch db 0		; non-zero to recoverably parse for /switch words
 cmdinfo	ends
 
 ; Command parser equates
@@ -312,6 +313,7 @@ cxzflg	db 0		; ^X/^Z to interrupt file x-fer
 xflg	db 0		; Seen "X" packet
 eoflag	db 0		; EOF flag; non-zero on EOF
 capflg	db 0		; On if capturing data
+takdeb  db 0		; On if single stepping Take files
 takflg	db 0		; On if echoing commands of TAKE file
 timflg	db 1		; Say if are timing out or not
 destflg	db 1		; Incoming files destination: disk or printer
@@ -359,11 +361,11 @@ xchset	db 0		; transfer char set (0=hardware) on comms wire
 xchri	db 0		; transfer char set readable (0) or invertible (1)
 xtype	db 0		; file type for xfer (0=text,1=binary,etc)
 sdbl	db 0		; char to be doubled when sending (if non-null)
-rign	db 0		; char to be ignored when received (if non-null)
 lshift	db lock_enable	; locking shift (0=disable, 1=enable, 2=force on)
 cpkind	db 0		; checkpoint availability
 cpint	dd 0		; checkpoint interval
 xmode	db 0		; binary/manual mode sensing (0=manual)
+xcrc	db 0		; compute CRC for file set
 trinfo	ends
 endif
 
@@ -414,6 +416,7 @@ take_comand	equ	8
 ; values for takattr field
 take_malloc	equ	1
 take_autocr	equ	2
+take_switch	equ	4	; doing Switch
 take_while	equ	8	; While or For loop or Switch
 take_subwhile	equ	16	; worker from IF part of While/For
 ; malloc means new buffer malloc'd and segment is in .takbuf
@@ -442,8 +445,9 @@ cwdflg	equ	1		; deny remote cwd
 delflg	equ	2		; deny remote del
 dirflg	equ	4		; deny remote dir
 hostflg	equ	8		; deny remote host
-spcflg	equ	10H		; deny remote space
-finflg	equ	20H		; deny fin, bye, logo to server
+spcflg	equ	10H		; deny remote space (obsolete, non-functional)
+byeflg	equ	10h		; deny bye (replaces deny remote space)
+finflg	equ	20H		; deny fin, logo to server
 getsflg	equ	40H		; deny paths in get cmds to server
 sndflg	equ	80H		; deny paths in send cmds to server
 typflg	equ	100H		; deny paths in type

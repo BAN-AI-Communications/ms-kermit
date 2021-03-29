@@ -2,7 +2,7 @@
  * Main TCP protocol code
  *
  * Copyright (C) 1991, University of Waterloo.
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -62,7 +62,6 @@ static	initialized = 0;		/* if have started the stack */
 static	imposter = 0;			/* ARP for own IP toggle */
 extern	byte kdebug;			/* non-zero if debug mode is active */
 extern	word ktcpmss;			/* MSS override */
-	
 /*
  * Local IP address
  */
@@ -96,12 +95,14 @@ static udp_Socket *udp_allsocs = NULL;	/* UDP socket linked list head */
 #define UDP_LENGTH (sizeof(udp_Header))
 
 #define CONNECTION_REJECTED 9	/* a returnable status */
-#define tcp_NOSEND	0	/* for tcp send_kind, */
-#define tcp_SENDNOW	1 	/*  controlling tcp_retransmitter() */
+
+#define tcp_NOSEND	0	/* for tcp send_kind */
+#define tcp_SENDNOW	1 	/* repeat sending anything */
+#define tcp_SENDACK	2	/* send an ACK even if our data is blocked */
 
 word	mss = ETH_MSS;		/* Maximum Segment Size */
 static word do_window_probe = 0; /* to probe closed windows in tcp_send() */
-longword start_time;		/* DEBUGGING, ONLY FOR CLASS */
+longword start_time;		/* debugging, time first session began */
 
 #define in_GetVersion(ip) ((ip)->hdrlen_ver >> 4)
 #define in_GetHdrlen(ip)  ((ip)->hdrlen_ver & 0xf)  /* 32 bit word size */
@@ -111,7 +112,7 @@ longword start_time;		/* DEBUGGING, ONLY FOR CLASS */
 static in_Header * reasm(void *);
 static int use_reasmbuf;	/* 0 = not doing fragmented IP datagram */
 				/* else is 1 + slot number to clean later*/
-#define MAXSLOTS	8	/* number of datagrams in progress */
+#define MAXSLOTS	4	/* number of datagrams in progress */
 #define FRAGDATALEN (576-20)	/* size of each datagram */
 typedef struct {
 	int	next;		/* must be first element */
@@ -228,7 +229,6 @@ int
 udp_open(udp_Socket *s, word lport, longword ina, word port)
 {
 	if (s == NULL) return (0);
-
 	if (imposter == 0 && arp_resolve(my_ip_addr, NULL))/* imposter check */
 		{
 		outs("\r\n WARNING: our IP address is used by");
@@ -398,16 +398,17 @@ tcp_close(tcp_Socket *s)
 	if (s == NULL || s->ip_type != TCP_PROTO)
 		return (0);			/* failure */
 
-	s->sdatalen = s->sdatahwater; /* cannot send anything now */
+	s->sdatalen = s->sdatahwater;	 /* cannot send new data now */
 	if (s->state & (tcp_StateESTAB | tcp_StateSYNREC | tcp_StateCLOSWT))
 		{
-		if (kdebug) outs("FIN sent, closing\r\n");
+		if (kdebug & DEBUG_STATUS) outs("FIN sent, closing\r\n");
 		if (s->state == tcp_StateCLOSWT)
 			s->state = tcp_StateLASTACK;
 		else
 			s->state = tcp_StateFINWT1;
 		s->flags = tcp_FlagACK | tcp_FlagFIN;
 		s->timeout = set_timeout(tcp_TIMEOUT);	/* added */
+		s->send_kind = tcp_SENDACK;	/* sending our FIN */
 		tcp_send(s);
 		return (1);			/* success */
 		}
@@ -425,10 +426,11 @@ tcp_abort(tcp_Socket *s)
 {
 	if (s == NULL) return (0);		/* failure */
 
-	if (kdebug != 0) outs("TCP_ABORT\r\n");
+	if (kdebug & DEBUG_STATUS) outs("TCP_ABORT\r\n");
 	if ((s->state != tcp_StateLISTEN) && (s->state != tcp_StateCLOSED))
 		{
 		s->flags = tcp_FlagRST | tcp_FlagACK;
+		s->send_kind = tcp_SENDACK;	/* force a response */
 		tcp_send(s);
 		}
 	s->sdatalen = 0;
@@ -449,19 +451,39 @@ tcp_retransmitter(void)
 
 	for (s = tcp_allsocs; s != NULL; s = s->next)
 		{
-				/* Trigger to send, from tcp_handler() */
-		if (s->send_kind == tcp_SENDNOW)
-			tcp_send(s); /* if failure it leaves tcp_SENDNOW set*/
-				    /* else send_kind changes to tcp_NOSEND */
 
+		/* Trigger to send, s->send_kind, from functions, */
+		/* or there is data not yet sent */
+		if ((s->send_kind != tcp_NOSEND) ||
+				(s->sdatalen - s->sdatahwater))
+			tcp_send(s);
+
+#ifdef DELAY_ACKS
+		/* If outgoing ACK is in delay queue */
+		if (s->delayed_ack &&
+			chk_timeout(s->delayed_ack) == TIMED_OUT)
+			{		/* if timed out send ACK now */
+			s->delayed_ack = 0;
+			s->send_kind |= tcp_SENDACK;
+			tcp_send(s);
+			}
+#endif	/* DELAY_ACKS */
+
+		/* Check for timeout of returned ACKs */
 		for (i = 0; i < s->sendqnum; i++)	 /* waiting for ACK */
 			if (chk_timeout(s->sendq[i].timeout) == TIMED_OUT)
 				{
-				if (kdebug) outs("Timeout\r\n");
 				lost_ack(s);	/* lost ACK actions */
-	         	   	tcp_send(s); 	/* resend some data */
 				break;		/* exit sendq for-loop */
     				}
+		
+		/* If probing closed window, or sending keepalive check */
+		if (s->winprobe ||
+		   (s->keepalive && (chk_timeout(s->keepalive) == TIMED_OUT)))
+			{
+			do_window_probe++;	/* window probe */
+			tcp_send(s);		/* send probe */
+			}
 
   				/* if no transmission for idle ticks */
   		if (s->idle && (chk_timeout(s->idle) == TIMED_OUT))
@@ -472,13 +494,6 @@ tcp_retransmitter(void)
 			if (reasmbuf[i].frag_tmo &&
 			       chk_timeout(reasmbuf[i].frag_tmo) == TIMED_OUT)
 			         reasmbuf[i].frag_tmo = 0; /* empty the slot */
-
-		if (s->winprobe ||
-		   (s->keepalive && (chk_timeout(s->keepalive) == TIMED_OUT)))
-			{
-			do_window_probe++;	/* window probe */
-			tcp_send(s);		/* send probe */
-			}
 
 	/* TCP machine states which can timeout via variable s->timeout */
 		if (s->timeout && (chk_timeout(s->timeout) == TIMED_OUT))
@@ -546,6 +561,7 @@ tcp_tick(sock_type *s)
 	in_Header *ip;
 	in_Header * temp_ip;
 	int packettype;
+
 					/* read a packet */
 	while ((ip = (in_Header *)eth_arrived(&packettype)) != NULL)
 	{
@@ -555,7 +571,7 @@ tcp_tick(sock_type *s)
 		if ((in_GetVersion(ip) != 4) ||
 		(checksum(ip, in_GetHdrlenBytes(ip)) != 0xffff))
 			{
-			if (kdebug)
+			if (kdebug & DEBUG_STATUS)
 			    outs("IP Received BAD Checksum \r\n");
 			break;
 			}
@@ -677,7 +693,6 @@ include:
 	frag_len = ntohs(ip->length) - ip_hlen;	/* bytes of IP data */
 	frag_first = (frag & 0x1fff) << 3;	/* offset of first data byte*/
 	frag_last = frag_first + frag_len - 1;	/* offset of last data byte */
-
 			 /* if More Frags bit is clear then have end of
 			 /* datagram and hence can get datagram length */
 	if ((frag & IP_MF) == 0)		/* if More Frags is clear */
@@ -799,7 +814,7 @@ udp_write(udp_Socket *s, byte FAR *datap, int len)
 		}
 	if (eth_send(ntohs(pkt->in.length)) != 0)	/* send pkt */
 			return (len);
-	if (kdebug) outs("Failed to put packet on wire\r\n");
+	if (kdebug & DEBUG_STATUS) outs("Failed to put packet on wire\r\n");
 	  	return (0);			/* sending failed */
 }
 
@@ -911,7 +926,9 @@ tcp_read(tcp_Socket *s, byte FAR *datap, int maxlen)
 
 	/* read from rdata, destuff CR NUL, deliver up to maxlen
 	   bytes to output buffer datap, report # obtained in int
-	   obtained, remember last read byte for CR NUL state */
+	   obtained, remember last read byte for CR NUL state.
+	   Returns raw bytes consumed from buffer, in x, and number
+	   of bytes delivered to caller, in obtained. */
 	x = destuff(s->rdata, s->rdatalen, datap, maxlen, &obtained,
 		&s->last_read);
 	if (x <= 0)
@@ -919,17 +936,24 @@ tcp_read(tcp_Socket *s, byte FAR *datap, int maxlen)
 
 	s->rdatalen -= x;			/* bytes consumed */
 	bcopyff(&s->rdata[x], s->rdata, s->rdatalen);  /* copy down */
-			/* send a window update if crossing a boundry */
-	if (s->rdatalen < (TCP_RBUFSIZE / 2) &&
-		(s->rdatalen + x) >= TCP_RBUFSIZE / 2)
-			tcp_send(s);		/* send opening update */
+
+	/* Send a window update if either the window has opened
+	by two MSS' since our last transmission, or opening
+	across half the total buffer */
+
+	if ( (TCP_RBUFSIZE - s->rdatalen >= 
+			(int)s->window_last_sent + 2 * (int)s->mss) ||
+		(s->rdatalen < TCP_RBUFSIZE / 2 &&
+			s->rdatalen + x >= TCP_RBUFSIZE / 2) )
+			s->send_kind = tcp_SENDACK;	/* send now */
+
 	return (obtained);		/* return bytes obtained */
 }
 
 /*
  * Write data to a connection.
- * Returns number of bytes written, == 0 when connection is not in
- * established state.
+ * Returns number of bytes written, 0 when connection is not in
+ * established state. tcp_retransmitter senses data to be transmitted.
  */
 static int
 tcp_write(tcp_Socket *s, byte FAR *dp, int len)
@@ -947,13 +971,7 @@ tcp_write(tcp_Socket *s, byte FAR *dp, int len)
 	if (x > 0)
 		{
 		bcopyff(dp, &s->sdata[s->sdatalen], x); /* append to buf */
-		s->sdatalen += x;		/* un-ACK'd data */
-					/* Nagle's algorithm, RFC 896 */
-		/* transmit if no previous un-ACK'd data or non-Nagle mode */
-		if ((s->sdatalen == x) || 
-		    ((s->sdatalen - s->sdatahwater) >= (int)s->mss) ||
-		    ((s->sock_mode & TCP_MODE_NAGLE) != TCP_MODE_NAGLE))
-			tcp_send(s);
+		s->sdatalen += x;		/* data in send buffer */
 		}
 	return (x);
 }
@@ -969,12 +987,25 @@ udp_handler(in_Header *ip)
 	tcp_PseudoHeader ph;
 	byte	FAR * dp;
 	word	len;
-	int	ip_hlen, frag;
+	int	ip_hlen;
 
 	ip_hlen = in_GetHdrlenBytes(ip);
 	up = (udp_Header FAR *)((byte *)ip + ip_hlen); /* UDP dgram pointer */
 	len = ntohs(up->length);
-	frag = ntohs(ip->frag) & 0x3fff;	/* frag flags and offset */
+        if (ntohs(ip->frag) & 0x3fff)   	/* frag flags and offset */
+                return (0);             /* can't deal with fragments here */
+
+	if (up->checksum)			/* if checksum field used */
+		{
+		ph.src = ip->source;		/* already network order */
+		ph.dst = ip->destination;
+		ph.mbz = 0;
+		ph.protocol = UDP_PROTO;
+		ph.length = up->length;
+		ph.checksum = checksum(up, len);
+		if (checksum(&ph, sizeof(tcp_PseudoHeader)) != 0xffff)
+			return (0);		/* failure */
+		}
 
 				/* demux to active sockets */
 	for (s = udp_allsocs; s != NULL; s = s->next)
@@ -1008,23 +1039,11 @@ udp_handler(in_Header *ip)
 	if (s == NULL)
 		{
 		icmp_noport(ip);	/* tell host port is unreachable */
-		if (kdebug) outs(" UDP discarding...\r\n");
+		if (kdebug & DEBUG_STATUS) outs(" UDP discarding...\r\n");
 		return (0);			/* say no socket */
 		}
 
 	if (s->sisopen == SOCKET_CLOSED) return (0);
-
-	if (up->checksum)			/* if checksum field used */
-		{
-		ph.src = ip->source;		/* already network order */
-		ph.dst = ip->destination;
-		ph.mbz = 0;
-		ph.protocol = UDP_PROTO;
-		ph.length = up->length;
-		ph.checksum = checksum(up, len);
-		if (checksum(&ph, sizeof(tcp_PseudoHeader)) != 0xffff)
-			return (0);		/* failure */
-		}
 
 					    /* process user data */
 	if ((len -= UDP_LENGTH) > 0)
@@ -1058,6 +1077,19 @@ tcp_handler(in_Header *ip)
         if (ntohs(ip->frag) & 0x3fff)   	/* frag flags and offset */
                 return (0);             /* can't deal with fragments here */
 
+						/* pseudo header checking */
+	ph.src = ip->source;			/* still in network order */
+	ph.dst = ip->destination;
+	ph.mbz = 0;
+	ph.protocol = TCP_PROTO;
+	ph.length = htons(len);
+	ph.checksum =  checksum(tp, len);
+	if (checksum(&ph, sizeof(ph)) != 0xffff)
+		{
+		if (kdebug & DEBUG_STATUS) outs("Bad TCP checksum\r\n");
+		return (1);
+		}
+
 				/* demux to active sockets */
 	for (s = tcp_allsocs; s != NULL; s = s->next)
 		if (s->hisport != 0 &&
@@ -1079,27 +1111,18 @@ tcp_handler(in_Header *ip)
 		}
 	if (s->sisopen == SOCKET_CLOSED) return (0);
 
-	/* pseudo header checking */
-	ph.src = ip->source;			/* still in network order */
-	ph.dst = ip->destination;
-	ph.mbz = 0;
-	ph.protocol = TCP_PROTO;
-	ph.length = htons(len);
-	ph.checksum =  checksum(tp, len);
-	if (checksum(&ph, sizeof(ph)) != 0xffff)
-		{
-		if (kdebug) outs("Bad TCP checksum\r\n");
-		return (1);
-		}
-
-	if (flags & tcp_FlagRST)	/* reset code */
+	if (flags & tcp_FlagRST)	/* reset arrived */
 		{
 		long limit;
 
-		if (kdebug != 0)
+		if (kdebug & DEBUG_STATUS)
 			outs("RST received.");
 		outs(" Connection refused by host\r\n");
-		ldiff = ntohl(tp->acknum) - s->seqnum; /* current - prev ack*/
+		if (flags & tcp_FlagACK)	/* if ACK is valid */
+				/* current - prev ack*/
+			ldiff = ntohl(tp->acknum) - s->seqnum;
+		else
+			ldiff = 0;		/* no ACK */
 		if (ldiff < 0)			/* ack out of bounds */
 			{
 			outs("ACK is "); outdec(0xffff & (word)ldiff);
@@ -1165,7 +1188,7 @@ tcp_handler(in_Header *ip)
     /* Reset the session if SYN is absent */
         if (flags & tcp_FlagSYN)
 		{
-		if (kdebug != 0) outs("LISTEN\r\n");
+		if (kdebug & DEBUG_STATUS) outs("LISTEN\r\n");
 		if (arp_resolve(ntohl(ip->source), &s->hisethaddr[0]) == 0)
 			return (0);	/* failed to get host MAC address */
 		s->hisport = ntohs(tp->srcPort);
@@ -1175,7 +1198,7 @@ tcp_handler(in_Header *ip)
 			s->mss = (mss > 536)? 536: mss;	/* non-fragmentable */
 		s->flags = tcp_FlagSYN | tcp_FlagACK;
 		s->acknum = ntohl(tp->seqnum) + 1;   /* sync to their SYN */
-		s->send_kind = tcp_SENDNOW;	     /* reply immediately */
+		s->send_kind = tcp_SENDACK;	     /* reply */
 		s->state = tcp_StateSYNREC;
 		s->timeout = set_timeout(tcp_TIMEOUT);
 		s->keepalive = set_timeout(100); /* keepalive */
@@ -1190,7 +1213,7 @@ tcp_handler(in_Header *ip)
     /* has been received yet so s->acknum means nothing so far. */
     /* Get SYN+ACK to our SYN or get just SYN from the remote host. */
    
-	if (kdebug != 0) outs("SYN_SENT\r\n");
+	if (kdebug & DEBUG_STATUS) outs("SYN_SENT\r\n");
 	if ((flags & tcp_FlagSYN) == 0)		/* they did not send SYN */
 		{
         	tcp_rst(ip, tp);		/* send a RST */
@@ -1205,9 +1228,9 @@ tcp_handler(in_Header *ip)
 			s->seqnum++;			/* count our SYN */
 			s->acknum = ntohl(tp->seqnum) + 1; /* sync to them */
 			s->flags = tcp_FlagACK;		/* ACK their SYN */
-			s->send_kind = tcp_SENDNOW;
+			s->send_kind = tcp_SENDACK;
 			tcp_processdata(s, tp, len);	/* if sent data */
-			if (kdebug != 0) outs("ESTABLISHED\r\n");
+			if (kdebug & DEBUG_STATUS) outs("ESTABLISHED\r\n");
 			break;
 			}
 		else			/* simultaneous open or wrong ACK */
@@ -1221,7 +1244,7 @@ tcp_handler(in_Header *ip)
 	s->flags = tcp_FlagSYN  + tcp_FlagACK;		/* ACK their SYN */
 	s->timeout = set_timeout(tcp_TIMEOUT);
 	s->state = tcp_StateSYNREC;
-	s->send_kind = tcp_SENDNOW;	/* reply immediately */
+	s->send_kind = tcp_SENDACK;			/* reply */
 	break;
 
     case tcp_StateSYNREC:
@@ -1229,14 +1252,14 @@ tcp_handler(in_Header *ip)
     /* Our s->acknum points one beyond it. We have sent a SYN but we are */
     /* awaiting an ACK to it. */
 
-	if (kdebug != 0) outs("SYN_RECVD\r\n");
+	if (kdebug & DEBUG_STATUS) outs("SYN_RECVD\r\n");
 	if ((flags & tcp_FlagACK) && 			/* an ACK */
 		(ntohl(tp->acknum) == (s->seqnum + 1)))	/* to our SYN */
 		{
 		s->flags = tcp_FlagACK;
 		s->seqnum++;			/* move beyond our SYN */
 		tcp_processdata(s, tp, len);	/* gather received data */
-		s->send_kind = tcp_SENDNOW;	/* reply immediately */
+		s->send_kind = tcp_SENDACK;	/* reply */
 		s->state = tcp_StateESTAB;
  /*       	s->timeout = 0;     		/* do not timeout */
 		}
@@ -1247,8 +1270,9 @@ tcp_handler(in_Header *ip)
     /* Both sides have exchanged and ACK'd their SYNs. Proceed to exchange */
     /* data in both directions. An ACK is required on each packet. */
 
+	s->timeout = 0;				/* do not timeout */
 	if ((flags & tcp_FlagACK) == 0)
-		break;			 /* they must ack somthing*/
+		break;			 /* they should ACK something*/
 
 				/* process their ack value in packet */
 	/* ldiff is their ack number minus our oldest sent seq number */
@@ -1281,22 +1305,13 @@ tcp_handler(in_Header *ip)
 			s->cwindow = TCP_SBUFSIZE;
 		}
 
-	s->flags = tcp_FlagACK;			/* tell them thanks */
-
-	/* Case of ldiff < 0 means it's an old packet so our last response
-	   must have been lost. ACK it to reinform the remote host. */
-
-	if (ldiff)			/* data of any kind, respond */
-		s->send_kind = tcp_SENDNOW;	/* schedule transmission */
+	/* Case of ldiff < 0 means it's an old packet, they have ACK'd
+	   a higher sequence value already, no action needed. */
 
 			/* process incoming data, get s->window */
 	data_for_us = tcp_processdata(s, tp, len);  /* get data for us */
 
-		/* if we have data to be sent and they have some space */
-	if ((s->sdatalen - s->sdatahwater) && (s->window > 0))
-		s->send_kind = tcp_SENDNOW;	/* schedule transmission */
-
-	if (s->window)			/* if window is now open */
+	if (s->window)			/* if their window is now open */
 		s->winprobe = 0;	/* end window probing, if any */
 
 	/* They did not ACK more of our sent data, we sent data needing ACK, 
@@ -1311,17 +1326,18 @@ tcp_handler(in_Header *ip)
 			{
 			word temp_hwater;
 
-			if (kdebug) outs(" Congestion loss\r\n");
+			if (kdebug & DEBUG_STATUS)
+				outs(" Congestion loss\r\n");
 				/* do Van Jacobson congestion avoidance */
 				/* don't time below notimedseq seq number */
 			s->notimeseq = s->seqnum + s->sdatahwater;
 			s->sendqnum = 0;  	/* flush send-timer queue */
 			s->ssthresh = s->cwindow >> 1; /* drop back */
 			s->cwindow = s->mss;	/* one segment only */
-			temp_hwater = s->sdatahwater;
+			temp_hwater = s->sdatahwater;	/* save real info */
 			s->sdatahwater = 0;	/* resend oldest segment */
-			tcp_send(s);		/* but only that segment */
-			s->sdatahwater = temp_hwater;
+			tcp_send(s);		/* send immediately */
+			s->sdatahwater = temp_hwater; /* restore real info */
 			s->cwindow = s->ssthresh + 3 * s->mss; /* count ACKs*/
 			}
 		if (s->loss_count > 3)	/* trailing/extra ACKs, count space */
@@ -1330,10 +1346,9 @@ tcp_handler(in_Header *ip)
 
 	s->old_window = s->window;	/* remember as old remote window */
 
-
 	if (flags & tcp_FlagFIN)		/* they said FIN */
 		{
-		if (kdebug != 0) outs("FIN received\r\n");
+		if (kdebug & DEBUG_STATUS) outs("FIN received\r\n");
 		if (s->sdatalen)		/* we have more to send */
 			s->state = tcp_StateCLOSWT;
 		else
@@ -1343,7 +1358,7 @@ tcp_handler(in_Header *ip)
 			s->state = tcp_StateLASTACK; /* nothing more from us*/
 			}
 		s->acknum++;			/* count their FIN */
-		s->send_kind = tcp_SENDNOW;	/* reply immediately */
+		s->send_kind = tcp_SENDACK; 	/* reply */
 		}
 	break;
 
@@ -1352,7 +1367,7 @@ tcp_handler(in_Header *ip)
 	/* Obtain last minute ACKs of our data, send our FIN with our */
 	/* s->seqnum pointing one byte before our FIN. */
 
-	if (kdebug != 0) outs("CLOSEWT\r\n");
+	if (kdebug & DEBUG_STATUS) outs("CLOSEWT\r\n");
 	ldiff = ntohl(tp->acknum) - s->seqnum; /* current - prev ack */
 	if (ldiff > 0 && ldiff <= s->sdatalen) /* their ack is in our window*/
 		{
@@ -1363,12 +1378,12 @@ tcp_handler(in_Header *ip)
 			s->sdatahwater = 0;
 		bcopyff(&s->sdata[diff], s->sdata, s->sdatalen);
 		}				/* move residual */
-	s->send_kind = tcp_SENDNOW;	/* reply immediately */
-	s->flags = tcp_FlagACK;		/* ACK the reception */
+
 	if (s->sdatalen <= 0)
 		{
 		s->flags |= tcp_FlagFIN;	/* say no more data */
 		s->state = tcp_StateLASTACK;	/* get their ACK */
+		s->send_kind = tcp_SENDACK;	/* reply */
 		}
 	break;
 
@@ -1377,7 +1392,7 @@ tcp_handler(in_Header *ip)
 	/* Expect to receive either an ACK for the FIN, or the remote FIN, */
 	/* or a remote FIN and and ACK for our FIN. */
 
-	if (kdebug != 0) outs("FINWAIT-1\r\n");
+	if (kdebug & DEBUG_STATUS) outs("FINWAIT-1\r\n");
 	s->sdatalen = s->sdatahwater; /* we can't send new from here */
 	if (flags & tcp_FlagACK)
 		{
@@ -1403,13 +1418,12 @@ tcp_handler(in_Header *ip)
 		}		/* fall through to look at their FIN bit */
 
 
-	if (flags & (tcp_FlagFIN || tcp_FlagACK) == 
-					(tcp_FlagFIN || tcp_FlagACK))
+	if (flags & (tcp_FlagFIN | tcp_FlagACK) == 
+					(tcp_FlagFIN | tcp_FlagACK))
 		{
-		if (kdebug != 0) outs("FIN received\r\n");
+		if (kdebug & DEBUG_STATUS) outs("FIN received\r\n");
 		s->acknum++;		/* ACK their FIN */
-		s->flags = tcp_FlagACK;
-		s->send_kind = tcp_NOSEND;
+		s->send_kind = tcp_SENDACK;
 
 		/* if our FIN has been ACK'd then do timed wait */
 		/* else go to CLOSING to await that ACK */
@@ -1437,14 +1451,14 @@ tcp_handler(in_Header *ip)
 	/* Our s->seqnum points at our FIN, their tp->acknum points to our */
 	/* FIN too, so these two are equal */
 
-	if (kdebug != 0) outs("FINWAIT-2\r\n");
+	if (kdebug & DEBUG_STATUS) outs("FINWAIT-2\r\n");
 	s->sdatalen = s->sdatahwater;	/* cannot send from here */
 	if (flags & tcp_FlagFIN)
 		if ((ntohl(tp->acknum) == s->seqnum) &&
 			(ntohl(tp->seqnum) >= s->acknum))
 			{
 			s->acknum++;		/* ACK their FIN */
-			s->flags = tcp_FlagACK;
+			s->send_kind = tcp_SENDACK;
 			tcp_send(s);		/* send last ACK */
 			/* state TIMEWT would be next if there were
 			   something to drive it, but there isn't */
@@ -1460,7 +1474,7 @@ tcp_handler(in_Header *ip)
 	/* we have sent an ACK for their FIN. */
 	/* Get an ACK to our FIN and then go to TIMEWT (empty here). */
 
-	if (kdebug != 0) outs("CLOSING\r\n");
+	if (kdebug & DEBUG_STATUS) outs("CLOSING\r\n");
     	if (flags & tcp_FlagACK)
 		if (ntohl(tp->acknum) == s->seqnum)
 			{
@@ -1476,11 +1490,12 @@ tcp_handler(in_Header *ip)
     /* Have sent a FIN to them with our s->seqnum one less than it. */
     /* Here we get their ACK to our FIN and exit the protocol stack. */
 
-	if (kdebug != 0) outs("LAST_ACK\r\n");
+	if (kdebug & DEBUG_STATUS) outs("LAST_ACK\r\n");
 	if (flags & tcp_FlagACK)		/* an ACK to our FIN */
 		if (ntohl(tp->acknum) == s->seqnum + 1)
 			{
 			s->state = tcp_StateCLOSED;     /* no 2 msl */
+			s->send_kind = tcp_NOSEND;	/* no repeats */
 			tcp_unthread(s);
 			break;
 			}
@@ -1488,12 +1503,13 @@ tcp_handler(in_Header *ip)
 	if (flags & tcp_FlagFIN)    
 		{
 		s->flags = tcp_FlagACK | tcp_FlagFIN;
-		s->send_kind = tcp_SENDNOW;	/* reply immediately */
+		s->send_kind = tcp_SENDACK;		/* reply */
 		}
 	break;
 
+	/* a dummy wait 2 MSL for old pkts to die before reusing this port */
     case tcp_StateTIMEWT:
-	if (kdebug != 0) outs("TIMED_WAIT\r\n");
+	if (kdebug & DEBUG_STATUS) outs("TIMED_WAIT\r\n");
 	s->state = tcp_StateCLOSED;		 /* no 2 msl */
 	tcp_unthread(s);
 	break;
@@ -1521,7 +1537,7 @@ tcp_processdata(tcp_Socket *s, tcp_Header FAR *tp, int len)
 	if (s == NULL || tp == NULL) return (0);	/* failure */
 
 	s->window = ntohs(tp->window);
-	if (s->window > 0x7fff)			/* SGI 64KB window nonsense?*/
+	if (s->window > 0x7fff)			/* 64KB window nonsense? */
 		s->window = 0x7fff;		/* yes, cut window to 32KB */
 
 	ldiff = ntohl(tp->seqnum) - s->acknum;	/* new data, signed long */
@@ -1566,8 +1582,17 @@ tcp_processdata(tcp_Socket *s, tcp_Header FAR *tp, int len)
 	len -= x;			/* remove the TCP header */
 
 	if ((len != 0) || (diff != 0))	/* data present or keepalive */
-		s->send_kind = tcp_SENDNOW; /* send an ACK for any data */
+		{
+#ifdef DELAY_ACKS
+			/* if not delaying yet, do so now, by one avg rtt */
+		if (s->delayed_ack == 0)
+		 	s->delayed_ack = set_ttimeout(s->vj_sa);
+#else	/* not implementing delayed ACKs */
+			s->send_kind = tcp_SENDACK;	/* send now */
 
+#endif /* DELAY_ACKS */
+		}
+	
 	if (len <= 0)			/* amount of data in this packet */
 		return (len);		/* no new data, 0 = must be an ACK */
 
@@ -1580,13 +1605,14 @@ tcp_processdata(tcp_Socket *s, tcp_Header FAR *tp, int len)
 	 			/* limit receive size to our window */
 	if (s->rdatalen < 0)
 		s->rdatalen = 0; /* sanity check */
+
 	if (len > (x = TCP_RBUFSIZE - s->rdatalen))
 			len = x;		/* space available only */
 	if (len <= 0)				/* old packet */
 		return (1);			/* say some data for us */
 
-	bcopyff(dp, &s->rdata[s->rdatalen], len);
-	s->rdatalen += len;
+	bcopyff(dp, &s->rdata[s->rdatalen], len); /* copy data to buffer */
+	s->rdatalen += len;		/* count of data in receiver buf */
 	s->acknum += len;		 /* new ack begins at end of data */
 	return (len);				/* success */
 }
@@ -1614,10 +1640,10 @@ new_rto(tcp_Socket * s, int rtt)
 	s->rto = ((s->vj_sa >> 2) + s->vj_sd) >> 1;
 	if (s->rto > 60 * 18)		/* PC clock ticks, 18.2/sec */
 		s->rto = 60 * 18; 	/* 60 sec cap */
-	if (s->rto < 2)
-		s->rto = 2;		/* floor of two Bios tics */
+	if (s->rto < 4)
+		s->rto = 4;		/* floor of four Bios tics */
 	krto(s->rto);			/* tell Kermit main body */
-	if (kdebug)			/* show round trip time stats */
+	if (kdebug & DEBUG_TIMING)	/* show round trip time stats */
 		{
 		outs("time="); outdec((int)(0x7fffL &  
 				(set_ttimeout(0) - start_time)));
@@ -1629,7 +1655,8 @@ new_rto(tcp_Socket * s, int rtt)
 		}
 }
 
-/* TCP ACK has been lost. Reduce congestion window and backoff s->rto. */
+/* TCP ACK has been lost. Reduce congestion window and backoff s->rto.
+   Resend oldest segment, or timeout completely to closed condition. */
 void
 lost_ack(tcp_Socket * s)
 {
@@ -1642,16 +1669,17 @@ lost_ack(tcp_Socket * s)
 	s->cwindow = s->mss;	/* congestion window to one full pkt */
 	s->loss_count = 0;	/* fast retransmit ACK pkt loss counter */
 
-	if (s->rto == 18 * 60)	/* have reached threshold of pain, quit */
+	if (s->rto == 16 * 18 * 60) /* have reached threshold of pain, quit */
 		{
-		tcp_close(s);
-		if (kdebug) 
+		if (kdebug & DEBUG_STATUS) 
 		   outs(" Closing session from excessive timeout delay\r\n");
+		tcp_close(s);
 		return;
 		}
-	if ((s->rto += s->rto) > 18 * 60)	/* double timeout */
-		s->rto = 18 * 60;		/* 1 minute max */
+	if (kdebug & DEBUG_STATUS) outs(" Timeout, lost ACK\r\n");
+	s->rto += s->rto;			/* double timeout */
 	krto(s->rto + 5 * 18); /* tell Kermit main body 5 sec minimum */
+	tcp_send(s);				/* resend oldest segment */
 }
 
 /*
@@ -1676,8 +1704,6 @@ tcp_send(tcp_Socket *s)
 
 	if (s == NULL) return (0);		/* failure */
 
-	s->send_kind = tcp_NOSEND;	/* clear flag for tcp_retrasmitter */
-
 	senddatalen = s->sdatalen - s->sdatahwater;	/* unsent bytes */
 	if (senddatalen < 0)				/* sanity check */
 		senddatalen = 0;
@@ -1691,6 +1717,8 @@ tcp_send(tcp_Socket *s)
 		if (do_window_probe || ((s->window == 0) && senddatalen))
 		{
 		do_window_probe = 0;		/* clear trigger flag */
+		s->send_kind = tcp_NOSEND;
+				/* clear flag for tcp_retransmitter */
 		if (s->winprobe)		/* if timing closed window */
 			{
 			if (chk_timeout(s->winprobe) != TIMED_OUT)
@@ -1713,73 +1741,126 @@ tcp_send(tcp_Socket *s)
 		senddatalen = 1;		/* for passive keepalive */
 				/* tell Kermit main body 5 sec minimum */
 		krto(s->probe_wait + 5 * 18);
-		if (kdebug) outs(" Window probe\r\n");
+		if (kdebug & DEBUG_STATUS) outs(" Window probe\r\n");
 		goto send_packet;		/* bypass congestion window */
 		}
+
+	/* Nagle's condition: if have unsent data, and have data already 
+	   sent but un-ACK'd, and the unsent data is of size less than one
+	   MSS, and the socket is in Nagle mode then return without sending. 
+	   See RFC 896. */
+	/* Note: there are two approaches to measuring the amount to be
+	   sent under Nagle conditions: one is the entire buffer of unsent
+	   data, to be sent as whole segments and then a fractional end.
+	   In this case the Nagle condition applies to the entire buffer.
+	   This method makes sending larger buffers proceed with no waiting,
+	   and there is a fractional segment sent at the end. This avoids
+	   waiting for possibly delayed ACKs while processing this buffer,
+	   unless this buffer is smaller than one segment.
+
+	   The second approach deals with the buffer up to one MSS at a
+	   time and applies the Nagle condition to each such piece
+	   independently. The fractional end is held back pending arrival
+	   of the awaited ACK, or supplemented to a full segment by newer
+	   data later on. BSD uses this second approach and generates
+	   full segments except at the end of a file. This approach makes
+	   the fractional piece wait for the ACK and hence delays matters
+	   considerably when the remote host uses a delayed ACK at this
+	   point.
+	   */
+
+	if (senddatalen && s->sdatahwater && (senddatalen < (int)s->mss) &&
+		    ((s->sock_mode & TCP_MODE_NAGLE) == TCP_MODE_NAGLE))
+			senddatalen = 0;	/* block sending data */
+
 
 	/* Congestion avoidance */
 
 	/* their announced window minus bytes sent (unACK'd) from here */
 	if ((their_window = s->window - s->sdatahwater) <= 0)
-		if ((s->flags & tcp_FlagFIN) == 0)	/* FIN goes out */
-			return (0);	/* can't send, no remote space */
+		senddatalen = 0; 	/* can't send data, no remote space */
 
 	if (senddatalen > their_window)	    /* do not exceed their window */
 		senddatalen = their_window;
-	
+
+			/* apply congestion avoidance limitation */
 	userdata = s->cwindow - (s->cwindow % s->mss);	/* truncate cwindow*/
 	userdata -= s->sdatahwater;		/* minus bytes already sent */
+	/* cwindow is current, bytes already sent are historical, subtraction
+	   to obtain userdata may be negative if cwindow shrinks */
 
-	/* if new data  > congestion window available, limit sending */
+	/* if  new data > congestion window available, limit sending */
 	if (senddatalen > userdata)
-		if ((senddatalen = userdata) <= 0)
- 			{ 	/* safety in case cwindow shrinks on us */
-			s->idle = set_ttimeout(s->rto); /* inactivity timer */
-			if ((s->flags & tcp_FlagFIN) == 0) /* FIN goes out */
-				return (0); /* cannot send, congest wind full */
-			}
+		senddatalen = userdata;
+ 			 	/* safety in case s->cwindow shrinks on us */
+	if (senddatalen < 0)
+			senddatalen = 0;
 
-	/* Now we know how many bytes can be sent. Prepare a standard
-	IP header and send packets */
+	/* If data are allowed to be sent, or have an ACK to return,
+	   or have a delayed ACK to return, or are sending a SYN/FIN
+	   (not in sdata) then send packets. */
+	if (senddatalen || s->send_kind & tcp_SENDACK ||
+#ifdef DELAY_ACKS
+			s->delayed_ack ||
+#endif /* DELAY_ACKS */
+			s->flags & (tcp_FlagSYN | tcp_FlagFIN))
+		goto send_packet;
+
+	/* else nothing to do */	
+	s->send_kind = tcp_NOSEND;	/* clear trigger flag */
+	return (0);
+
+	/* Now we know how many bytes can be sent, senddatalen. Prepare
+	standard TCP and IP headers, send packets. If the lan driver, ODI,
+	does not become free for transmissions in a short time then abandon
+	the attempt and let sdata bytes appear ready for work again by
+	tcp_retransmitter. */
 
 send_packet:
+
+	if (odi_busy())	    	/* wait for structures to become free */
+		return (0);	/* failed, try again later */
+
 	sendqindex = s->sendqnum;	/* number of existing queue entries */
-
-	while (odi_busy()) ;	/* wait for structures to become free */
-
 	pkt = (struct pkt *)eth_formatpacket(&s->hisethaddr[0], TYPE_IP);
 	pkt->in.hdrlen_ver = 0x45;	/* version 4, hdrlen 5 */
 	pkt->in.tos = 0;		/* type of service, normal */
 	pkt->in.frag = 0;		/* fragment, none, allowed */
-        pkt->in.ttl = 60;		/* seconds */
+        pkt->in.ttl = 60;		/* TTL seconds */
 	pkt->in.proto = TCP_PROTO;
        	pkt->in.source = htonl(my_ip_addr);
        	pkt->in.destination = htonl(s->hisaddr);
        	ph.src = pkt->in.source;	/* already in network order */
        	ph.dst = pkt->in.destination;
-       	ph.mbz = 0;
+     	ph.mbz = 0;			/* must be zero */
        	ph.protocol = TCP_PROTO;
 	pkt->tcp.srcPort = htons(s->myport);
 	pkt->tcp.dstPort = htons(s->hisport);
 	pkt->tcp.acknum = htonl(s->acknum);
-	pkt->tcp.window = htons(TCP_RBUFSIZE - s->rdatalen);
+	s->window_last_sent = TCP_RBUFSIZE - s->rdatalen;
+	pkt->tcp.window = htons(s->window_last_sent);
 	pkt->tcp.urgentPointer = 0;  /* not used in this program */
 
 	while (1 == 1)
 		{
+		if (odi_busy())	 	/* wait for structures to become free */
+			return (0);	/* failed, try again later */
 		userdata = 0;			/* user data sent in this pkt*/
 		dp = (byte *)pkt->maxsegopt;
 				
-		if (senddatalen)		/* set PSH bit on data pkts */
+					/* TCP header material */
+
+		/* Set PSH bit when sending last byte of sdata buffer */
+		if (senddatalen && 
+			(senddatalen + s->sdatahwater >= s->sdatalen))
 			s->flags |= tcp_FlagPUSH;
 		else
 			s->flags &= ~tcp_FlagPUSH;
 
-					/* tcp header material */
 		if (do_window_probe)			/* window probing */
 			{
 	        	pkt->tcp.seqnum = htonl(s->seqnum - 1); /* old data */
-			s->flags &= ~tcp_FlagPUSH;		/* no PUSH */
+			s->flags &= ~tcp_FlagPUSH;	/* no PSH on probe */
 			}
 		else
         		pkt->tcp.seqnum = htonl(s->seqnum + s->sdatahwater);
@@ -1811,7 +1892,6 @@ send_packet:
                 		sendpktlen += userdata; /* len of this pkt */
 				}
         		}
-
 					/* Internet Packet header */
         	pkt->in.identification = htons(++ip_id); /* pre-inc req'd */
         	pkt->in.checksum = 0;
@@ -1827,15 +1907,17 @@ send_packet:
 	/* Send the packet before recording timeout information so the
 	   time of slow transmissions (serial) don't confuse s->rto from
 	   variable length packets. Failure to transmit will leave
-	   s->send_kind at tcp_SENDNOW, and hence cause retransmission. */
+	   s->send_kind intact, and hence cause retransmission. */
 
 		if (eth_send(htons(pkt->in.length)) == 0) /* send packet */
 			{				/* here if failed */
-			if (kdebug) outs(" Failed to put packet on wire\r\n");
-			s->send_kind = tcp_SENDNOW;	/* just to be sure */
+			if (kdebug & DEBUG_STATUS)
+				outs(" Failed to put packet on wire\r\n");
 			do_window_probe = 0;
 		  	return (0);			/* sending failed */
 			}
+
+		s->delayed_ack = 0;		/* cancel delayed ACKs */
 
 		if (do_window_probe)
 			{
@@ -1855,7 +1937,10 @@ send_packet:
 						/* when sent, for rtt */
 			s->sendq[sendqindex].time_sent = set_ttimeout(0);
 						/* when segment times out */
-			s->sendq[sendqindex].timeout = set_ttimeout(s->rto);
+			s->sendq[sendqindex].timeout =
+				(s->rto < 18 * 60)?
+				set_ttimeout(s->rto):
+				set_timeout(60);	/* 60 sec max */
 						/* seq number of next dgram */
 			s->sendq[sendqindex].next_seq = s->seqnum + 
 							s->sdatahwater;
@@ -1867,15 +1952,17 @@ send_packet:
 			else
 				sendqindex--;		/* no, reuse last */
 			}
-
 		senddatalen -= userdata;	/* qty user data yet to send */
 		if (senddatalen <= 0)		/* if have sent all data */
 			break;
-	while (odi_busy()) ;	/* wait for data structures to become free */
 	}					/* do next IP packet */
-	s->idle = set_ttimeout(s->rto);		/* inactivity timer */
+
+	s->idle = (4 + s->rto < 18 * 60)?
+		set_ttimeout(s->rto + 4):	/* inactivity timer */
+		set_timeout(60);		/* 60 sec max */
 	if (s->keepalive)		/* passive open keepalive timer */
 		s->keepalive = set_timeout(100); 	/* keepalive */
+	s->send_kind = tcp_NOSEND;	/* clear flag for tcp_retransmitter */
 	return (1);				/* success */
 }
 
@@ -1897,6 +1984,7 @@ tcp_rst(in_Header *his_ip, tcp_Header FAR * oldtcpp)
 
 	if (his_ip == NULL || oldtcpp == NULL) return (0);	/* failure */
 
+	while (odi_busy()) ;	/* wait for data structures to become free */
 					/* see RFC 793 page 65 for details */
 	oldtcpp->flags = ntohs(oldtcpp->flags);		/* net to local */
 

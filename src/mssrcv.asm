@@ -1,7 +1,7 @@
 	NAME	mssrcv
 ; File MSSRCV.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -26,7 +26,7 @@ data 	segment
 	extrn	tfilsz:word, filtst:byte, rdbuf:byte
 	extrn	ferbyte:byte, ferdate:byte, ferdisp:byte, fertype:byte
 	extrn	ferchar:byte, fername:byte, ferunk:byte, termserver:byte
-	extrn	k_rto:word, cwindow:byte, vfile:byte
+	extrn	k_rto:word, cwindow:byte, vfile:byte, streamok:byte
 
 cemsg	db	'User intervention',0
 erms11	db	'Not enough disk space for file',0
@@ -54,6 +54,7 @@ restart_flag db	0		; non-zero if remote requests file restart
 rstate	db	0		; state of automata
 permchrset dw	0		; permanent file character set holder
 permflwflg db	0		; save file transfer set
+dostream db	0		; non-zero to engage streaming mode
 ten	dw	10
 temp	dw	0
 data	ends
@@ -64,16 +65,16 @@ data1	ends
 
 code1	segment
 	extrn bufclr:far, pakptr:far, bufrel:far, makebuf:far, chkwind:far
-	extrn firstfree:far, getbuf:far, pakdup:far, rpar:far
+	extrn firstfree:far, getbuf:far, pakdup:far, rpar:far, winpr:far
 	extrn rpack:far, spack:far, fcsrtype:far, prtasz:far, dskspace:far
-	extrn logtransact:far, strlen:far, strcpy:far
+	extrn logtransact:far, strlen:far, strcpy:far, streampr:far
 code1	ends
 
 code	segment
 	extrn	gofil:near, comnd:near, cntretry:near, perpr:near
 	extrn	serini:near, spar:near, lnout:near
 	extrn	init:near, cxmsg:near, cxerr:near
-	extrn	ptchr:near, ermsg:near, winpr:near
+	extrn	ptchr:near, ermsg:near
 	extrn	stpos:near, rprpos:near, packlen:near, kbpr:near
 	extrn	dodec:near, doenc:near, errpack:near, intmsg:near
 	extrn	ihostr:near, begtim:near
@@ -152,6 +153,7 @@ READ	ENDP
 ; State is held in byte rstate. Enter at label dispatch.
 
 dispatch proc	near			; dispatch on state variable rstate
+	mov	dostream,0		; assume not doing streaming mode
 	mov	ah,rstate		; get current state
 	cmp	ah,'R'			; Receive initiate state?
 	jne	dispat2			; ne = no
@@ -244,6 +246,9 @@ dispa11:call	rprpos			; put cursor at reprompt position
 	mov	diskio.string,0		; clear active filename buffer
 	mov	fsta.xname,0		; clear statistics external name
 	mov	termserver,0
+	; do not clear decbuf; it is needed to see remote command response.
+	mov	encbuf,0
+	call	clrbuf			; drain comms channel of extra junk
 	clc				; return to ultimate caller, success
 	ret
 dispatch endp
@@ -288,7 +293,10 @@ rinit3:	cmp	ah,'I'			; unexpected 'I' packet?
 	call	ackpak			; send response
 	pop	ax			; restore checksum length
 	mov	dtrans.chklen,al	;  to negotiation value
-	ret				; stay in this state
+	cmp	streamok,0		; doing streaming?
+	je	rinit3a			; e = no
+	call	streampr		; put message on formatted screen
+rinit3a:ret				; stay in this state
 
 rinit4:	cmp	ah,'F'			; File receive?
 	je	rinit5			; e = yes
@@ -322,6 +330,10 @@ rinit6:	call	spar			; negotiate parameters
 	mov	cx,trans.rlong		; negotiated length of received pkts
 	call	makebuf			; remake buffering for new windowing
 	call	packlen			; compute packet length
+	cmp	streamok,0		; doing streaming?
+	je	rinit7			; e = no
+	call	streampr		; put message on formatted screen
+rinit7:	ret				; stay in this state
 	ret
 RINIT	ENDP
  
@@ -374,9 +386,10 @@ rfile4:	push	si
 	call	doenc			; encode buffer, cx gets length
 	pop	di
 	pop	si
-	mov	rstate,'D'		; set the state to data receive
+	call	ackpak			; ack the packet, with filename
 	call	filekind		; report Text/Bin, char set
-	jmp	ackpak			; ack the packet, with filename
+	mov	rstate,'D'		; set the state to data receive
+	ret
 
 rfile5:	mov	ah,[si].pktype		; get reponse packet type
 	cmp	ah,'B'			; 'B' End Of Transmission?
@@ -827,6 +840,8 @@ rdat2a:	call	bufrel			; Unknown packet type, release buffer
 					; D data packets
 rdata3:	mov	fsta.xstatus,kssuc	; set status, success
 	mov	kstatus,kssuc		; global status, success
+	mov	al,streamok
+	mov	dostream,al		; engage possible streaming mode
 	test	restart_flag,1		; restart negotiations completed?
 	jnz	rdat3c			; nz = no, give up
 	cmp	filopn,2		; file opened yet?
@@ -958,8 +973,7 @@ rdat6:	push	si
 	mov	si,offset rpacket	; encode to this packet
 	call	doenc			; do encoding
 	pop	si
-rcvpat2:
-	call	filekind		; report Text/Bin, char set
+rcvpat2:call	filekind		; report Text/Bin, char set
 	jmp	ackpak			; ACK the attributes packet
 rdata endp
 
@@ -967,19 +981,8 @@ rdata endp
 ; Enter with packet pointer in SI to a 'Z' packet.
 reof	proc	near			; 'Z' End of File packet
 	cmp	flags.cxzflg,0		; interrupted?
-	jne	reof3			; ne = yes, no 100% done indicator
-	cmp	fmtdsp,0		; formatted screen?
-	je	reof5			; e = no, no message
-	cmp	wrpmsg,0		; written Percentage done yet?
 	je	reof5			; e = no
-	mov	ax,tfilsz		; obtained file size
-	mov	word ptr diskio.sizelo,ax ; force to original size
-	mov	ax,tfilsz+2
-	mov	word ptr diskio.sizehi,ax
-	call	perpr			; show percentage done, 100%
-	jmp	short reof5		; file close common code
-
-reof3:	call	intmsg			; show interrupt msg on local screen
+	call	intmsg			; show interrupt msg on local screen
 	or	errlev,ksrecv		; set DOS error level
 	or	fsta.xstatus,ksrecv+ksuser ; set status, failed + intervention
 	mov	kstatus,ksrecv+ksuser	; global status
@@ -1078,10 +1081,12 @@ rcvpa2:	call	cntretry		; update retries, detect ^C, ^E
 	jc	rcvpa2a			; c = exit now from ^C, ^E
 	call	bufrel			; discard unused buffer
 	inc	badrcv			; count receive retries
+	cmp	dostream,0		; streaming mode negotiated?
+	jne	rcvpa2b			; ne = yes, fail reception now
 	mov	al,badrcv		; count # bad receptions in a row
 	cmp	al,maxtry		; too many?
 	jb	rcvpa4			; b = not yet, NAK intelligently
-	mov	dx,offset erms14	; no response from host
+rcvpa2b:mov	dx,offset erms14	; no response from host
 	jmp	giveup			; tell the other side
 
 rcvpa2a:call	bufrel			; discard unwanted buffer
@@ -1121,8 +1126,9 @@ rcvpa4d:mov	dx,offset erms13	; failure, cannot send reply
 rcvpa6:	mov	badrcv,0		; clear retry counter
 	cmp	[si].pktype,'E'		; Error packet? Accept w/any seqnum
 	jne	rcvpa6a			; ne = no
-	jmp	error			; display message, change states
-
+	call	error			; display message, change states
+	stc
+	ret
 rcvpa6a:mov	al,[si].seqnum		; this packet's sequence number
 	mov	rpacket.seqnum,al	; save here for reply
 	call	pakdup			; set ah to number of copies
@@ -1175,6 +1181,7 @@ rcvpak	endp
 ackpak	proc	near			; send an ACK packet
 	cmp	rpacket.datlen,0	; really just no data?
 	jne	ackpa2			; ne = no, send prepared ACK packet
+
 ackpak0:mov	rpacket.datlen,0	; no data
 	cmp	flags.cxzflg,0		; user interruption?
 	je	ackpa2			; e = no
@@ -1189,7 +1196,11 @@ ackpak0:mov	rpacket.datlen,0	; no data
 	pop	cx
 ackpa2:	mov	rpacket.pktype,'Y'	; ack packet
 	mov	rpacket.numtry,0
-ackpa3:	push	si
+ackpa3:	cmp	flags.cxzflg,0		; user interruption?
+	jne	ackpa3b			; ne = yes
+	cmp	dostream,0		; streaming mode negotiated?
+	jne	ackpa4			; ne = yes, simulate succesful send
+ackpa3b:push	si
 	mov	si,offset rpacket
 	call	spack			; send the packet
 	pop	si
@@ -1214,7 +1225,11 @@ ackpa3:	push	si
 ackpa3a:stc				; set carry for failure
 	ret
 
-ackpa4:	mov	al,rpacket.seqnum	; success
+ackpa4:
+	cmp	dostream,0		; streaming mode negotiated?
+	je	ackpa4a			; e = no
+	mov	flags.cxzflg,0		; so we don't repeat CXZ ACK send
+ackpa4a:mov	al,rpacket.seqnum	; success
 	mov	rpacket.datlen,0	; clear old contents
 	call	pakptr			; acking an active buffer?
 	jc	ackpa5			; c = no such seqnum, stray ack
@@ -1241,8 +1256,12 @@ nakpa2:	push	si
 	mov	[si].datlen,0		; no data
 	inc	fsta.nakscnt		; count NAKs sent
         mov	[si].pktype,'N'		; NAK that packet
-	call	spack
-	pop	si
+	cmp	dostream,0		; streaming mode negotiated?
+	je	nakpa2a			; e = no, send the packet
+	clc				; simulate successful send
+	jmp	short nakpa2b		;  do not send NAK
+nakpa2a:call	spack
+nakpa2b:pop	si
 	jc	nakpa3			; c = failure
 	mov	rpacket.numtry,0
 	clc
@@ -1411,6 +1430,8 @@ spchk	proc	near			; check for enough disk space
 	and	cl,not 20h		; convert to upper case
 spchk1:	call	dskspace		; calculate space into dx:ax
 	jc	spchk6			; c = error
+	cmp	restart_flag,0		; doing a restart?
+	jne	spchk1a			; ne = yes (pretend file removal)
 	cmp	flags.flwflg,filecol_update ; updating?
 	je	spchk1a			; e = yes, file will be removed
 	cmp	flags.flwflg,filecol_overwrite	; overwrite existing file?
@@ -1466,5 +1487,5 @@ spchk7:	pop	dx
 	ret
 spchk	endp
 
-code	ends 
+code	ends
 	end

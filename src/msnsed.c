@@ -2,7 +2,7 @@
  * Ethernet Driver support routines
  *
  * Copyright (C) 1991, University of Waterloo.
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -41,8 +41,7 @@ eth_address eth_addr = {0};	/* local ethernet address */
 eth_address eth_brdcast ={0xff,0xff,0xff,0xff,0xff,0xff};
 				/* Ethernet broadcast address */
 word pktdevclass = 1;		/* Ethernet = 1, SLIP = 6 */
-extern word MAC_len;
-static void lan_busy(void);	/* waits while lan adapter busy, or 4 secs */
+extern word MAC_len;		/* length of a MAC address, bytes */
 
 /* Ethernet Interface */
 

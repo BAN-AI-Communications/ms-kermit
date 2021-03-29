@@ -1,7 +1,7 @@
 	NAME	msssen
 ; File MSSSEN.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -16,9 +16,10 @@
 ; 12 Jan 1995
 
 	public	spar, rpar, nout, send, flags, trans, dtrans, packlen
-	public	send10, mail, newfn, errpack, sstate, response, ackmsg
+	public	send10, mail, errpack, sstate, response, ackmsg
 	public	pktnum, numpkt, cntretry, sndpak, sparmax, remprn, resend
-	public	psend, move, delfile_flag, resend_flag
+	public	psend, move, delfile_flag, resend_flag, newfn, sendkind
+	public	streaming, streamok
 
 spmin	equ	20		; Minimum packet size
 spmax	equ	94		; Maximum packet size
@@ -67,7 +68,10 @@ lclfnm	db	' Local Source File: ',0	; asciiz
 mailto	db	' To: ',0			; asciiz
 mailflg	db	0		; 1 if Mail, 0 if Send command
 resend_flag db	0		; file RESEND flag
-delfile_flag	db	0		; non-zero to delete file after transfer
+sendkind db	0
+streaming db	0		; non-zero when enabled stream negotiation
+streamok db	0		; non-zero when negotiated streaming mode
+delfile_flag	db	0	; non-zero to delete file after transfer
 printpmt db	' Host printer parameters: ',0	; asciiz 
 asmsg	db	' as ',0
 sstate	db	0		; current automata state
@@ -77,7 +81,7 @@ filopn	db	0		; 1 if disk file is open for reading
 tempseq	db	0		; target sequence number for responses
 retry	db	0		; current retry threshold
 	even
-current_max dw	40		; current max D packet length
+current_max dw	60		; current max D packet length
 				; attribute procedures
 attlist	dw	sat5t,sat1t,sat2t,sat3t,sat4t,sat6t,sat7t,sat99t,0
 attptr	dw	0		; pointer to items in attlist
@@ -85,6 +89,11 @@ numpkt	dw	0		; number of packets for file group
 temp	dw	0
 temp4	dw	0
 ninefive dw	95		; constant word for long packets
+
+sndswtab db	2		; send /switches
+	mkeyw	'/recursive',4
+	mkeyw	'/nonrecursive',0
+
 data	ends
 
 data1	segment
@@ -104,14 +113,15 @@ code1	segment
 	extrn	logtransact:far, filetdate:far, decout:far, strcat:far
 	extrn	strcpy:far, strlen:far, prtasz:far, domath:far, isfile:far
 	extrn	krto:far, windgrow:far, windshrink:far, fparse:far
+	extrn	getfil:far, gtnfil:far, streampr:far, winpr:far
 code1	ends
 
 code	segment
 	extrn serini:near, comnd:near, init:near
-	extrn gtnfil:near, gtchr:near, clrbuf:near, filekind:near
-	extrn getfil:near, rprpos:near, cxerr:near
+	extrn gtchr:near, clrbuf:near, filekind:near
+	extrn rprpos:near, cxerr:near
 	extrn ermsg:near, rtmsg:near, cxmsg:near, stpos:near
-	extrn doenc:near, dodec:near, lnout:near, winpr:near
+	extrn doenc:near, dodec:near, lnout:near
 	extrn prompt:near, intmsg:near, msgmsg:near
 	extrn pktsize:near
 	extrn pcwait:far, ihostr:near, begtim:near, endtim:near
@@ -147,7 +157,7 @@ MAIL:	mov	mailflg,1		; set flag for Mail command vs Send
 	mov	temp,1			; temp copy of mailflag
 	mov	resend_flag,0		; not resend
 	mov	delfile_flag,0
-	jmp	short send1
+	jmp	send1
 
 MOVE:	mov	mailflg,0		; Move command, delete file after sent
 	mov	temp,0
@@ -187,7 +197,24 @@ PSEND:	mov	mailflg,0		; Send command, but Psend
 	mov	resend_flag,2		; Psend
 
 send1:	mov	auxfile,0		; clear send-as name (in case none)
-	mov	bx,offset diskio.string ; address of filename string
+	cmp	mailflg,0
+	jne	send1a
+	cmp	resend_flag,0
+	jne	send1a
+	mov	sendkind,0		; presume non-recursive sending
+	mov	comand.cmswitch,1	; parse for optional /switch
+	mov	comand.cmcr,1		; empty line allowed without error
+	mov	ah,cmkey
+	mov	dx,offset sndswtab	; switch table
+	xor	bx,bx			; no help text
+	call	comnd
+	jc	send1a			; c = no switch
+	mov	sendkind,bl
+send1a:	cmp	flags.cxzflg,'C'	; user aborted command?
+	jne	send1b			; ne = no
+	stc
+	ret
+send1b:	mov	bx,offset diskio.string ; address of filename string
 	mov	dx,offset filmsg	; help message
 	cmp	mailflg,0		; Mail command?
 	je	send2			; e = no
@@ -481,6 +508,9 @@ dispa13:call	rprpos			; position cursor
 	mov	resend_flag,al		; clear resend flag
 	mov	delfile_flag,al		; clear delete file flag
 	mov	atflag,al		; clear atfile sending
+	mov	sendkind,al		; clear send recursive flag
+	mov	decbuf,al		; clear these buffers
+	mov	encbuf,al
 	cmp	atfile,0		; atsign file still open?
 	je	dispa14			; e = no
 	mov	bx,word ptr atfile	; get handle
@@ -530,7 +560,10 @@ sinit3:	push	si			; ACK in window
 	mov	si,offset rpacket	; point to packet for spar
 	call	spar			; parse the received data
 	pop	si
-	mov	cx,trans.slong		; negotiated send packet size
+	cmp	streamok,0		; doing streaming?
+	je	sinit3b			; e = no
+	call	streampr		; put message on formatted screen
+sinit3b:mov	cx,trans.slong		; negotiated send packet size
 	call	makebuf			; remake buffers for new windowing
 	call	packlen			; update max send packet size
 	mov	pktnum,1		; next sequence number after 'S' pkts
@@ -602,9 +635,12 @@ sfile5:	call	ackmsg			; show any message in ACK
 	inc	pktnum			; next pkt to send/rcv, from ackpak
 	and	pktnum,3fh		; modulo 64
 	call	filekind		; report file type, char set
-	push	trans.maxdat		; negotiated max packet length
-	pop	current_max		; set current D packet length
-	mov	sstate,'D'		; send data as the next state
+	mov	current_max,60		; set current D packet length
+	mov	ax,trans.maxdat		; negotiated max packet length
+	cmp	ax,60			; starting D packet length
+	jae	sfile5a			; larger
+	mov	current_max,ax		; use smaller value
+sfile5a:mov	sstate,'D'		; send data as the next state
 	test	trans.capas,8		; can they do file attributes?
 	jz	sfile6			; z = no, so cannot do attributes
 	mov	sstate,'a'		; set file attributes as next state
@@ -1169,7 +1205,11 @@ response proc	near
 	mov	tempseq,al		; target sequence number
 	mov	retry,ah		; retry threshold
 	mov	rpacket.numtry,0	; no receive retries yet
-resp1:	mov	ah,rpacket.numtry	; number of attempts in this routine
+resp1:	cmp	streamok,0		; negotiated streaming?
+	je	resp1a			; e = no
+	cmp	sstate,'D'		; in Data state?
+	je	resp8			; e = yes, no ACK/NAKs
+resp1a:	mov	ah,rpacket.numtry	; number of attempts in this routine
 	cmp	ah,retry		; done enough?
 	ja	resp3			; yes, feign a timeout
 	push	si			; preserve regular packet pointer
@@ -1224,7 +1264,21 @@ resp3d:	mov	rpacket.numtry,0
 	ret
 				; this point is also called by peekresponse
 RESP4:	call	acknak			; got packet, get kind of response
-	or	al,al			; ACK in window?
+	jnc	resp4c			; nc = no abort in progress
+	ret				; return carry set
+resp4c:	cmp	streamok,0		; negotiated streaming?
+	je	resp4d			; e = no
+	cmp	sstate,'D'		; in Data state?
+	jne	resp4d			; ne = no
+	cmp	al,1			; NAK in window?
+	je	resp4f			; e = yes, quit
+	cmp	al,3			; NAK out of window?
+	jne	resp8			; ne = no, ignore packet
+resp4f:	mov	sstate,'E'		; error state, quit
+	stc
+	ret
+
+resp4d:	or	al,al			; ACK in window?
 	jz	resp8			; z = yes
 	cmp	al,1			; NAK in window?
 	je	resp6			; e = yes, repeat pkt
@@ -1249,11 +1303,7 @@ resp4a:	cmp	rpacket.pktype,'M'	; Message packet?
 	pop	si
 	jmp	resp1			; retry getting an ACK
 
-resp4b:	cmp	rpacket.pktype,'E'	; Error packet?
-	jne	resp4c			; ne = no
-	jmp	error
-
-resp4c:	jmp	resp1			; Unknown packet type, ignore it
+resp4b:	jmp	resp1			; Unknown packet type, ignore it
 
 resp5:	cmp	trans.windo,1		; is windowing off?
 	je	resp5a			; e = yes, use old heuristic
@@ -1277,16 +1327,30 @@ resp6:	mov	al,rpacket.seqnum	; single sequence number being NAK'd
 
 					; ACK in window
 resp8:	call	grow			; grow new packet size
-	mov	al,windlow		; try to purge all ack'd packets
+	cmp	streamok,0		; negotiated streaming?
+	je	resp8c			; e = no
+	cmp	sstate,'D'		; in Data state?
+	jne	resp8c			; ne = no
+	mov	tempseq,-1		; wanted sequence number, any
+resp8c:	mov	al,windlow		; try to purge all ack'd packets
 	call	pakptr			; get buffer pointer for it into BX
 	jc	resp8a			; c = buffer not in use
-	cmp	[bx].ackdone,0		; ack'd yet?
+	cmp	streamok,0		; negotiated streaming?
+	je	resp8d			; e = no
+	cmp	sstate,'D'		; in Data state?
+	jne	resp8d			; ne = no
+	mov	[bx].ackdone,1		; simulate ACK
+resp8d:	cmp	[bx].ackdone,0		; ack'd yet?
 	je	resp8a			; e = no, stop here
 	mov	si,bx
 	call	bufrel			; ack'd active buffer, release si
 	inc	al			; rotate window
 	and	al,3fh
 	mov	windlow,al
+	cmp	streamok,0		; negotiated streaming?
+	je	resp8			; e = no
+	cmp	sstate,'D'		; in Data state?
+	je	resp8b			; e = yes, no ACK/NAKs
 	jmp	short resp8		; keep purging
 
 resp8a:	mov	al,tempseq		; check for our desired seqnum
@@ -1349,45 +1413,30 @@ ACKNAK	PROC	NEAR
 	mov	ah,rpacket.pktype	; and packet type
 	cmp	ah,'Y'			; ack packet?
 	jne	ackna2			; ne = no
-	call	pakptr			; is it for an active buffer?
+	call	ackdata			; get control data, for any seq number
+	jnc	ackna0			; nc = no protocol command
+	ret				; return carry set on protocol abort
+ackna0:	call	pakptr			; is it for an active buffer?
 	jnc	ackna1			; nc = yes
 	mov	al,4			; say ACK for inactive pkt
 	clc
 	ret
 ackna1:	mov	[bx].ackdone,1		; say packet has been acked
 	cmp	[bx].numtry,0		; repeated?
-	jne	ackna5			; ne = yes, don't time events
+	jne	ackna1a			; ne = yes, don't time events
 	push	si
 	mov	si,bx			; works with si as pkt ptr
 	call	krto			; compute updated round trip timeout
 	pop	si
-ackna5:
-	cmp	al,windlow		; ok to rotate window?
-	jne	ackna1a			; ne = no
+ackna1a:cmp	al,windlow		; ok to rotate window?
+	jne	ackna1b			; ne = no
 	inc	windlow			; rotate window one slot
 	and	windlow,3fh
 	push	si			; save pointer
 	mov	si,bx			; packet pointer from pakptr
 	call	bufrel			; release buffer for SI
 	pop	si
-ackna1a:cmp	rpacket.datlen,0	; any data in the ACK?
-	je	ackna1c			; e = no
-	cmp	sstate,'F'		; in file header state?
-	je	ackna1c			; e = yes, no protocol char
-	push	es
-	les	bx,rpacket.datadr	; look for data in the ACK
-	mov	ah,es:[bx]
-	pop	es
-	cmp	ah,'C'			; Control-C message?
-	je	ackna1b			; e = yes
-	cmp	ah,'X'			; quit this file?
-	je	ackna1b			; e = yes
-	cmp	ah,'Z'			; quit this file group?
-	jne	ackna1c
-ackna1b:mov	flags.cxzflg,ah		; store here
-	mov	sstate,'Z'		; move to end of file state
-	mov	rstate,'Z'
-ackna1c:xor	al,al			; ack'd ok
+ackna1b:xor	al,al			; ack'd ok
 	clc
 	ret
 					; not an ACK
@@ -1395,7 +1444,11 @@ ackna2:	cmp	ah,'N'			; NAK?
 	je	ackna3			; e = yes
 	cmp	ah,'T'			; Timeout?
 	je	ackna3a			; e = yes, same as NAK out of window
-	mov	al,2			; else say unknown type
+	cmp	rpacket.pktype,'E'	; Error packet?
+	jne	ackna2a			; ne = no
+	call	error			; protocol abort, sets carry
+	ret				; return carry set
+ackna2a:mov	al,2			; else say unknown type
 	clc
 	ret
 
@@ -1421,6 +1474,31 @@ ackna4:	mov	al,5			; dead NAKs
 	clc
 	ret
 ACKNAK	ENDP
+
+; Find protocol control byte in ACKs and change state if found
+; Packet is in rpacket structure
+; Returns carry clear of no control, else carry set
+ackdata	proc	near
+	cmp	sstate,'F'		; in file header state?
+	je	ackdat3			; e = yes, no protocol char
+	push	es
+	les	bx,rpacket.datadr	; look for data in the ACK
+	mov	ah,es:[bx]
+	pop	es
+	cmp	ah,'C'			; Control-C message?
+	je	ackdat1			; e = yes
+	cmp	ah,'X'			; quit this file?
+	je	ackdat1			; e = yes
+	cmp	ah,'Z'			; quit this file group?
+	jne	ackdat3
+ackdat1:mov	flags.cxzflg,ah		; store here
+	mov	sstate,'Z'		; move to end of file state
+	mov	rstate,'Z'
+ackdat2:stc
+	ret
+ackdat3:clc
+	ret
+ackdata	endp
 
 nakout	proc	near			; NAK out of window, resend all pkts
 	mov	al,windlow		; start here
@@ -1533,13 +1611,11 @@ shrink1:mov	current_max,ax		; new max packet length
 	ret
 shrink	endp
 
-; Enlarge transmitted D packets by 5/4 to recover from comms failures
+; Enlarge transmitted D packets by factor of 2 to recover from comms failures
 grow	proc	near
 	push	ax
 	mov	ax,current_max		; current max packet length
-	shr	ax,1
-	shr	ax,1
-	add	ax,current_max		; 5/4 * current max
+	shl	ax,1			; 2 * current max
 	cmp	ax,trans.maxdat		; max negotiated
 	jbe	grow1			; be = not exceeded
 	mov	ax,trans.maxdat		; limit to negotiated
@@ -1548,45 +1624,6 @@ grow1:	mov	current_max,ax
 	ret
 grow	endp
 
-
-; newfn	-- move replacement name from buffer auxfile to buffer encbuf
-
-newfn	proc	near
-	push	si
-	push	di
-	cmp	auxfile,0		; sending file under different name?
-	je	newfn4			; e = no, so don't give new name
-	mov	si,offset auxfile	; source field
-	mov	di,offset fsta.xname	; statistics external name area
-	call	strcpy
-	test	flags.remflg,dquiet	; quiet display mode?
-	jnz	newfn2			; nz = yes, do not write to screen
-	mov	dx,offset asmsg		; display ' as '
-	cmp	mailflg,0		; mail?
-	je	newfn1			; e = no
-	mov	dx,offset mailto	; display ' To: '
-newfn1:	call	prtasz			; display asciiz msg
-	cmp	mailflg,0		; mail?
-	je	newfn2			; e = no
-	mov	dx,offset auxfile	; get name
-	call	prtasz			; display asciiz string
-	jmp	short newfn4		; don't replace filename
-newfn2:	mov	si,offset auxfile	; external name
-	mov	di,offset encbuf
-	call	strcpy			; put into encoder buffer
-	test	flags.remflg,dquiet    ; quiet display mode (should we print)?
-	jnz	newfn5			; nz = yes
-	mov	dx,si
-	call	prtasz			; display external name
-newfn4:	test	flags.remflg,dserial	; serial display mode?
-	jz	newfn5			; z = no
-	mov	dx,offset crlf		; start with cr/lf for serial display
-	mov	ah,prstr
-	int	dos
-newfn5:	pop	di
-	pop	si
-	ret
-newfn	endp
 code	ends
 
 code1	segment
@@ -1701,12 +1738,15 @@ rpar2:	or	al,10h			; set simple minded recovery (bit #1)
 	sub	dx,6			; packet space remaining
 	jle	rparx			; le = out of space
 ;The layout of the (unencoded) WHATAMI field is:
-;    Bit 5    Bit 4      Bit 3      Bit 2    Bit 1    Bit 0
-;  +--------+----------+----------+--------+--------+--------+
-;  |     1  | FLAG3    | reserved | FNAMES | FMODE  | SERVER |
-;  +--------+----------+----------+--------+--------+--------+
+;    Bit 5     Bit 4           Bit 3      Bit 2    Bit 1    Bit 0
+;  +--------+---------------+-----------+--------+--------+--------+
+;  |     1  | clear channel | streaming | FNAMES | FMODE  | SERVER |
+;  +--------+---------------+-----------+--------+--------+--------+
 	mov	al,20h+32		; WHATAMI field is valid, + bias
-	or	al,4			; say want filenames converted
+	cmp	streaming,0		; enabled streaming negotiation?
+	je	rpar2a			; e = no
+	or	al,8			; bit-3 on for streaming protocol
+rpar2a:	or	al,4			; say want filenames converted
 	cmp	trans.xtype,1		; file type binary?
 	jne	rpar3			; ne = no
 	or	al,2			; say in we are binary mode
@@ -1723,7 +1763,6 @@ rpar4:	stosb				; to packet
 	mov	al,'"'			; SYSID, length of two (")
 	stosb
 	dec	dx
-	mov	ax,'  '			; empty sysid placeholder
 	mov	ax,'8U'			; U8 = Portable O/S (U), MSDOS (8)
 rpar5:	stosw				; capas+9 is machine ident
 	sub	dx,2
@@ -1842,6 +1881,7 @@ spar0b:	mov	trans.ebquot,al		; use proper quote char
 	mov	trans.cpkind,al		; checkpoint availability, clear
 	mov	word ptr trans.cpint,ax ; checkpoint interval, clear
 	mov	word ptr trans.cpint+2,ax
+	mov	streamok,0		; presume no streaming
 					; start negotiations
 	push	si			; pktinfo structure pointer
 	mov	ax,[si].datlen		; length of received data
@@ -2135,7 +2175,13 @@ spar19a:mov	al,es:[si]		; [19] get other side's WHATAMI
 	sub	al,32			; apply unchar()
 	test	al,20h			; is "bit 5" set as per protocol?
 	jz	spar20			; z = no, ignore this byte
-	test	flags.remflg,dserver	; are we a server?
+	cmp	streaming,0		; streaming negotiation permitted?
+	je	spar19b			; e = no, ignore bit-3
+	test	al,8			; other side wants stream mode?
+	jz	spar19b			; z = no
+	mov	streamok,1		; say will do streaming
+
+spar19b:test	flags.remflg,dserver	; are we a server?
 	jz	spar20			; z = no, ignore this field
 	mov	trans.xtype,0		; set file type text
 	mov	dtrans.xtype,0		; set file type text
@@ -2169,7 +2215,11 @@ sparx1:	push	cx			; final packet size negotiations
 	push	dx
 	mov	ax,maxbufparas		; our max buffer size, paragraphs
 	mov	cl,trans.windo		; number of active window slots
-	xor	ch,ch
+	cmp	streamok,0		; negotiated streaming mode?
+	je	sparx1a			; e = no
+	mov	cl,1
+	mov	trans.windo,cl		; streaming means no windowing
+sparx1a:xor	ch,ch
 	sub	ax,cx			; minus null byte and rounding/slot
 	jcxz	sparx2			; 0 means 1, for safety here
 	xor	dx,dx			; whole buffer / # window slots
@@ -2203,13 +2253,10 @@ sparx5:	push	bx			; list of protected control codes
 	xor	bh,bh
 	mov	bl,flowon		; flow control
 	or	bl,bl			; any?
-	jz	sparx5a			; z = none
+	jz	sparx6			; z = none
 	and	protlist[bx],not 1	; if active
 	mov	bl,flowoff
 	and	protlist[bx],not 1
-sparx5a:cmp	flags.comflg,'t'	; doing internal TCP?
-	jne	sparx6			; ne = no
-	mov	protlist[127],0		; protect DEL and IAC
 sparx6:	pop	bx
 
 	pop	dx
@@ -2459,6 +2506,47 @@ giveu2:	mov	sstate,'A'		; abort state
 	stc				; set carry for failure status
 	ret
 giveup	endp
-
 code	ends 
+code1	segment
+	assume cs:code1
+
+; newfn	-- move replacement name from buffer auxfile to buffer encbuf
+
+newfn	proc	near
+	push	si
+	push	di
+	cmp	auxfile,0		; sending file under different name?
+	je	newfn4			; e = no, so don't give new name
+	mov	si,offset auxfile	; source field
+	mov	di,offset fsta.xname	; statistics external name area
+	call	strcpy
+	test	flags.remflg,dquiet	; quiet display mode?
+	jnz	newfn2			; nz = yes, do not write to screen
+	mov	dx,offset asmsg		; display ' as '
+	cmp	mailflg,0		; mail?
+	je	newfn1			; e = no
+	mov	dx,offset mailto	; display ' To: '
+newfn1:	call	prtasz			; display asciiz msg
+	cmp	mailflg,0		; mail?
+	je	newfn2			; e = no
+	mov	dx,offset auxfile	; get name
+	call	prtasz			; display asciiz string
+	jmp	short newfn4		; don't replace filename
+newfn2:	mov	si,offset auxfile	; external name
+	mov	di,offset encbuf
+	call	strcpy			; put into encoder buffer
+	test	flags.remflg,dquiet    ; quiet display mode (should we print)?
+	jnz	newfn5			; nz = yes
+	mov	dx,si
+	call	prtasz			; display external name
+newfn4:	test	flags.remflg,dserial	; serial display mode?
+	jz	newfn5			; z = no
+	mov	dx,offset crlf		; start with cr/lf for serial display
+	mov	ah,prstr
+	int	dos
+newfn5:	pop	di
+	pop	si
+	ret
+newfn	endp
+code1	ends
 	end

@@ -1,7 +1,7 @@
  	NAME	msster
 ; File MSSTER.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -18,7 +18,7 @@
 	public	clscpt, defkey, clscpi, ploghnd, sloghnd, tloghnd
 	public  dopar, shokey, cptchr, pktcpt, targ, replay, repflg
 	public	kbdflg, shkadr, telnet, ttyact, write, dec2di, caplft
-	public	cnvlin,  decout, valout, cnvstr
+	public	cnvlin,  decout, valout, cnvstr, writeln
 	public	pntchr, pntflsh, pntchk, prnhand, prnopen
 	public	vfopen, vfread, ldiv, lmul, lgcd, atoi, atoibyte
 	public  domath, domath_ptr, domath_cnt, domath_msg
@@ -141,7 +141,7 @@ clotab	db	6
 	mkeyw	'All-logs',logpkt+logses+logtrn
 	mkeyw	'Packets',logpkt
 	mkeyw	'Session',logses
-	mkeyw	'Transaction',logtrn
+	mkeyw	'Transactions',logtrn
 
 clseslog db	cr,lf,' Closing Session log$'
 clpktlog db	cr,lf,' Closing Packet log$'
@@ -156,7 +156,7 @@ writetab db	5			; Write command log file types
 
 sttmsg	db	cr,lf,'Press space to continue ...$'
 kbdflg	db	0			; non-zero means char here from Term
-ttyact	db	0			; Connect mode active, if non-zero
+ttyact	db	1			; Connect mode active, if non-zero
 shkadr	dw	0			; offset of replacement Show Key cmd
 nbase	dw	10			; currently active number base
 temp	dw	0
@@ -332,13 +332,13 @@ tel3:	or	targ.flgs,ah
 
 TEM:	call	serini			; init serial port
 	jnc	tem1			; nc = success
-	mov	ttyact,0		; say we are no longer active
 	clc
 	ret				; and exit Connect mode
 
 tem1:	mov	dx,offset crlf		; give user an indication that we are
 	mov	ah,prstr		; entering terminal mode
 	int	dos
+	mov	ttyact,1		; say telnet is active
 	mov	ax,offset targ		; point to terminal arguments
 	call	term			; call the main Terminal procedure
 	mov	al,kbdflg		; get the char from Term, if any
@@ -418,8 +418,7 @@ intayt:	mov	ah,255			; 'I' Telnet Are You There
 intchb:	call	sendbr			; 'B' send a break
 	jmp	tem			; And return
 
-intchc:	mov	ttyact,0		; 'C' say we are no longer active
-	clc				; and exit Connect mode
+intchc:	clc				; exit Connect mode
 	ret
 
 intchf:	call	dumpscr			; 'F' dump screen, use msy routine
@@ -1422,9 +1421,16 @@ vfread12:mov	kstatus,ksgen		; general command failure status
 	ret
 vfread	endp
 
+; WRITELN {FILE or log} text   (adds trailing CR/LF)
+writeln	proc	near
+	mov	tmp,1			; flag for trailing CR/LF
+	jmp	short write0		; common code
+writeln	endp
+
 ; WRITE {FILE or log} text
 Write	proc	near
-	mov	ah,cmkey		; get kind of log file
+	mov	tmp,0			; flag for no trailing CR/LF
+write0:	mov	ah,cmkey		; get kind of log file
 	mov	dx,offset writetab	; table of possibilities
 	xor	bx,bx			; help, when we get there
 	call	comnd
@@ -1443,18 +1449,21 @@ write1:	mov	temp,bx			; save log file kind
 	ret				; c = failure
 wpkt0:	mov	kstatus,kssuc		; success status thus far
 	mov	si,offset rdbuf		; start of text in buffer
-	mov	di,si			; convert in-place, to asciiz
-	mov	cx,ax			; length for cnvlin
-	call	cnvlin
-	mov	bx,temp			; log file kind
+	cmp	tmp,0			; add trailing CR/LF?
+	je	wpkt0a			; e = no
+	mov	bx,ax			; current length
+	mov	word ptr rdbuf[bx],LF*256+CR ; add CR LF
+	mov	word ptr rdbuf[bx+2],0	; and terminator
+	add	ax,2
+wpkt0a:	mov	bx,temp			; log file kind
+	mov	cx,ax			; length 
 	jcxz	wpkt2			; z = no chars to write
-	mov	si,offset rdbuf
 	cmp	bx,logpkt		; Packet log?
 	jne	wses1			; ne = no
 wpkt1:	lodsb				; get byte to al
 	call	pktcpt			; write to packet log
 	loop	wpkt1
-wpkt2:	clc				; say success
+wpkt2: 	clc				; say success
 	ret
 
 wses1:	cmp	bx,logses		; Session log?
@@ -1485,6 +1494,7 @@ wtrn4:	or	bx,bx			; is handle valid?
 	mov	ah,write2		; write to file handle in bx
 	int	dos
 	jc	wtrn4a			; c = failure
+	clc
 	ret
 wtrn4a:	mov	ah,prstr
 	mov	dx,offset vfwbad	; say error while writing

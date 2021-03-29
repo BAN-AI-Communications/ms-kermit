@@ -1,7 +1,7 @@
 /* File MSNTND.C
  * Telnet driver
  *
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -23,7 +23,7 @@
 #include "msnlib.h"
 
 #define	MAXSESSIONS 6
-#define MSGBUFLEN 512
+#define MSGBUFLEN 1024
 
 /* TCP/IP Telnet negotiation support code */
 #define IAC     255
@@ -587,7 +587,8 @@ serial_handler(word cmd)
 				}
 			if (s->state == tcp_StateESTAB)
 				{
-				bapiret =  sock_write(s, bapiadr, bapireq);
+				bapiret = sock_write(s, bapiadr, bapireq);
+
 				if (bapiret == -1)	 /* no session */
 					cmdstatus = BAPISTAT_NOS;
 				}
@@ -619,7 +620,6 @@ serial_handler(word cmd)
 				cmdstatus = BAPISTAT_NCR;/* nothing present */
 				break;
 				}
-
 			i = (bapireq > s->rdatalen)? s->rdatalen: bapireq;
 			i = fstchr(s->rdata, i, IAC);
 			if (i < 0)	/* negative -> nothing present */
@@ -637,7 +637,8 @@ serial_handler(word cmd)
 		/* if terminal serving with local echoing then echo to host */
 				if (session[active].echo != 0 && 
 					session[active].server_mode != 0 &&
-						kserver == 0)
+						kserver == 0 &&
+						s->myport == 23)
 					sock_write(s, bapiadr, bapiret);
 				break;
 				}
@@ -791,7 +792,7 @@ send_iac(byte cmd, int opt)
 	io_data[2] = (byte)(opt & 0xff);
 	if (sock_write(s, io_data, 3) != 3 )
 		return (1);			/* failed to write */
-	if (kdebug != 0)
+	if (kdebug & DEBUG_STATUS)
 		{
 		outs("Opt send ");
 		optdebug(cmd, opt);
@@ -820,7 +821,7 @@ tn_doop(word ch)
 	x &= 0xff;
 	c = ch;				/* use register'd character */
 
-	if (kdebug)
+	if (kdebug & DEBUG_STATUS)
 		{
 		outs("Opt recv ");
 		optdebug((byte)c, x);
@@ -848,7 +849,6 @@ tn_doop(word ch)
 			}
 		break;
 		}
-
 	if (c == DO)
 		{			/* Host wants me to echo to it */
 		send_iac(WONT,x);	/* I say I won't */
@@ -909,7 +909,7 @@ tn_doop(word ch)
 	    break;
 	    	
           default:                      /* ignore other TTYPE Options */
-		break;
+	    	goto refuse;
         }				/* end of inner switch (c) */
 	break;
 
@@ -923,7 +923,7 @@ tn_doop(word ch)
 		break;
 
           default:                      /* ignore other NAWS Options */
-		break;
+	    	goto refuse;
         }				/* end of inner switch (c) */
 	break;
 
@@ -1022,6 +1022,7 @@ tn_doop(word ch)
 	break;
 
       default:				/* all other Options: refuse nicely */
+refuse:					/* a useful label */
 	switch(c) {
           case WILL:                    /* You will? */
 		send_iac(DONT,x);	/* Please don't */
@@ -1062,7 +1063,7 @@ subnegotiate(void)
 		y &= 0xff;              /* make sure it's just 8 bits */
 		sb[n++] = (byte) y;	/* save what we got in buffer */
 
-		if (kdebug)
+		if (kdebug & DEBUG_STATUS)
 			{
 			if (y == SE) outs(" se\r\n");
 			else
@@ -1129,7 +1130,7 @@ tn_sttyp(void)
 	*ttn   = (byte)SE;
 
 	sock_write(s, sb, ttnl + 6);
-	if (kdebug)
+	if (kdebug & DEBUG_STATUS)
 		{
 		int i;
 
@@ -1154,7 +1155,7 @@ tn_snaws(void)
 	sbuf[4] = kterm_cols;
 	sbuf[6] = kterm_lines;
 	sock_write(s, sbuf, sizeof(sbuf));
-    	if (kdebug)
+    	if (kdebug & DEBUG_STATUS)
     		{
 		outs("Opt send ");
 		optdebug(SB, TELOPT_NAWS);

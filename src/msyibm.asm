@@ -1,7 +1,7 @@
 	NAME msyibm
 ; File MSYIBM.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -3723,9 +3723,6 @@ klogof	proc	near			; suspend logging (if any)
 klogof	endp
 
 kdebug	proc	near
-INT 3
-NOP
-NOP
 	xor	flags.debug,logses	; toggle debugging
 	xor	yflags,trnctl		; Debug mode local edition
 	ret

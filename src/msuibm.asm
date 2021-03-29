@@ -1,7 +1,7 @@
 	NAME	msuibm
 ; File MSUIBM.ASM 
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -410,6 +410,10 @@ kb250lst equ	this byte     		; Extensions for DEC LK250 keyboard
 	mkeyw	cr,scan+28		; Return key sends CR
 	mkeyw	lf,scan+shift+28	; Shift-Return sends LF
 	mkeyw	tab,scan+15		; Tab sends TAB
+	mkeyw	' ',scan+57		; space bar yields space
+	mkeyw	' ',scan+shift+57	; Shift + space bar
+	mkeyw	'\0',scan+control+57	; Control-space bar yields nul
+	mkeyw	'\0',scan+control+shift+57; Shift Control-space bar
 					; the top-row function keys
 	mkeyw	'\kholdscrn',scan+59	; DEC Hold
 	mkeyw	'\kprtscn',scan+60	; DEC Print Screen

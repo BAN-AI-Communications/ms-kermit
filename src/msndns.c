@@ -2,7 +2,7 @@
  * Domain name server requester
  *
  * Copyright (C) 1991, University of Waterloo.
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -305,7 +305,6 @@ ddextract(struct useek *qp, longword *mip)
 	memset(space, 0, sizeof(space));
 	nans = ntohs(qp->h.ancount);		/* number of answers */
 	rcode = DRCODE & ntohs(qp->h.flags);	/* return code for message*/
-
 	if (rcode != 0)
 		return (rcode);
 

@@ -2,7 +2,7 @@
 ; File MSNTNI.ASM
 ; Telnet interface to MS-DOS Kermit
 ;
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -352,7 +352,7 @@ ourser2:cmp	ah,bapiread		; read?
 	cmp	_msgcnt,0		; any outstanding msgs from TCP?
 	je	ourser3			; e = no msgs
 	call	oursmsg			; send back the msgs instead
-	jmp	short ourser4		; ax has status of ok
+	jnc	ourser4			; nc = gave data, ax has status of ok
 ourser3:
 	mov	bx,DGROUP		; set up es to dgroup too
 	mov	es,bx			; bx is not needed at this time
@@ -405,26 +405,37 @@ ktcpcom endp
 ; Return CX as number of bytes delivered to Kermit main body.
 oursmsg	proc	near
 	assume	ds:DGROUP, es:nothing
-	mov	cx,_msgcnt
-	jcxz	ourser3			; z = no msgs
+	cmp	_msgcnt,0
+	jne	oursmsg1		; ne = have msg
+	stc				; say nothing done here
+	ret
+oursmsg1:
 	push	es			; debug to log file
 	mov	bx,seg tloghnd		; transaction log handle segment
 	mov	es,bx
 	mov	bx,es:tloghnd		; transaction log handle
 	pop	es
 	cmp	bx,-1			; transaction log open?
-	je	oursmsg4		; e = no, no file writing
+	je	oursmsg2		; e = no, no file writing
+	push	ax
+	push	cx
+	mov	cx,_msgcnt
 	mov	dx,offset DGROUP:_msgbuf ; ds:dx is source buffer
 	mov	ah,write2		; write cx bytes with handle in bx
 	int	dos
 	sub	_msgcnt,ax		; deduct quantity written
-	xor	cx,cx			; count of bytes returned to caller
-	jmp	short oursmsg3		; all done
-oursmsg4:				; debug to transaction log file
+	pop	cx			; preserve original cx
+	pop	ax			; preserve original request in ax
+	stc				; say no data to be read from here
+	ret
+oursmsg2:				; debug to main body
+	push	ax
+	push	cx
+	mov	cx,_msgcnt
 	cmp	cx,_bapireq		; longer than request?
-	jbe	oursmsg1		; be = no
+	jbe	oursmsg3		; be = no
 	mov	cx,_bapireq		; do this much now
-oursmsg1:
+oursmsg3:
 	push	cx
 	push	es
 	mov	si,DGROUP
@@ -438,8 +449,7 @@ oursmsg1:
 	mov	_bapiret,cx		; return count to user
 	sub	_msgcnt,cx		; deduct chars relayed
 	cmp	_msgcnt,0		; examine remainder
-	je	oursmsg3		; le = none
-	push	cx
+	je	oursmsg4		; le = none
 	push	es
 	mov	si,DGROUP
 	mov	es,si
@@ -450,9 +460,11 @@ oursmsg1:
 	cld
 	rep	movsb
 	pop	es
-	pop	cx
-
-oursmsg3:xor	ax,ax			; return status of success
+oursmsg4:pop	cx			; caller's request count
+	pop	ax			; and function code
+	mov	cx,_bapiret		; original count minus filled here
+	xor	ax,ax			; return status of success
+	clc				; filled caller's buffer
 	ret				; cx has delivered byte count
 oursmsg	endp
 
@@ -924,7 +936,6 @@ _krto	proc	near
 	ret
 	ASSUME	ES:NOTHING
 _krto	endp
-
 _TEXT	ends
         end
 

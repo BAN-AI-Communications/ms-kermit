@@ -1,7 +1,7 @@
 	NAME	mszibm
 ; File MSZIBM.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -1675,10 +1675,19 @@ atcr: 	mov	dl,mar_left		; Carriage Return, go to left margin
 atcr2:	cmp	flags.vtflg,ttheath	; Heath-19?
 	jne	atcr1			; ne = no
 	test	h19stat,h19alf		; auto line feed on?
-	jnz	atlf2			; nz = yes, do the LF part above
+	jnz	atcr3			; nz = yes, do the LF part above
 atcr1:	cmp	crdisp_mode,0		; CR-display is normal?
-	jne	atlf2			; ne = no, do CR-LF
+	jne	atlf3			; ne = no, do CR-LF
 	jmp	atsetcur		; set cursor and return
+atcr3:	test	anspflg,vtcntp		; print controller on?
+	jnz	atcr3a			; nz = yes
+	test	flags.capflg,logses	; capturing output?
+	jz	atcr4			; z = no, forget this part
+atcr3a:	push	dx			; save char
+	mov	al,LF			; log the new LF after the CR
+	call	fcptchr			; give it captured character
+	pop	dx			; restore character
+atcr4:	jmp	atlf2			; do CR-LF
 
 atff:	cmp	flags.vtflg,ttansi	; ansi terminal?
 	jne	atff2			; ne = no

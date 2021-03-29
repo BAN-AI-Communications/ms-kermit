@@ -2,7 +2,7 @@
 ; File MSXIBM.ASM
 ; Kermit system dependent module for IBM-PC
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -25,6 +25,7 @@
 	public	savexoff, savexlen, parmsk, flowon, flowoff, flowcnt
 	public	isps55		; [HF] 940130 Japanese IBM PS/55 mode
 	public	ps55mod		; [HF]940206 PS/55 mode line status (0:system)
+	public	prtblk, sndblk
 ifndef	no_network
 	public	setnbios, ubhold, ubclose
 endif	; no_network
@@ -314,7 +315,10 @@ flowoff	db	0		; flow-off char, Xoff or null (if no flow)
 flowon	db	0		; flow-on char, Xon or null
 flowcnt	db	0		; holds flowc (!= 0 using any flow control)
 xmtcnt	dw	0		; occupancy in current output buffer
-xmtbufx	db	nbuflen+3 dup (0) ; external version of xmtbuf (dbl buffers)
+;;;xmtbufx	db	nbuflen+3 dup (0) ; external version of xmtbuf (dbl buffers)
+xmtbufx	db	buffsz dup (0) ; external version of xmtbuf (dbl buffers)
+	db	0,0		; required runon for CR NUL and IAC IAC
+
 ifndef	no_network
 ifndef	no_tcp
 ; TCP/IP Telnet internal
@@ -729,6 +733,8 @@ tcpnlmsg0 db	'off (CR->CR NUL)$'
 tcpnlmsg1 db	'on (CR->CR LF)$'
 tcpnlmsg2 db	'raw (CR->CR)$'
 tcpdeboff db	'off$'
+tcpdebstat db	'status$'
+tcpdebtim db	'timing$'
 tcpdebon db	'on$'
 tcpmodemsg0 db	'NVT-ASCII$'
 tcpmodemsg1 db	'Binary$'
@@ -1119,10 +1125,16 @@ ftcpst6:mov	ah,prstr
 	mov	bl,tcpdebug		; offset of tcpdebug
 	mov	dx,offset tcpdeboff	; assume off
 	or	bl,bl			; off?
-	pop	bx
-	jz	ftcpst7			; z = yes
+	jz	ftcpst7			; e = yes
+	mov	dx,offset tcpdebstat	; status
+	cmp	bl,1
+	je	ftcpst7			; e = yes
+	mov	dx,offset tcpdebtim	; timing
+	cmp	bl,2
+	je	ftcpst7			; e = yes
 	mov	dx,offset tcpdebon	; say on
-ftcpst7:mov	ah,prstr
+ftcpst7:pop	bx
+	mov	ah,prstr
 	int	dos
 	mov	dx,offset tcphostst
 	int	dos
@@ -1366,15 +1378,22 @@ getmodem endp
 ; Returns normally.
 
 CLRBUF	PROC	NEAR
+	mov	flags.cxzflg,0
 	cmp	repflg,0		; REPLAY?
 	je	clrbuf1			; e = no
 	ret
-clrbuf1:call	prtchr			; read from active comms port
+clrbuf1:mov	ah,gswitch
+	xor	al,al			; pick up switch character
+	int	dos			; invokes DOS to see Control-C
+	cmp	flags.cxzflg,'C'	; user typed Control-C?
+	je	clrbuf2			; e = yes, quit now
+	call	prtchr			; read from active comms port
 	jnc	clrbuf1			; nc = got a char, continue til none
-	mov	ax,10			; wait 10 ms
+	mov	ax,100			; wait 100 ms
 	call	pcwait
 	call	prtchr			; read from active comms port
 	jnc	clrbuf1			; nc = got a char, continue til none
+clrbuf2:mov	flags.cxzflg,0
 	clc
 	ret
 CLRBUF	ENDP
@@ -3672,11 +3691,12 @@ peekc9:	mov	cx,count		; qty in circular buffer
 	cli		; interrupts off, to keep srcpnt & count consistent
 	mov	bx,srcpnt	    ; address of next available slot in buffer
 	sub	bx,cx		    ; minus number of unread chars in buffer
+	mov	ah,trans.rsoh
 	cmp	bx,offset source	; located before start of buf?
 	jae	peekc1			; ae = no
 	add	bx,bufsiz		; else do arithmetic modulo bufsiz
 peekc1:	mov	al,[bx]
-	cmp	al,trans.rsoh		; packet receive SOP?
+	cmp	al,ah			; packet receive SOP?
 	je	peekc3			; e = yes
 	inc	bx
 	cmp	bx,offset source+bufsiz ; beyond end of buffer?
@@ -3757,12 +3777,78 @@ prtch4:	push	si			; save si
 	add	si,bufsiz		; else do arithmetic modulo bufsiz
 prtch5:	lodsb				; get a character into al
 	dec	count			; one less unread char now
-	sti				; interrupts back on now
+	jnz	prtch6			; if still have bytes
+	mov	srcpnt,offset source	; else reset read ptr to start too
+prtch6:	sti				; interrupts back on now
 	pop	si
 	mov	dx,count		; return # of chars in buffer
 	clc
 	ret
 prtchr  endp
+
+; Move up to cx bytes from current buffer to destination es:bx
+; Return quantity moved in cx, bytes remaining to be read in dx,
+; and carry clear. Return cx = 0 and carry set if none.
+; This reads only those bytes already in buffer ds:source, hence non-blocking.
+prtblk	proc	far
+	push	di
+	push	si
+	cmp	count,0		; buffer empty?
+	jne	prtblk1		; ne = no
+	xor	cx,cx		; say no bytes transferred
+	xor	dx,dx
+	stc
+	jmp	short prtblk7	; exit
+
+prtblk1:mov	di,bx		; destination offset to es:di
+	mov	dx,cx		; dx holds request count
+	CLI			; to prevent confusion from serial port ints
+	mov	bx,srcpnt	; original values
+	mov	cx,count
+	STI			; we have the pointers now
+	cmp	dx,cx		; want more than available?
+	jbe	prtblk2		; be = no
+	mov	dx,cx		; limit to available
+prtblk2:push	dx		; save as returned byte count
+	mov	si,bx		; where next byte would be written
+	sub	si,cx		; minus bytes in buffer, yields first byte
+	cmp	si,offset source ; before start of buffer?
+	jge	prtblk3		; ge = no
+	add	si,bufsiz	; wrap
+				; si is offset where data start
+prtblk3:mov	ax,offset source+bufsiz ; end of buffer + 1
+	sub	ax,si		; space to end of buffer
+	mov	cx,dx		; cx is amount to transfer in one go
+	cmp	cx,ax		; wanted vs space at end of buffer
+	jbe	prtblk4		; be = have all wanted without wrap
+	mov	cx,ax		; reduce to space to end of buffer
+prtblk4:sub	dx,cx		; deduct amount being moved now
+	cld
+	shr	cx,1		; get odd count to carry
+	rep	movsw		; move words
+	jnc	prtblk5		; nc = even count
+	movsb			; move odd byte
+prtblk5:cmp	dx,0		; bytes remining to move
+	jle	prtblk6		; le = none
+	mov	si,offset source ; start of buffer
+	mov	cx,dx		; amount left to do
+	shr	cx,1		; get odd count to carry
+	rep	movsw		; move words
+	jnc	prtblk6		; nc = even count
+	movsb			; move odd byte
+prtblk6:mov	bx,di		; update caller's write pointer es:bx
+	xor	al,al
+	stosb			; null terminator, not in count
+	pop	cx		; returned byte count
+	CLI
+	sub	count,cx	; correct count by bytes extracted
+	mov	dx,count	; return available bytes
+	STI
+	clc			; say success and have moved CX bytes
+prtblk7:pop	si
+	pop	di
+	ret
+prtblk	endp
 
 uartrcv	proc	near			; UART receive
 	cmp	flags.carrier,0		; worry about Carrier Detect?
@@ -4287,7 +4373,9 @@ TESRCV	endp
 
 ; Ungermann-Bass NETCI port receive characters routine.  Receive one or more
 ; characters.  Calls the blkrcv routine to transfer character to main source
-; circular buffer.  Return carry clear if success. 
+; circular buffer.  Return carry clear if success.
+; This is called only if buffer "source" is entirely empty, so we are free
+; to adjust srcpnt and count items.
 UBRECV	PROC	near
 	push	cx
 	push	es
@@ -4302,8 +4390,22 @@ ubrecv2:test	nettype,bapi+tcpnet	; 3Com BAPI or TCP Telnet interface?
 ifndef	no_tcp
 	test	nettype,tcpnet		; TCP/IP Telnet?
 	jz	ubrecv2d		; z = no
+	test	flowcnt,2		; doing input XON/XOFF flow control?
+	jz	ubrcv2f			; z = no, use fast method
 	call	ktcpcom			; Far call Telnet code
-	jmp	short ubrecv2e
+	jmp	short ubrecv2e		; regular slow method
+ubrcv2f:mov	bx,offset source
+	mov	cx,bufsiz-2		; go directly to source, no xon/xoff
+	call	ktcpcom			; Far call Telnet code
+	cmp	ah,3			; status, no session and above
+	jae	short ubrecv2b		; ae = broken connection, terminate it
+	mov	count,cx		; bytes transferred to empty buffer
+	add	cx,offset source
+	mov	srcpnt,cx		; where next read byte goes
+	pop	es
+	pop	cx
+	stc				; say no char from us
+	ret
 endif	; no_tcp
 ubrecv2d:int	bapiint
 
@@ -5292,24 +5394,26 @@ ifndef	no_tcp
 	jz	ubsen24			; z = no
 	cmp	ah,CR			; carriage return?
 	jne	ubsen24			; ne = no
-	cmp	xmtcnt,length xmtbuf	; is buffer full?
+	cmp	xmtcnt,length xmtbufx	; is buffer full?
 	jb	ubsen22			; b = no, else take special setps
 	call	ubsen28			; send what we have now
-ubsen22:cmp	tcpnewline,2		; newline is RAW?
+ubsen22:cmp	ttyact,0		; in terminal emulation mode?
+	je	ubsen22a		; e = no, use CR NUL
+	cmp	tcpnewline,2		; newline is RAW?
 	je	ubsen24			; e = yes, no special steps
 	mov	bx,xmtcnt
 	mov	al,LF			; CR -> CR/LF
 	cmp	tcpnewline,0		; newline mode is off?
 	jne	ubsend23		; ne = no, send CR/LF
-	cmp	tcpmode,0		; NVT-ASCII?
+	cmp	tcpmode,0		; NVT-ASCII? (binary is mode 1)
 	jne	ubsen28			; ne = no, Binary, no CR NUL
-	xor	al,al			; CR -> CR NUL
+ubsen22a:xor	al,al			; CR -> CR NUL
 ubsend23:mov	xmtbufx[bx],al		; append this char
 	inc	xmtcnt
 	jmp	short ubsen28		; send buffer now
 endif	; no_tcp
 
-ubsen24:cmp	xmtcnt,length xmtbuf	; is buffer full now?
+ubsen24:cmp	xmtcnt,length xmtbufx	; is buffer full now?
 	jae	ubsen28			; ae = buffer is full, send it now
 	cmp	ah,trans.seol		; end of packet?
 	je	ubsen28			; e = yes, send buffer
@@ -5330,7 +5434,7 @@ ubsen28:push	ax
 	or	cx,cx
 	jnz	ubsen29			; nz = have something to send
 	jmp	ubsend1			; z = nothing to send
-ubsen29:mov	temp,200			; retry counter for can't send
+ubsen29:mov	temp,200		; retry counter for can't send
 	mov	bx,offset xmtbufx	; buffer address in es:bx
 ubsend2:mov	ax,seg xmtbuf
 	mov	es,ax
@@ -5381,24 +5485,20 @@ ubsend3:cmp	cx,xmtcnt		; check that all characters sent [ohl]
 	je	ubsend1			; e = yes			 [ohl]
 	add	bx,cx			; point to remaining chars	 [ohl]
 	sub	xmtcnt,cx		; count of remaining characters	 [ohl]
-	or	cx,cx			; did we send any?
-	jnz	ubsend3a		; nz = yes
-	push	bx			; try to read to pass time of day
-	mov	bx,bufsiz		; size of main rcv buffer
-	sub	bx,count		; minus occupancy
-	cmp	bx,nbuflen		; qty in next full read batch
-	jb	ubsend3b		; b = not enough space
+	cmp	count,0			; any bytes received?
+	jne	ubsend3b		; ne = yes
+	push	bx
 	mov	bx,portval
 	call	[bx].rcvproc		; read routine
-ubsend3b:pop	bx			; fall through to grab new char
-	cmp	flags.cxzflg,'C'	; user abort?
+	pop	bx			; fall through to grab new char
+ubsend3b:cmp	flags.cxzflg,'C'	; user abort?
 	je	ubsend3c		; e = yes
-	mov	ax,5			; 5 millisec pause between retries
-	call	pcwait
 	test	nettype,tcpnet		; TCP/IP Telnet?
 	jnz	ubsend3a		; nz = yes
+	mov	ax,15			; 15 millisec pause between retries
+	call	pcwait
 	dec	temp			; retry counter
-	jnz	ubsend3a		; nz = some retries remaing
+	jnz	ubsend3a		; nz = some retries remaining
 ubsend3c:pop	es
 	pop	cx
 	pop	ax
@@ -5414,6 +5514,104 @@ ubsend1:mov	xmtcnt,0
 	clc				; success, need failure case too
 	ret
 ubsend	endp
+code	ends
+
+code1	segment
+	assume cs:code1
+
+; Send blocks of bytes
+; Enter with pointer to data in es:bx, length cx bytes
+sndblk	proc	far
+	or	cx,cx			; any bytes?
+	jnz	sndblk1			; nz = yes
+	clc
+	ret
+sndblk1:cmp	flags.comflg,'t'	; internal Telnet?
+	je	sndblk1a		; e = yes, send blocks
+	call	sendone			; send one byte at a time
+	ret
+sndblk1a:
+	push	bx
+	mov	di,xmtcnt		; where next byte goes
+	xor	al,al
+	xchg	al,ttyact		; tty vs block mode, set to block
+	push	ax			; save for exit
+sndblk2:cmp	di,length xmtbufx	; is buffer full?
+	jb	sndblk3			; b = no
+	call	sndbwrt			; triggers send from ubsend
+	jnc	sndblk3			; nc = success
+	pop	ax
+	xchg	al,ttyact
+	pop	bx
+	ret
+sndblk3:mov	ah,es:[bx]		; read a source byte
+	inc	bx
+	mov	xmtbufx[di],ah		; store it in output buffer
+	inc	di
+	cmp	ah,trans.seol		; packet end of line?
+	jne	sndblk4			; e = yes, flushes ubsend buffer
+	call	sndbwrt			; write to ubsend
+	jnc	sndblk7
+	pop	ax
+	xchg	al,ttyact
+	pop	bx
+	ret
+sndblk4:cmp	ah,CR			; carriage return?
+	jne	sndblk5			; ne = no
+	xor	ah,ah			; NULL
+	jmp	short sndblk6		; insert the null
+sndblk5:cmp	ah,255			; IAC
+	jne	sndblk7			; ne = no, else send it twice
+sndblk6:mov	xmtbufx[di],ah		; send extra char
+	inc	di
+sndblk7:loop	sndblk2
+	mov 	xmtcnt,di		; update pointer upon exit
+	pop	ax
+	xchg	al,ttyact
+	pop	bx
+	clc
+	ret
+sndblk	endp
+code1	ends
+
+code	segment
+	assume cs:code
+sndbwrt proc	far			; worker for sndblk
+	dec	di			; last byte written in buffer
+	mov	xmtcnt,di		; tell ubsend the count
+	mov	ah,xmtbufx[di]		; redo it
+	push	cx			; write buffer xmtbufx, xmtcnt bytes
+	push	bx
+	push	es
+	mov	bx,portval		; port in use
+	call	[bx].sndproc		; flush buffer routine
+	pop	es
+	pop	bx
+	pop	cx
+	mov	di,xmtcnt		; restore local pointer
+	ret
+sndbwrt	endp
+
+; Send blocks of bytes, one byte at a time
+; Enter with pointer to data in es:bx, length cx bytes
+sendone	proc	far
+	push	bx			; preserve bx of caller
+	jcxz	sndone2			; z = nothing to send
+sndone1:mov	ah,es:[bx]
+	inc	bx
+	push	bx
+	push	cx
+	push	es
+	call	outchr			; send byte in ah
+	pop	es
+	pop	cx
+	pop	bx
+	jc	sndone2			; c = failure exit
+	loop	sndone1
+	clc				; success
+sndone2:pop	bx
+	ret
+sendone	endp
 
 ; Invoke internal TCP/IP NAWS Telnet Option when screen size changes
 winupdate proc	far
@@ -5600,7 +5798,11 @@ endif	; no_terminal
 	inc	bx
 	loop	tcpclo2
 	
-tcpclo3:call	tcptoses		; convert next tcp ident AL to sescur
+tcpclo3:
+;;TEST	cmp	ttyact,0		; are we in Connect mode?
+;;TEST	je	tcpclo3b		; e = no, let session be closed
+
+	call	tcptoses		; convert next tcp ident AL to sescur
 
 tcpclo3a:mov	sescur,bx		; next new session
 	or	bx,bx			; closing last session?
@@ -5608,7 +5810,7 @@ tcpclo3a:mov	sescur,bx		; next new session
 ifndef	no_terminal
 	call	termswapin		; swap in next session's emulator
 endif	; no_terminal
-	mov	portin,0		; reset the serial port for reiniting
+tcpclo3b:mov	portin,0		; reset the serial port for reiniting
 	mov	port_tn.portrdy,0	; say the comms port is not ready
 	mov	kbdflg,' '		; stay in connect mode
 	stc
@@ -6067,7 +6269,8 @@ ubclos2:and	nettype,not netone	; remove network type
 	mov	portin,0
 	mov	kbdflg,'C'		; quit connect mode
 	stc
-ubclos3:pop	cx
+ubclos3:mov	flags.cxzflg,'C'	; signal abort to file transfer code
+	pop	cx
 	pop	ax
 	ret
 ubclos4:test	nettype,bapi+tcpnet	; 3Com BAPI or TCP Telnet in use?

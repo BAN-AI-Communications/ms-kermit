@@ -1,7 +1,7 @@
 	NAME	mssser
 ; File MSSSER.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -27,6 +27,7 @@ data	segment
 	extrn	prmptr:word, chkparflg:byte, rdbuf:byte, mcctab:byte
 	extrn	valtab:byte, echrcnt:word, dostemp:byte, k_rto:word
 	extern	delfile_flag:byte, resend_flag:byte, vfile:byte
+	extern	crcword:word, lastfsize:dword, sendkind:byte
 
 scrser	equ	0209H		; place for server state display line
 scrmsg	equ	0e16H		; place for Last message
@@ -70,6 +71,7 @@ lpass	db	17 dup (0)		; local Password, case sensitive
 delstr	db	'del ',0
 dirstr	db	'dir ',0
 queryseg dw	0			; seg of query response (0=none)
+getkind	db	0			; 4 for recursive GET, else 0
 
 crlf	db	cr,lf,'$'
 emptymsg db	0			; empty asciiz msg
@@ -85,7 +87,7 @@ srvtime	db	0			; non-zero if timing Server residence
 remfnm	db	' Remote Source File: ',0	; asciiz
 lclfnm	db	' Local Destination File: ',0	; asciiz
 tmpbuf	db	20 dup (0)
-srvbuf	db	80 dup (0)		; place After tmpbuf, for status
+srvbuf	db	128 dup (0)		; place After tmpbuf, for status
 termserver db	0			; 1 if Connect mode -> server
 					; >1 if now servicing that invokation
 savflg	flginfo	<>			; save area for flags.*
@@ -95,11 +97,11 @@ savdtrl equ	$-savdtr		; length
 savtr	trinfo	<>			; save area for trans.*
 savmaxtry db	0			; save area for maxtry
 
-srvchr	db	'SRGIECKHJ'		; server cmd characters, use w/srvfun
+srvchr	db	'SRGIECKHJV'		; server cmd characters, use w/srvfun
 srvfln	equ	$-srvchr		; length of table
 
 srvfun	dw	srvsnd,srvrcv,srvgen,srvini,srverr,srvhos,srvker ; for srvchr
-	dw	srvret,srvrget
+	dw	srvret,srvrget,srvrcvr
 
 srvch2	db	'ACDEFHLMSTUVW'		; server commands, use with srvdsp
 srvfl2	equ	$-srvch2
@@ -228,13 +230,22 @@ remsrcv	db	2			; REMOTE SET RECEIVE
 	mkeyw	'Packet-length',401
 	mkeyw	'Timeout',402
 
-remsxfr	db	1			; REMOTE SET TRANSFER
+remsxfr	db	2			; REMOTE SET TRANSFER
 	mkeyw	'Character-set',405
+	mkeyw	'Mode',410
 
+sndswtab db	2			; Get /switches
+	mkeyw	'/recursive',4
+	mkeyw	'/nonrecursive',0
 
 onoff	db	2			; ON, OFF table
 	mkeyw	'off',0
 	mkeyw	'on',1
+
+modetab	db	2			; REMOTE SET TRANSFER MODE
+	mkeyw	'Automatic',0
+	mkeyw	'Manual',1
+
 data	ends
 
 data1	segment
@@ -263,7 +274,7 @@ remhlp	db	cr,lf,' Command    Action performed by the server Kermit'
 	db	cr,lf,' Message    short one line message'
 	db	cr,lf,' Print      local file  (on server''s printer)'
 	db	cr,lf,' PWD        print working directory'
-	db	cr,lf,' Query	   ask User, Kermit, System variables'
+	db	cr,lf,' Query      ask User, Kermit, System variables'
 	db	cr,lf,' Set        command  (modify server)'
 	db	cr,lf,' Space      drive/directory'
 	db	cr,lf,' Type       a file on this screen'
@@ -603,8 +614,26 @@ srrcv2:	mov	di,offset diskio.string	; destination
 	mov	sstate,'S'		; set sending state
 	mov	ax,temp
 	mov	resend_flag,al		; send = 0, reget != 0
-	jmp	send10			; this should send it
+	mov	al,trans.xtype
+	mov	trans.xtype,0		; text mode transfer
+	push	ax
+	push	crcword			; preserve CRC-16 word
+	push	word ptr lastfsize	; and last sent file size
+	push	word ptr lastfsize+2
+	call	send10			; this should send it
+	pop	word ptr lastfsize+2
+	pop	word ptr lastfsize
+	pop	crcword			; restore CRC-16 word
+	pop	ax
+	mov	trans.xtype,al
+	ret
 srvrcv	endp
+
+; Respond to remote request of GET /RECURSIVE
+srvrcvr	proc	near
+	mov	sendkind,4		; say recursive send requested
+	jmp	srvrcv			; do rest as regular GET
+srvrcvr endp
 
 srverr	proc	near			; incoming Error packet
 	clc				; absorb and ignore
@@ -655,11 +684,14 @@ srvgen	endp
 
 ; srvlog - respond to host's BYE and LOGOUT
 srvlog	proc	near
+	test	denyflg,byeflg		; BYE/LOGOUT enabled?
+	jz	srvlog1			; z = yes
 	call	srvfin			; do FIN part
-	pushf				; save flag for the very end
-	jnc	srvlog1			; nc = stay active (command denied)
+	clc				; c clear = do not exit server
+	ret
+srvlog1:call	srvfin			; do FIN part
 	mov	flags.extflg,1		; leave server mode and Kermit
-srvlog1:call	serhng			; hangup the phone and return
+	call	serhng			; hangup the phone and return
 	mov	di,offset flags		; main flags structure
 	mov	si,offset savflg	; save area
 	mov	cx,savflgl		; length in bytes
@@ -681,7 +713,7 @@ srvlog1:call	serhng			; hangup the phone and return
 	mov	al,savmaxtry
 	mov	maxtry,al
 	pop	es
-	popf				; recover carry flag, set = exit
+	stc				; carry set = exit server mode
 	ret
 srvlog	endp
 
@@ -799,7 +831,20 @@ srtyp2:	mov	si,offset remms5	; "File not found"
 srtyp3:	mov	flags.xflg,1		; say use X packet rather than F pkt
 	mov	auxfile,0		; no alias name
 	mov	sstate,'S'		; remember state
-	jmp	send10			; this should send it
+	mov	resend_flag,al		; send = 0, reget != 0
+	mov	al,trans.xtype
+	mov	trans.xtype,0		; text mode transfer
+	push	ax
+	push	crcword			; preserve CRC-16 word
+	push	word ptr lastfsize	; and last sent file size
+	push	word ptr lastfsize+2
+	call	send10			; this should send it
+	pop	word ptr lastfsize+2
+	pop	word ptr lastfsize
+	pop	crcword			; restore CRC-16 word
+	pop	ax
+	mov	trans.xtype,al
+	ret
 srvtyp	endp
 
 ; srvdir - handle other side's Remote Dir filespec(optional) request
@@ -883,7 +928,13 @@ srvtail	proc	near
 	ret
 srvtai1:mov	flags.xflg,1		; say use X rather than F packet
 	mov	sstate,'S'		; remember state
+	push	crcword			; preserve CRC-16 word
+	push	word ptr lastfsize	; and last sent file size
+	push	word ptr lastfsize+2
 	call	SEND10			; this should send it
+	pop	word ptr lastfsize+2
+	pop	word ptr lastfsize
+	pop	crcword			; restore CRC-16 word
 	mov	flags.xflg,0		; clear flag
 	mov	dx,offset dostemp+3	; name of temp file
 	mov	ah,del2			; delete the file
@@ -1295,16 +1346,17 @@ srvdef5:mov	bx,offset remms6	; "Command failed"
 srvdef	endp
 
 ; srvspc - handle other side's request of Remote Space
+; Enable/Disable portion has become obsolete, command is always enabled
 srvspc	proc	near
-	test	denyflg,spcflg		; is command enabled?
-	jz	srspc1			; z = yes
-	mov	dx,offset remms9	; else give a message
-	mov	trans.chklen,1		; reply with 1 char checksum
-	call	ermsg
-	mov	bx,dx
-	call	errpack			; back to local kermit
-	clc
-	ret
+;	test	denyflg,spcflg		; is command enabled?
+;	jz	srspc1			; z = yes
+;	mov	dx,offset remms9	; else give a message
+;	mov	trans.chklen,1		; reply with 1 char checksum
+;	call	ermsg
+;	mov	bx,dx
+;	call	errpack			; back to local kermit
+;	clc
+;	ret
 srspc1:	xor	cl,cl			; use current drive
 	cmp	decbuf+1,0		; any data?
 	je	srspc2			; e = no
@@ -1668,6 +1720,7 @@ sfinc	proc	near 			; SET INCOMPLETE, SET FILE INCOMPLETE
 	jc	sfincb			; c = failure
 	cmp	ax,1
 	ja	sfincb			; a = bad
+	xor	al,1			; invert from wire (wire discard = 0)
 	mov	flags.abfflg,al		; discard incomplete files if al = 1
 	clc
 	ret
@@ -1925,6 +1978,7 @@ LOGO	ENDP
 RETRIEVE PROC	NEAR
 	mov	delfile_flag,1
 	mov	temp,0
+	mov	getkind,0		; non-recursive
 	jmp	GET0
 RETRIEVE ENDP
 
@@ -1936,6 +1990,7 @@ REGET	PROC	NEAR
 	cmp	flags.attflg,0		; allowed to do file attributes?
 	je	reget1			; e = no
 	mov	temp,1			; flag for internal RESEND state (1)
+	mov	getkind,0		; non-recursive
 	jmp	GET0
 reget1:	mov	ah,prstr
 	int	dos
@@ -1950,20 +2005,28 @@ REGET	ENDP
 GET	PROC	NEAR
 	mov	delfile_flag,0
 	mov	temp,0
-	jmp	GET0
-GET0:
-	mov	auxfile,0		; clear, for safety
+	mov	getkind,0		; assume non-recursive
+	mov	comand.cmswitch,1	; parse for optional /switch
+	mov	comand.cmcr,1		; empty line is ok
+	mov	ah,cmkey
+	mov	dx,offset sndswtab	; switch table
+	xor	bx,bx			; no help text
+	call	comnd
+	jc	GET0			; c = no switch
+	mov	getkind,bl		; remember switch value
+			; GET0 is also used by REGET and RETRIEVE above
+GET0:	mov	auxfile,0		; local name, clear for safety
 	mov	flags.cxzflg,0		; no Control-C typed yet
 	mov	bx,offset encbuf	; where to put text
 	mov	dx,offset filmsg	; help
-	mov	ah,cmline		; filenames with embedded whitespace
-	call	comnd			; get text or confirm
+	mov	ah,cmword		; filename w/out embedded whitespace
+	call	comnd
 	jnc	get1			; nc = success
 	ret				; failure 
 get1:	mov	cnt,ax			; remember number of chars we read
-	or	ax,ax			; read in any chars?
-	jnz	get7			; nz = yes, analyze
-					; if empty line, ask for file names
+	or	ax,ax			; read any chars?
+	jnz	get4			; nz = yes, get optional local name
+					; empty line, ask for file names
 get2:	mov	dx,offset remfnm	; ask for remote name first
 	call	prompt
 	mov	bx,offset encbuf	; place for remote filename
@@ -1977,7 +2040,7 @@ get3:	mov	cnt,ax			; remember number of chars read
 	jz	get2			; z = none, try again
 	mov	dx,offset lclfnm	; prompt for local filename
 	call	prompt
-	mov	dx,offset filhlp
+get4:	mov	dx,offset filhlp
 	mov	bx,offset auxfile	; complete local filename
 	mov	ah,cmword		; get a word
 	call	comnd
@@ -2028,7 +2091,10 @@ get9:	mov	trans.chklen,1		; use one char for server functions
 get9b:	cmp	delfile_flag,0		; normal GET?
 	je	get9a			; e = yes
 	mov	rpacket.pktype,'H'	; Retrieve initiate
-get9a:	mov	si,offset rpacket
+get9a:	cmp	getkind,4		; recursive?
+	jne	get9c			; ne = no
+	mov	rpacket.pktype,'V'	; recursive receive
+get9c:	mov	si,offset rpacket
 	call	sndpak			; send the packet, no ACK expected
 	jc	get10			; c = failure to send packet
 	mov	rstate,'R'		; Set the state to receive initiate
@@ -2057,7 +2123,14 @@ REMOTE	PROC	NEAR
 	call	comnd
 	jnc	remote1			; nc = success
 	ret				; failure
-remote1:jmp	bx			; do the appropriate routine
+remote1:push	crcword			; preserve CRC-16 around remotes
+	push	word ptr lastfsize	; and last sent file size
+	push	word ptr lastfsize+2
+	call	bx			; do the appropriate routine
+	pop	word ptr lastfsize+2
+	pop	word ptr lastfsize
+	pop	crcword			; restore CRC-16
+	ret
 REMOTE	ENDP
 
 ; REMSET - Execute a REMOTE SET command
@@ -2186,13 +2259,22 @@ remset17:call	remwork			; write to buffer
 					; text as last item commands
 remset18:mov	temp,bx
 	cmp	bx,405			; Transfer?
-	jne	remset19		; ne = no
+	jne	remset19		; ne = no, do common code
 	mov	dx,offset remsxfr	; TRANSFER table
 	xor	bx,bx
 	mov	ah,cmkey
 	call	comnd
-	jnc	remset19
+	jnc	remset18a
 	ret
+remset18a:cmp	bx,410			; REMOTE SET TRANSFER MODE?
+	jne	remset19		; ne = no
+	mov	dx,offset modetab	; Mode table
+	xor	bx,bx
+	mov	ah,cmkey
+	call	comnd
+	jnc	remset17		; nc = ok, write value to buffer
+	ret
+
 remset19:call	remwork			; store command type
 	mov	bx,bufptr		; store response as text
 	inc	bx			; skip count byte
@@ -2402,8 +2484,7 @@ remqry1:mov	encbuf,'V'		; V is set
 	mov	word ptr encbuf+3,bx	; query count and letter
 	mov	encbuf+5,0		; count of name string
 	mov	bx,offset encbuf+6	; buffer for remote variable name
-	mov	dx,offset rasghlp1
-	mov	comand.cmper,1		; do not react to '\%' in macro name
+	mov	dx,offset rasghlp1	; help msg
 	mov	ah,cmword
 	call	comnd
 	jnc	remqry2			; nc = success
@@ -2601,8 +2682,14 @@ genr10a:call	sndpak			; send the Generic command packet
 	pop	si
 	jc	genr11			; c = failure
 	mov	rstate,'R'		; next state is Receive Initiate
-	jmp	READ2			; file receiver does the rest
-
+	push	crcword			; preserve CRC-16 word
+	push	word ptr lastfsize	; and last sent file size
+	push	word ptr lastfsize+2
+	call	READ2			; file receiver does the rest
+	pop	word ptr lastfsize+2
+	pop	word ptr lastfsize
+	pop	crcword
+	ret
 genr11:	mov	flags.xflg,0		; reset screen output flag
 	xor	ax,ax			; tell statistics this was a read
 	or	errlev,ksrem	     ; DOS error level, failure of REMote cmd

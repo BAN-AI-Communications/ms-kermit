@@ -1,7 +1,7 @@
    	NAME	msscmd
 ; File MSSCMD.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -20,6 +20,7 @@
 	public inter, atparse, atpclr, atdispat, cspb, dspb, mprompt, nvaltoa
 	public savepoff, saveplen, keyboard, fwrtdir, cspb1, filetdate
 	public	fqryenv, ifelse, oldifelse, retbuf, vfile
+	public	rfprep, rgetfile, findkind, rfileptr, rpathname, rfilename
 
 env	equ	2CH			; environment address in psp
 braceop	equ	7bh			; opening curly brace
@@ -57,6 +58,9 @@ F_ipaddr	equ	28
 F_tod2secs	equ	29
 F_chksum	equ	30
 F_basename	equ	31
+F_directories	equ	32
+F_rfiles	equ	33
+F_rdirectories	equ	34
 
 ; Constants for valtoa 
 V_environ	equ	0
@@ -103,13 +107,17 @@ V_minput	equ	39
 V_return	equ	40
 V_connection	equ	41
 V_filespec	equ	42
+V_fsize		equ	43
+V_crc16		equ	44
+V_day		equ	45
+V_nday		equ	46
 
 ; Like main filest, but shorter for local usage.
 fileiost struc
-dta	db 26 dup(0)	; DOS, 21 resev'd bytes, file attr, 2 each date & time
-sizelo	dw 0		; DOS, file size double word
-sizehi	dw 0
-fname	db 13 dup(0)	; DOS, filename, asciiz, with dot. End of DOS section
+mydta	db 26 dup(0)	; DOS, 21 resev'd bytes, file attr, 2 each date & time
+mysizelo dw 0		; DOS, file size double word
+mysizehi dw 0
+filename db 13 dup(0)	; DOS, filename, asciiz, with dot. End of DOS section
 fileiost ends
 
 data 	segment
@@ -123,7 +131,7 @@ data 	segment
 	extrn	cmdfile:byte, inidir:byte, dos_bottom:byte, marray:word
 	extrn	input_status:word, domath_ptr:word, domath_cnt:word
 	extrn	domath_msg:word, atoibyte:byte, atoi_err:byte, atoi_cnt:word
-
+	extrn	crcword:word, lastfsize:dword
 ifndef	no_tcp
 	extrn	sescur:word, tcp_status:word
 endif	; no_tcp
@@ -173,12 +181,21 @@ replay_cnt dw	0			; report to app, no echo
 replay_skip db	0			; non-zero to skip subst for replays
 retbuf	db	130 dup (0)		; \v(return) buffer
 vfile	db	65 dup (0)		; \v(filespec) buffer
-fileio	fileiost <>			; find first/next support
+maxdepth equ	15			; depth of directory search
+fileio  fileiost maxdepth dup(<>)	; find first/next support
+rfileptr dw	0			; pointer to search dta structure
+rpathname db	64+1 dup (0)		; search path
+rfilename db	8+3+1 dup (0)		; search filename
+
+filecnt	dw	0			; count of files found
+findkind db	0 ; find kind (1=file,2=dir,plus 4=recurse,0=nothing)
 cmsflg	db	0			; Non-zero when last char was a space
 cmkind	db	0			; command kind request (cmkey etc)
 in_showprompt db 0			; Non-zero when in showprompt
 cmdbuf	db	cmdblen dup (0)		; Buffer for command parsing
+	db	0			; safety for overflow
 rawbuf	db	cmdblen dup (0)		; input, what user provided
+	db	0			; safety for overflow
 read_source db	0			; channel whence we read
 endedbackslash db 0
 in_reparse db	0
@@ -197,9 +214,9 @@ temp	dw	0			; temp (counts char/line so far)
 cmrawptr dw	0			; non-substitution level, write ptr
 
 ifndef	no_tcp
-valtab	db	1+42			; table of values for \v(value)
+valtab	db	1+46			; table of values for \v(value)
 else
-valtab	db	1+42 - 2
+valtab	db	1+46 - 2
 endif	; no_tcp
 	mkeyw	'argc)',V_argc
 	mkeyw	'carrier)',V_carrier
@@ -210,13 +227,17 @@ endif	; no_tcp
 	mkeyw	'count)',V_count
 	mkeyw	'cmdlevel)',V_cmdlevel
 	mkeyw	'cps)',V_cps
+	mkeyw	'crc16)',V_crc16
 	mkeyw	'date)',V_date
 	mkeyw	'ndate)',V_ndate
+	mkeyw	'day)',V_day
+	mkeyw	'nday)',V_nday
 	mkeyw	'directory)',V_dir
 	mkeyw	'dosversion)',V_dosver
 	mkeyw	'disk)',V_disk
 	mkeyw	'errorlevel)',V_errlev
 	mkeyw	'filespec)',V_filespec
+	mkeyw	'fsize)',V_fsize
 	mkeyw	'inidir)',V_inidir
 	mkeyw	'inpath)',V_inpath
 	mkeyw	'input)',V_input
@@ -248,7 +269,7 @@ endif	; no_tcp
 	mkeyw	'version)',V_version
 
 
-evaltab	db	29			; \fverb(args)
+evaltab	db	32			; \fverb(args)
 	mkeyw	'basename(',F_basename
 	mkeyw	'character(',F_char
 	mkeyw	'checksum(',F_chksum
@@ -256,6 +277,7 @@ evaltab	db	29			; \fverb(args)
 	mkeyw	'contents(',F_contents
 	mkeyw	'date(',F_date
 	mkeyw	'definition(',F_definition
+	mkeyw	'directories(',F_directories
 	mkeyw	'eval(',F_eval
 	mkeyw	'files(',F_files
 	mkeyw	'index(',F_index
@@ -271,6 +293,8 @@ evaltab	db	29			; \fverb(args)
 	mkeyw	'repeat(',F_repeat
 	mkeyw	'replace(',F_replace
 	mkeyw	'reverse(',F_reverse
+	mkeyw	'rdirectories(',F_rdirectories
+	mkeyw	'rfiles(',F_rfiles
 	mkeyw	'right(',F_right
 	mkeyw	'rpad(',F_rpad
 	mkeyw	'size(',F_size
@@ -330,6 +354,7 @@ ifelse	db	0		; non-zero if last IF statement failed
 oldifelse db	0		; copy of ifelse from previous command
 month	db	'Jan ','Feb ','Mar ','Apr ','May ','Jun '
 	db	'Jul ','Aug ','Sep ','Oct ','Nov ','Dec '
+day	db	'Sun','Mon','Tue','Wed','Thu','Fri','Sat'
 data	ends
 
 data1	segment
@@ -363,7 +388,7 @@ endif	; no_terminal
 code1	segment
 	assume 	cs:code1
 	extrn	shovarcps:near, dskspace:far, fparse:far
-	extrn	strlen:far, prtscr:far, strcpy:far, prtasz:far
+	extrn	strlen:far, prtscr:far, strcpy:far, prtasz:far, strcat:far
 	extrn	dec2di:far, decout:far, malloc:far, domath:far
         extrn   atoi:far, takrd:far, buflog:far, tod2secs:far
 
@@ -599,7 +624,17 @@ cmky8:	cmp	comand.impdo,0		; failed here, ok to try Macro table?
 	clc
 	ret				; return success to invoke DO
 
-cmky8a:	mov	errflag,1		; say already doing error recovery
+cmky8a:	cmp	comand.cmswitch,0	; looking for switch keyword?
+	je	cmky8b			; e = no
+	mov	comand.cmswitch,0
+	mov	comand.impdo,0		; yes, but clear flag to prevent loops
+	mov	ax,cmsptr		; where keyword started in buffer
+	mov	cmrptr,ax		; reread it again later
+	mov	comand.cmquiet,1	; suppress echoing of same keyword
+	stc				; return with no complaint
+	ret
+
+cmky8b:	mov	errflag,1		; say already doing error recovery
 	or	kstatus,ksgen		; global command status, failure
 	mov	comand.cmquiet,0	; permit echoing again
 	call	isdev			; reading pretyped lines?
@@ -1521,8 +1556,11 @@ subst15:mov	subcnt,0		; clear match indicator
 	mov	es,ax			; ES:DI will be buffer pointer
 	mov	di,[bx].takptr		; where to write next
 	mov	[bx].takper,0		; expand macros
+cmp subtype,'v'	; \v(..)?
+je subst16b	; e = yes, don't expand macros within it
 	cmp	subtype,'m'		; \m(..)?
 	jne	subst16a		; ne = no
+subst16b:
 	mov	[bx].takper,1		; do not expand macros in \m(..)
 subst16a:mov	bx,cx			; value command
 	call	valtoa			; make text be an internal macro
@@ -2067,7 +2105,7 @@ valtoa39:cmp	bx,V_minput		; \v(minput)?
 	jne	valtoa40		; ne = no
 	mov	ax,minpcnt		; get minput match count
 	call	fdec2di			; convert to decimal
-	jmp	short valtoa90		; done
+	jmp	valtoa90		; done
 
 valtoa40:cmp	bx,V_return		; \v(return)?
 	jne	valtoa41		; ne = no
@@ -2076,7 +2114,7 @@ valtoa40:cmp	bx,V_return		; \v(return)?
 	add	si,2			; point at string
 	cld
 	rep	movsb			; copy to variable buffer
-	jmp	short valtoa90		; done
+	jmp	valtoa90		; done
 
 valtoa41:cmp	bx,V_connection		; \v(connection)?
 	jne	valtoa42		; ne = no
@@ -2085,15 +2123,104 @@ valtoa41:cmp	bx,V_connection		; \v(connection)?
 	call	strlen			; length to cx
 	cld
 	rep	movsb			; copy to variable buffer
-	jmp	short valtoa90		; done
+	jmp	valtoa90		; done
 
 valtoa42:cmp	bx,V_filespec		; \v(filespec)?
-	jne	valtoa80		; ne = no
+	jne	valtoa43		; ne = no
 	mov	si,offset vfile		; last used file transfer name
 	mov	dx,si
 	call	strlen			; length to cx
 	cld
 	rep	movsb			; copy to variable buffer
+	jmp	valtoa90		; done
+
+valtoa43:cmp	bx,V_fsize		; \v(fsize)?
+	jne	valtoa44		; ne = no
+	mov	ax,word ptr lastfsize	; sent file, length dword
+	mov	dx,word ptr lastfsize+2
+valtoa43a:push	di
+	push	es
+	mov	di,ds
+	mov	es,di
+	mov	di,offset cmdbuf-30-cmdblen
+	call	flnout
+	mov	dx,offset cmdbuf-30-cmdblen
+	call	strlen
+	mov	si,dx
+	pop	es
+	pop	di
+	cld
+	rep	movsb
+	mov	word ptr [di],0020h	; space, null
+	jmp	valtoa90		; done
+
+valtoa44:cmp	bx,V_crc16		; \v(crc16)?
+	jne	valtoa45		; ne = no
+	mov	ax,crcword		; accumlated CRC-16
+	xor	dx,dx			; clear high word
+	jmp	short valtoa43a		; common converter
+
+valtoa45:cmp	bx,V_nday		; \v(nday)?
+	je	valtoa45a		; e = yes
+	cmp	bx,V_day		; \v(day)?
+	jne	valtoa80		; ne = no
+valtoa45a:
+	mov	ah,getdate		; DOS date (cx= yyyy, dh= mm, dl= dd)
+	int	dos
+	sub	cx,1900			; make 1900 be zero
+	cmp	dh,3			; month
+	jge	valtoa45b		; ge = beyond Feb
+	add	dh,9
+	dec	cx			; modify year number
+	jmp	short valtoa45c
+valtoa45b:
+	sub	dh,3
+valtoa45c:
+	push	bx			; save V_ kind
+	mov	al,dl			; day
+	xor	ah,ah
+	mov	si,ax			; Julian day number, partial
+	mov	al,dh			; modified month number
+	mov	bx,153
+	mul	bx			; 153 * month
+	add	ax,2
+	mov	bx,5
+	div	bx
+	add	si,ax			; (153 * m + 2) / 5 + d
+	mov	ax,cx			; year since 1900
+	mov	bx,1461
+	mul	bx
+	mov	bx,4
+	div	bx
+	xor	dx,dx			; clear remainder from division
+	add	ax,si			; (1461 * y)/4 + (153 * m + 2)/5 + d
+	add	ax,15078		; above plus 15078
+	adc	dx,0			; carry out
+	mov	bx,7			; modulo 7 setup
+	div	bx			; above % 7
+	mov	ax,dx			; remainder to ax, discard quotient
+	add	ax,3			; plus 3
+	xor	dx,dx
+	div	bx			; mod 7 again
+	mov	ax,dx			; ((above % 7) + 3) % 7) to ax
+	pop	bx			; recover V_ kind
+	cmp	bx,V_nday		; \v(nday)?
+	jne	valtoa45d		; ne = no, must be V_(day)
+	add	al,'0'			; add printable bias
+	stosw				; ASCII day number + null
+	dec	di			; don't count the null
+	jmp	short valtoa90		; done
+valtoa45d:				; need ASCII string
+	mov	bl,3	
+	mul	bl			; day number times three chars
+	mov	bx,ax			; get 3*day number
+	add	bx,offset day		; three char day string
+	mov	ax,[bx]
+	stosw				; first two bytes
+	mov	al,[bx+2]
+	xor	ah,ah
+	stosw				; last byte and null
+	dec	di			; don't count the null
 	jmp	short valtoa90		; done
 
 valtoa80:push	bx			; \m(macro_name)
@@ -2678,7 +2805,8 @@ evalt19:cmp	evaltype,F_date		; \fdate(filename)?
 	je	evalt19a		; e = yes
 	cmp	evaltype,F_size		; \fsize(filename)?
 	jne	evalt20			; ne = no
-evalt19a:push	di
+evalt19a:
+	push	di
 	mov	di,offset tmpbuf	; work buffer in this data seg
 	mov	byte ptr [di],0		; terminator
 	call	filedate		; get info
@@ -2690,31 +2818,40 @@ evalt19a:push	di
 	mov	si,offset tmpbuf
 	cld
 	rep	movsb			; copy to Take buffer
-	jmp	evalt99
+evalt19b:jmp	evalt99
 
-evalt20:cmp	evaltype,F_files	; \ffiles(filespec)?
+evalt20:cmp	evaltype,F_directories	; \fdirectories(filespec)?
+	jne	evalt20a		; ne = no
+	mov	findkind,2		; say directory search
+	jmp	short evalt20d
+evalt20a:cmp	evaltype,F_files	; \ffiles(filespec)?
+	jne	evalt20b			; ne = no
+	mov	findkind,1		; say file search
+	jmp	short evalt20d
+evalt20b:cmp	evaltype,F_rdirectories	; \frdirectories(filespec)?
+	jne	evalt20c		; ne = no
+	mov	findkind,2+4		; directory search+recursive
+	jmp	evalt20d		; common worker
+evalt20c:cmp	evaltype,F_rfiles	; \frfiles(filespec)?
 	jne	evalt21			; ne = no
-	mov	temp,0			; count found files
-	call	filedate		; find first
-	jc	evalt20d		; c = none
-	push	di
-	push	es
-	inc	temp			; count found file
-	mov	dx,offset fileio.dta	; point at dta
+	mov	findkind,1+4		; file search+recursive
+
+evalt20d:
+	mov	dx,argptr		; filename
+	mov	cx,arglen		; length of it
+	call	rfprep			; prepare filespec for use below
+	mov	filecnt,0		; file count
+evalt20e:call	rgetfile		; get item from directory structure
+	jnc	evalt20e		; found one, repeat til none
+					; redo a findfirst for \fnextfile()
+	mov	dx,argptr		; filename
+	mov	cx,arglen		; length of it
+	call	rfprep			; prepare filespec for \fnextfile()
+	mov	[bx].filename,0		; clear name so do search for first
+	mov	dx,offset buff		; restore default dta
 	mov	ah,setdma		; set the dta address
 	int	dos
-evalt20b:mov	ah,next2		; DOS 2.0 search for next
-	int	dos
-	jc	evalt20c		; c = no more
-	inc	temp			; count found file
-	jmp	short evalt20b		; try for next
-evalt20c:mov	ah,setdma		; restore dta
-	mov	dx,offset buff
-	int	dos
-	pop	es
-	pop	di
-	call	filedate		; go back to find first again
-evalt20d:mov	ax,temp			; count of files found
+	mov	ax,filecnt		; report file count
 	call	fdec2di			; convert to ASCII string
 	mov	bx,takadr
 	sub	di,[bx].takptr		; end minus start
@@ -2723,25 +2860,85 @@ evalt20d:mov	ax,temp			; count of files found
 
 evalt21:cmp	evaltype,F_nextfile	; \fnextfile()?
 	jne	evalt24			; ne = no
-	mov	si,offset fileio.fname	; current filename from DOS
-	mov	dx,si
-	call	strlen			; length of name
-	mov	bx,takadr
-	mov	[bx].takcnt,cx		; length of result
-	rep	movsb			; copy to Take buffer
-	push	di
-	push	es
-	mov	dx,offset fileio.dta	; point at dta
+	test	findkind,2+1		; find files or directories?
+	jz	evalt21a		; z = neither, do nothing
+
+	call	rgetfile		; find object in file store
+	pushf				; preserve carry status
+	mov	dx,offset buff		; point at dta
 	mov	ah,setdma		; set the dta address
 	int	dos
-	mov	ah,next2		; DOS 2.0 search for next
-	int	dos
-	mov	ah,setdma		; restore dta
-	mov	dx,offset buff
-	int	dos
-	pop	es
-	pop	di
-evalt21b:jmp	evalt99
+	popf
+	jc	evalt21a		; c = failure
+	mov	si,offset rpathname	; report path\filename
+	mov	dx,si
+	call	strlen			; length to CX for ev21wrk
+	xor	ah,ah			; clear \ counter AH for ev32wrk
+	call	ev21wrk			; write pretty bytes, count to dx
+	push	ax			; save AH slash counter
+	mov	temp,dx			; byte count
+	mov	si,rfileptr 		; current filename from DOS
+	lea	dx,[si].filename
+	mov	si,dx			; for ev21wrk etc below
+	call	strlen			; length of name
+	pop	ax			; recover AH slash counter
+	call	ev21wrk			; pretty write this part too
+	add	dx,temp			; byte count
+	xor	al,al			; null terminator
+	stosb				; write it
+	inc	dx
+	mov	bx,takadr
+	mov	[bx].takcnt,dx		; length of result
+	jmp	evalt99
+evalt21a:				; c = failure, no next
+	mov	findkind,0		; failure means no next
+	jmp	evalt99
+
+; Ensure digits are protected by an even number of preceeding '\'
+; Enter with ds:si as source string of count CX bytes, destination
+; of es:di, report final byte count in DX. Enter with AH holding
+; current count of '\' chars in a row.
+ev21wrk proc near
+	cld
+	xor	dx,dx			; bytes written
+	jcxz	ev21w5			; z = nothing to do
+ev21w1:	lodsb				; read a byte
+	cmp	al,'\'			; slash seen?
+	jne	ev21w2			; ne = no
+	inc	ah			; count slashes in a row
+ev21w2:	test	ah,1			; odd slash count now?
+	jz	ev21w4			; z = no, nothing to do
+	cmp	al,'x'			; hex introducer?
+	je	ev21w2a			; e = yes, consider numeric
+	cmp	al,'X'
+	je	ev21w2a
+	cmp	al,'o'			; octal introducer
+	je	ev21w2a
+	cmp	al,'O'
+	je	ev21w2a
+	cmp	al,'d'			; decimal introducer
+	je	ev21w2a
+	cmp	al,'D'
+	je	ev21w2a
+	cmp	al,'0'			; digits?
+	jb	ev21w3			; b = no
+	cmp	al,'9'
+	ja	ev21w3			; a = no
+ev21w2a:test	ah,1			; odd number of slashes?
+	jz	ev21w3			; z = no
+	push	ax
+	mov	al,'\'			; double slash
+	stosb
+	pop	ax
+	inc	dx			; count byte written
+ev21w3:	cmp	al,'\'			; slash?
+	je	ev21w4			; e = yes
+	xor	ah,ah			; clear slash count
+ev21w4:	stosb				; store original byte
+	inc	dx			; count byte written
+	loop	ev21w1
+ev21w5:	ret
+ev21wrk endp
 
 evalt24:cmp	evaltype,F_replace	; \freplace(source,pat,replacement)?
 	jne	evalt25			; ne = no
@@ -3359,42 +3556,45 @@ fcmdh1:	mov	cmhlp,bx		; set help text pointer
 	ret
 fcmdhlp	endp
 
-
+; Obtain file date/time or size.
+; Incoming match pattern is in argptr (not ASCIIZ), length of arglen.
+; Write results to ds:di, not es:di.
 filedate proc	near
-	push	di
-	push	es
-	mov	dx,offset fileio.dta	; data transfer address
-	mov	ah,setdma		; set disk transfer address
-	int	dos
 	mov	bx,argptr		; filename
 	mov	dx,bx			; for file open
 	add	bx,arglen		; length of it
+	cmp	arglen,0		; empty argument?
+	je	filed2			; e = yes
 	mov	byte ptr [bx],0		; make it ASCIIZ
-	xor	cx,cx			; attributes: find only normal files
+	push	dx
+	mov	dx,offset buff		; use default dta
+	mov	ah,setdma		; set the dta address
+	int	dos
+	pop	dx
+	mov	cx,10h			; find dir and files
 	mov	ah,first2		; DOS 2.0 search for first
 	int	dos			; get file's characteristics
-	pushf				; save status
-	mov	ah,setdma		; restore dta
-	mov	dx,offset buff
-	int	dos
-	popf				; get status
-	pop	es
-	pop	di
 	jnc	filed1			; nc = success
 	ret				; fail
-filed1:	cmp	evaltype,F_date		; want date/time stamp?
-	je	filed3			; e = yes
+filed1:	mov	bx,offset buff		; default dta
+	jmp	short filed3
+filed2:	mov	bx,rfileptr		; no filename, use last find info
+	or	bx,bx			; any?
+	jnz	filed3			; nz = yes
+	mov	bx,offset buff		; revert to default dta
+filed3:	cmp	evaltype,F_date		; want date/time stamp?
+	je	filed5			; e = yes
 	cmp	evaltype,F_size		; want file length?
-	jne	filed2			; ne = no (probably \ffiles(..))
-	mov	ax,fileio.sizelo	; file size to dx:ax
-	mov	dx,fileio.sizehi
+	jne	filed4			; ne = no (probably \ffiles(..))
+	mov	ax,[bx].mysizelo	; file size to dx:ax
+	mov	dx,[bx].mysizehi
 	call	flnout			; convert to ASCII
 	mov	byte ptr [di],0		; terminate
-filed2:	clc
+filed4:	clc
 	ret
 
-filed3:	mov	bx,offset fileio.dta	; set work pointer
-	call	filetdate		; do the work
+filed5:	call	filetdate		; do the work
+	clc
 	ret
 filedate endp
 
@@ -3417,10 +3617,10 @@ filetdate proc	far
 	mov	byte ptr[di],'0'	; leading digit
 	inc	di
 	cmp	al,9			; more than one digit?
-	jbe	filed4			; be = no
+	jbe	filetd1			; be = no
 	mov	byte ptr[di-1],'1'	; new leading digit
 	sub	al,10			; get remainder
-filed4:	add	al,'0'			; to ascii
+filetd1:add	al,'0'			; to ascii
 	stosb				; end of month
 	mov	al,[bx+24]		; get day of month
 	and	al,1fh			; select day bits
@@ -3464,6 +3664,246 @@ filed4:	add	al,'0'			; to ascii
 	pop	es
 	ret
 filetdate endp
+
+; Setup to find files or directories given in ds:dx, length in cx.
+; Regularize path to always end in \, add .\ if necessary.
+rfprep proc	far
+	push	di
+	mov	bx,dx			; filename
+	add	bx,cx			; length of it
+	mov	byte ptr [bx],0		; ensure ASCIIZ
+	jcxz	rfprep2			; z = empty argument
+	mov	ax,word ptr [bx-2]	; last two chars
+	mov	cl,[bx-3]		; preceeding char
+	cmp	ah,'*'			; ends in *?
+	jne	rfprep5			; ne = no
+	cmp	al,'.'			; .* extension given?
+	je	rfprep5			; e = yes
+	cmp	cl,'.'			; . given?
+	je	rfprep5			; e = yes
+	mov	word ptr [bx],'*.'	; force .* extension
+	mov	byte ptr [bx+2],0
+rfprep5:push	cx			; see if pattern is a directory
+	push	dx
+	mov	dx,offset buff		; default dta
+	mov	ah,setdma
+	int	dos
+	pop	dx			; filename to ds:dx
+	push	dx			; save again
+	mov	cx,10h			; find dir and files
+	mov	ah,first2		; DOS 2.0 search for first
+	int	dos
+	pop	dx
+	pop	cx
+	jc	rfprep1			; c = nothing found
+	test	byte ptr buff+21,10h	; directory?
+	jz	rfprep1			; z = not a directory
+	cmp	byte ptr [bx-1],'*'	; ends in wild card?
+	je	rfprep1			; e = yes, leave intact
+	mov	word ptr [bx],0+'\'	; yes, ensure parsed as dir
+	inc	bx
+rfprep1:mov	al,byte ptr [bx-1]	; last byte, if any
+	cmp	al,'.'			; path for this dir or above (.,..)?
+	jne	rfprep2			; ne = no, use descriptor as-is
+	mov	word ptr [bx],0+'\'	; append "\"
+
+rfprep2:mov	di,offset rpathname	; path
+	mov	si,offset rfilename	; filename
+	call	fparse			; split source pattern from ds:dx
+	cmp	rfilename,0		; any file pattern?
+	jne	rfprep3			; ne = yes
+	mov	word ptr rfilename,'.*' ; force wild card terminator
+	mov	word ptr rfilename+2,0+'*'
+rfprep3:push	dx
+	mov	dx,offset rpathname	; path
+	call	strlen
+	mov	di,dx
+	pop	dx
+	add	di,cx
+	or	cx,cx			; path present?
+	jz	rfprep4			; z = no
+	cmp	byte ptr [di-1],':'	; path ends as drive separator?
+	je	rfprep4			; e = yes
+	cmp	byte ptr [di-1],'\'	; ends in \?
+	je	rfprep4			; e = yes
+	mov	word ptr [di],0+'\'	; append trailing slash
+rfprep4:pop	di
+	mov	bx,offset fileio
+	mov	rfileptr,bx		; point to fileio array for dta
+	mov	[bx].filename,0		; clear name to do find first
+	ret
+rfprep	endp
+
+; Find next item (file or directory), given dta in rfileptr.
+; Return carry clear if found, else carry set
+; Use filekind to allow recursion and to set kind of item desired.
+; Rfileptr points to current dta (amongst array of fileio).
+; Final name is in rfileptr.filename, path is in rpathname
+rgetfile proc far
+	mov	bx,rfileptr		; current dta pointer
+	mov	dx,bx			; point at dta
+	mov	ah,setdma		; set the dta address
+	int	dos
+rgfile1:cmp	[bx].filename,0		; filename established?
+	jnz	rgfile5			; nz = yes, do search for next
+	push	di
+	mov	di,offset decbuf	; scratch buffer
+	mov	si,offset rpathname	; path
+	call	strcpy			; path to decbuf
+	mov	si,offset rfilename	; filename pattern
+	call	strcat			; append filename
+	mov	dx,di			; search for first uses ds:dx
+	pop	di
+	xor	cx,cx			; find files only
+	test	findkind,1		; want files only?
+	jnz	rgfile2			; nz = yes
+	mov	cx,10h			; directories and files
+rgfile2:mov	ah,first2		; DOS 2.0 search for first
+	int	dos			; get file's characteristics
+	jc	rgfile6			; c = failed
+					; separate files from directories
+rgfile3:test	findkind,1		; want files only?
+	jnz	rgfile4			; nz = yes, done
+	test	byte ptr [bx]+21,10h	; directory?
+	jz	rgfile5			; z = no, try again
+	cmp	[bx].filename,'.'	; dot or dot-dot?
+	je	rgfile5			; e = yes, ignore dots, search again
+rgfile4:inc	filecnt			; file count
+	clc				; success
+	ret
+					; search for next
+rgfile5:mov	dx,bx			; dta pointer
+	mov	ah,next2		; DOS 2.0 search for next
+	int	dos
+	jnc	rgfile3			; nc = success, found entry, filter
+
+					; walk tree when out of items
+rgfile6:test	findkind,4		; recursion allowed?
+	jz	rgfile9			; z = no, done (failed)
+	mov	[bx].filename,0		; clear found name, for find first
+rgfile7:call	rnxtdir			; get next directory at this level
+	jc	rgfile8			; c = failure, none, go up tree
+	call	rsubdir			; step into this subdir
+	jmp	short rgfile1		; search again
+rgfile8:call	rprvdir			; go up one directory level, if any
+	jnc	rgfile7			; nc = got next dir at new level up
+rgfile9:stc				; c = failure
+	ret
+rgetfile endp
+
+; Scan current dta for next directory. If rfileptr.filename is non-zero
+;  do a search for next, else search for first.
+; rpathname has entire pattern.
+; Return carry clear on success with rfileptr.filename holding new
+; dir component, else carry set.
+; Reuse current dta.
+rnxtdir proc	near
+	mov	bx,rfileptr		; current dta
+	cmp	byte ptr [bx].filename,0 ; any name pattern yet?
+	jne	rnxtdir3		; ne = yes, use get next
+	push	di
+	mov	di,offset rpathname	; path
+	mov	dx,di
+	call	strlen
+	add	di,cx			; last byte plus one
+	mov	word ptr [di],'.*'	; wildcard pattern match for all dirs
+	mov	word ptr [di+2],0+'*'
+	mov	cx,10h			; find dir and files
+	mov	ah,first2		; DOS 2.0 search for first
+	int	dos
+	mov	byte ptr [di],0		; remove the '*.*'
+	pop	di
+	jnc	rnxtdir2		; nc = success
+	ret				; c = failed
+
+rnxtdir2:test	byte ptr [bx]+21,10h	; directory?
+	jz	rnxtdir3		; z = no, must be regular file
+	cmp	[bx].filename,'.'	; dot or dot-dot?
+	je	rnxtdir3		; e = yes, ignore, keep looking
+	clc				; say success
+	ret
+
+rnxtdir3:mov	dx,bx			; dta pointer
+	mov	ah,next2		; DOS 2.0 search for next
+	int	dos
+	jnc	rnxtdir2		; nc = success
+	ret				; failure to find another
+rnxtdir	endp
+
+; Go up one directory level.
+; Current dta needs to be removed. rpathname has current path.
+; We need to strip off one "dir\" and pop the scan level.
+; Returns carry clear, except carry set when already at top level.
+rprvdir	proc	near
+	cmp	rfileptr,offset fileio	; at top dir level now?
+	ja	rprvdir1		; a = no
+	stc				; say already at top level
+	ret
+
+rprvdir1:push	di
+	mov	di,offset rpathname	; path
+	mov	dx,di
+	call	strlen			; length of path string
+	jcxz	rprvdir3		; no path so far
+	add	di,cx			; last path char+1
+	dec	di			; last path char
+	cmp	byte ptr [di],'\'	; ends in \ now?
+	jne	rprvdir2		; ne = no
+	mov	byte ptr [di],' '	; change to space for backscan
+rprvdir2:cmp	byte ptr [di],'\'	; at path separator?
+	je	rprvdir3		; e = yes
+	cmp	byte ptr [di],':'	; drive letter colon?
+	je	rprvdir3		; e = yes
+	dec	di			; backup til separator
+	loop	rprvdir2		; keep backing up
+rprvdir3:mov	byte ptr [di+1],0	; terminate
+	sub	rfileptr,size fileiost	; go up one dir level
+	mov	dx,rfileptr
+	mov	bx,dx
+	mov	ah,setdma		; set the dta address
+	int	dos
+	pop	di
+	clc
+	ret
+rprvdir	endp
+
+; Step into subdirectory. [bx].filename as new dir, rpathname has current 
+; path with \ ASCIIZ termination. Changes to new dta and clears .filename.
+; Changes rpathname to contain new path addition. 
+rsubdir	proc	near
+	mov	bx,rfileptr
+	push	di
+	mov	di,offset rpathname	; current \ terminated path
+	mov	dx,di
+	call	strlen			; get length of this part
+	mov	ax,cx			; length
+	lea	si,[bx].filename	; get new directory component
+	mov	dx,si
+	call	strlen			; length of addition
+	add	ax,cx			; combined length
+	cmp	ax,64			; too long?
+	jae	rsubdir2		; ae = yes
+	call	strcat			; append si to end of di
+	mov	dx,di
+	call	strlen
+	add 	di,cx
+	mov	word ptr [di],0+'\'	; terminate with \
+	pop	di
+	jmp	short rsubdir1
+rsubdir2:stc				; fail
+	ret
+
+rsubdir1:cmp	rfileptr,offset fileio + (maxdepth - 1) * size fileiost
+	ja	rsubdir2		; a = will exceed max depth
+	add	rfileptr,size fileiost	; size of structure
+	mov	dx,rfileptr		; point at dta
+	mov	ah,setdma		; set the dta address
+	int	dos
+	mov	bx,dx
+	mov	[bx].filename,0		; clear filename field
+	clc				; success
+	ret
+rsubdir	endp
 
 ; Set envadr to the string following the <variable=> keyword in the DOS
 ; Environment and set envlen to its length after removing leading and
@@ -3676,9 +4116,24 @@ cmget5:	push	bx			; end of file on Take buffer
 	je	cmget5a			; e = yes, cannot keep open
 	cmp	comand.cmkeep,0		; keep Take/macro open after eof?
 	jne	cmget5b			; ne = yes
-cmget5a:push	ax
-	call	ftakclos		; close take file
+cmget5a:
+	push	ax
+	push	bx
+	mov	bx,takadr
+cmget5c:mov	al,[bx].takinvoke	; take level of last DO or command
+	call	ftakclos		; close take file, saves reg ax
+	mov	bx,takadr		; next Take
+	test	[bx].takattr,take_autocr ; if macro needs special ending
+	jnz	cmget5d			; nz = it does, do not autoclose here
+	cmp	[bx].takcnt,0		; empty?
+	jne	cmget5d			; ne = no, done closing
+	cmp	taklev,0		; any Take levels left?
+	je	cmget5d			; e = no
+	cmp	taklev,al		; still in last DO?
+	jae	cmget5c			; ae = yes, try closing again
+cmget5d:pop	bx
 	pop	ax
+
 	test	ah,take_autocr		; add CR on EOF?
 	jnz	cmget5b			; nz = yes
 	jmp	cmgetc			; internal macros have no auto CR
@@ -3732,7 +4187,12 @@ CMINBF	proc	near			; Buffer reader, final editor
 	pop	dx
 	cmp	cmrptr,offset cmdbuf+size cmdbuf ; reading beyond buffer?
 	jb	cminb1			; b = no
-	mov	ah,prstr
+cminb0:	mov	al,taklev		; current Take level
+	or	al,al
+	jz	cminb0a			; z = none open, exit parse error
+	call	ftakclos		; close Take file
+	jmp	short cminb0		; do all
+cminb0a:mov	ah,prstr
 	mov	dx,offset cmer09	; command too long
 	int	dos
 	jmp	prserr			; overflow = parse error
@@ -3747,13 +4207,15 @@ cminb1:	push	bx
 	mov	ah,al			; keep char in 'ah'
 	cmp	read_source,take_sub	; substitution?
 	je	cminb1a			; e = yes
+	cmp	cmrawptr,offset rawbuf+cmdblen ; overflow check on rawbuf
+	ja	cminb0			; a = overflowed
 	push	bx
 	mov	bx,cmrawptr		; where raw writes go (inc remakes)
 	mov	[bx],ah			; store byte
 	inc	cmrawptr
 	pop	bx
-cminb1a:
-	push	bx
+
+cminb1a:push	bx
 	mov	bx,cmwptr		; get the pointer into the buffer
 	mov	[bx],ah			; put it in the buffer
 	inc	bx

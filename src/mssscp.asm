@@ -1,7 +1,7 @@
 	NAME	mssscp
 ; File MSSSCP.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -112,7 +112,7 @@ data	segment
 	extrn	keyboard:word, rdbuf:byte, apctrap:byte, filtst:byte
 	extrn	diskio:byte, buff:byte, domath_ptr:word, domath_cnt:word
 	extrn	domath_msg:word, pardone:word, parfail:word, ifelse:byte
-	extrn	domacptr:word
+	extrn	domacptr:word, marray:word
 
 					; global (public) variables     
 script	scptinfo <>			; global structure, containing:
@@ -250,7 +250,6 @@ code1	segment
 	extrn	isfile:far, malloc:far, atpclr:near, atparse:near
 	extrn	strcpy:far, prtscr:far, dec2di:far, strcat:far, docnv:far
 	extrn	takrd:far, toupr:far, poplevel:far
-extrn decout:far,valout:far
 	assume	cs:code1
 code1	ends
 
@@ -453,7 +452,7 @@ swit4:	mov	bx,takadr		; point to current macro structure
 	mov	[bx].takcnt,cx		; number of chars in definition
 	mov	[bx].takptr,2		; where to read first string byte
 	or	[bx].takattr,take_malloc; say have buffer to be removed
-	or	[bx].takattr,take_while	; so Break/Continue work
+	or	[bx].takattr,take_switch ; doing Switch, for Break/Continue
 	mov	si,offset rdbuf		; switch body string
 	push	es
 	mov	es,ax			; new memory segment
@@ -770,8 +769,7 @@ ifcmdp2a:call	comnd
 	jnc	ifcmdp3			; nc = success
 	ret
 
-ifcmdp3:mov	word ptr rdbuf,ax	; store response length in buffer
-	cmp	ifkind,1		; xif
+ifcmdp3:cmp	ifkind,1		; xif?
 	je	ifcmdp3d		; e = yes, no rewinding
 	cmp	taklev,0		; still in a take file?
 	je	ifcmdp3d		; e = no
@@ -779,7 +777,7 @@ ifcmdp3:mov	word ptr rdbuf,ax	; store response length in buffer
 	mov	al,taklev
 	mov	bx,takadr
 	test	[bx].takattr,take_while	; is a for/while macro active?
-	jz	ifcmdp3b		; z = no
+	jz	ifcmdp3b		; z = no, no rewind
 	mov	ax,[bx].takbuf		; rewind the macro,  seg of buffer
 	mov	es,ax
 	mov	ax,es:[0]		; get original filling qty
@@ -992,17 +990,20 @@ ifnumer2:lodsb
 ifnumer3:jmp	ifcmdf			; jump to main command Failure exit
 ifnumeric endp
 
-; Process IF [NOT] DEF <macro name> <command>
+; Process IF [NOT] DEF <macro name or array element> <command>
 ifmdef	proc	near
 	mov	bx,offset rdbuf+2	; point to work buffer
 	mov	dx,offset ifdfhlp	; help
 	mov	comand.cmblen,cmdblen
 	mov	ah,cmword		; get macro name
 	mov	comand.cmper,1		; do not react to \%x
+	mov	comand.cmarray,1	; allow sub in [..] of \&<char> arrays
 	call	comnd
 	jnc	ifmde1			; nc = success
 	ret				; failure
 ifmde1:	mov	word ptr rdbuf,ax	; store length in buffer
+	cmp	word ptr rdbuf+2,'&\'	; array?
+	je	ifmde20			; e = yes
 	mov	bx,offset mcctab+1	; table of macro keywords
 	mov	tempd,0			; tempd = current keyword
 	cmp	byte ptr [bx-1],0	; any macros defined?
@@ -1042,6 +1043,54 @@ ifmde7:	inc	tempd			; number of keyword to test next
 	jmp	short ifmde3		; do another comparison
 ifmde9:	jmp	ifcmdf			; jump to main command Failure exit
 ifmde10:jmp	ifcmdp			; jump to main command Success exit
+					; arrays \&<char>[subscript]
+ifmde20:cmp	rdbuf[5],'['		; size bracket?
+	jne	ifmde9			; ne = no, fail
+	and	rdbuf[4],not 20h	; to upper case
+	mov	al,rdbuf[4]		; array name
+	cmp	al,'A'			; range check
+	jb	ifmde9			; b = fail
+	cmp	al,'Z'
+	ja	ifmde9			; a = fail
+	mov	si,offset rdbuf[6]	; point at size number
+	xor	ah,ah
+	cld
+ifmde21:lodsb
+	cmp	al,']'			; closing bracket?
+	je	ifmde22			; e = yes
+	inc	ah			; count byte
+	loop	ifmde21			; keep looking
+	jmp	ifmde9			; fail if got here
+ifmde22:xor	al,al
+	xchg	ah,al
+	sub	si,ax			; point at start of number
+	dec	si
+	mov	domath_ptr,si
+	mov	domath_cnt,ax
+	call	domath			; do string to binary dx:ax
+	jnc	ifmde23			; nc = success, value is in DX:AX
+	jmp	ifmde9			; fail
+ifmde23:mov	bl,rdbuf[4]		; get array name letter
+	sub	bl,'@'			; remove bias
+	xor	bh,bh			; preserve bx til end of proc
+	shl	bx,1			; address words
+	mov	si,ax			; index value
+	shl	si,1			; index words
+	mov	ax,marray[bx]		; current array seg
+	or	ax,ax			; if any
+	jz	ifmde9			; z = none, not defined
+	push	es
+	mov	es,ax
+	mov	ax,es:[0]		; get array size
+	shl	ax,1			; in words
+	cmp	si,ax			; index versus size
+	jbe	ifmde24			; be = in bounds
+	pop	es
+	jmp	ifmde9			; out of bounds, not defined
+ifmde24:cmp	es:[si+2],0		; any string's segment?
+	pop	es
+	je	ifmde9			; e = no definition
+	jmp	ifmde10			; array element is defined
 ifmdef	endp
 
 ; IF [not] ALARM hh:mm:ss command
@@ -2327,8 +2376,8 @@ squit6:	stc
 	ret				; return failure
 squit4:	clc				; return success, ignore error
 	ret
-
 code	ends
+
 code1	segment
 	assume	cs:code1
 

@@ -2,7 +2,7 @@
  * ICMP packet processor
  *
  * Copyright (C) 1991, University of Waterloo.
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -17,7 +17,7 @@
  *  Utah State University, jrd@cc.usu.edu, jrd@usu.Bitnet.
  *
  * Last edit
- * 12 Jan 1995 v3.14
+ * 31 Oct 2000 v3.16
  */
 #include "msntcp.h"
 #include "msnlib.h"
@@ -131,8 +131,11 @@ void
 icmp_print(byte *msg)
 {
 	if (msg == NULL) return;
-	outs("\n\r ICMP: ");
-	outs(msg);
+	if (kdebug & DEBUG_STATUS)
+		{
+		outs("\n\r ICMP: ");
+		outs(msg);
+		}
 }
 
 struct pkt *
@@ -220,16 +223,25 @@ icmp_handler(in_Header *ip)
 	if (checksum(icmp, len) != 0xffff)
 		return (0);				/* 0 = failure */
 
+	if (len > 1500 - 20)				/* pkt too long? */
+		len = 1500 - 20;			/* max buffer */
+	if (my_ip_addr == 0L)
+		return (0);		/* we have no IP address yet */
+	if (ntohl(ip->destination) != my_ip_addr)
+		return (0);		/* not a unicast, ignore */
+
 	code = icmp->unused.code;
+
 	switch (icmp->unused.type)
 	{
 	case 0: 			/* icmp echo reply received */
-/*		icmp_print("received icmp echo receipt");  */
+		icmp_print("received icmp echo receipt");
 
 		/* check if we were waiting for it */
 		if (icmp->echo.identifier == (word)(ntohl(my_ip_addr)&0xffff))
 			{			/* answer to our request */
-			outs("\r\n host is alive\r\n");
+			if (kdebug & DEBUG_STATUS)
+				outs("\r\n host is alive\r\n");
 			break;
 			}
 		break;
@@ -249,7 +261,7 @@ icmp_handler(in_Header *ip)
 		break;
 
 	case 4:				/* source quench */
-/*		icmp_print("Source Quench"); */
+		icmp_print("Source Quench");
 		do_quench(&icmp->ip.ip);	/* returned IP header */
 		break;
 
@@ -261,18 +273,21 @@ icmp_handler(in_Header *ip)
 				ntohl(icmp->ip.ip.destination));
 					/* for this host IP address */
 					/* and add to list of gateways */
+			if (kdebug & DEBUG_STATUS)
+			{
 			icmp_print(redirect[code]);
 			ntoa(nametemp, ntohl(icmp->ip.ipaddr));
 			outs(" to gateway "); outs(nametemp);
 			ntoa(nametemp, ntohl(ip->source));
 			outs(" from gateway ");	outs(nametemp);
+			}
 			do_redirect(ntohl(icmp->ip.ipaddr), &icmp->ip.ip);
 					/* new gateway  returned IP header */
 			}
 		break;
 
 	case 8: 			/* icmp echo request */
-/*		 icmp_print("PING requested of us"); */
+		icmp_print("Ping request\r\n");
 	        /* format the packet with the request's hardware address */
 		pkt = (struct pkt*)(eth_formatpacket(
 				(eth_address *)eth_hardware(ip), TYPE_IP));
@@ -285,7 +300,6 @@ icmp_handler(in_Header *ip)
 		/* note that ip values are still in network order */
 
 		icmp_Reply(pkt, ip->destination, ip->source, len);
-/* 		icmp_print("PING reply sent"); */
 		break;
 
 	case 11: 			/* time exceeded message */
@@ -327,6 +341,8 @@ icmp_noport(in_Header *ip)
 	struct pkt *pkt;
 	int len;
 
+	if (my_ip_addr == 0L)
+		return;				/* we have no address yet */
 	len = (ip->hdrlen_ver & 0xf) << 2;	/* quad bytes to bytes */
 	icmp = (icmp_pkt *)((byte *)ip + len);
 	pkt = (struct pkt*)(eth_formatpacket(

@@ -1,7 +1,7 @@
 /* File MSNPKT.C
  * Packet Driver interface
  *
- *	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+ *	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
  *	City of New York.  The MS-DOS Kermit software may not be, in whole 
  *	or in part, licensed or sold for profit as a software product itself,
  *	nor may it be included in or distributed with commercial products
@@ -19,7 +19,7 @@
 #include "msntcp.h"
 #include "msnlib.h"
 
-#define BUFSIZE	6000 			/* size of pkt receive buffer */
+#define BUFSIZE	(8*1024)		/* size of pkt receive buffer */
 
 word	pkt_ip_type = 0x0008;		/* these are little endian values */
 word	pkt_arp_type = 0x0608;
@@ -181,7 +181,7 @@ pkt_received()
 				if (chk_timeout(watch_timeout) == TIMED_OUT)
 					{
 					pkt_buf_wipe();	/* emergency treatment */
-					if (kdebug)
+					if (kdebug & DEBUG_STATUS)
 				outs("\7 Flushing stuck receive queue\r\n");
 					}
 				return (NULL);
@@ -197,7 +197,7 @@ pkt_received()
 		else				/* bad link information */
 			{
 			pkt_buf_wipe();		/* emergency treatment */
-			if (kdebug) 
+			if (kdebug & DEBUG_STATUS)
 				outs("\7 Flushing corrupt receive queue\r\n");
 			break;
 			}

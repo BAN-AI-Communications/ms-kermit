@@ -1,7 +1,7 @@
 	name	msssho
 ; File MSSSHO.ASM
 	include mssdef.h
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -25,7 +25,7 @@
 	public	fmtdsp, ermsg, msgmsg, init, cxmsg, intmsg, kbpr, perpr
 	public	winpr, windflag, pktsize, clrfln, oldkbt, oldper
 	public  wrpmsg, prttab, pasz, shovar, prnname, filekind, filecps
-	public	cntlsho, logtransact, shovarcps, sharray
+	public	cntlsho, logtransact, shovarcps, sharray, streampr
 	public	ferbyte, ferdate, ferdisp, fertype, ferchar, fername, ferunk
 
 mcclen	equ	macmax*10
@@ -80,7 +80,8 @@ data	segment
 	extrn	xfertab1:byte, xfertab2:byte, xfertab3:byte, outpace:word
 	extrn	winusedmax:byte, protlist:byte, takeerror:byte,macroerror:byte
 	extrn	abftab:byte, sndpathflg:byte, marray:word, rcvpathflg:byte
-	extrn	domath_ptr:word, domath_cnt:word
+	extrn	domath_ptr:word, domath_cnt:word, lastfsize:dword
+	extrn	crcword:word, streaming:byte, streamok:byte
 
 crlf	db       cr,lf,'$'
 eqs	db	' = $'
@@ -118,7 +119,7 @@ cxzser	db	cr,lf,' Type X to cancel file, Z to cancel group,'
 	db	cr,lf,' or Enter to retry',cr,lf,'$'
 windmsg	db	' Window slots in use:$'
 windmsg2 db	' of $'
-
+streammsg db	'           Streaming: Active$'
 else
 
 outlin2 db	cr,lf 
@@ -150,6 +151,7 @@ cxzser	db	cr,lf,' X cancela arquivo, Z cancela grupo,'
 	db	cr,lf,' Enter  re-tenta',cr,lf,'$'
 windmsg	db	'      Pacotes por janela:$'
 windmsg2 db	' of $'
+streammsg db	'           Streaming: active$'
 endif	; nls_portuguese
 
 windflag db	0		; flag to init windows msg, 0=none
@@ -249,6 +251,11 @@ incstb	db	2				;[jrs] Set Input Case
 	mkeyw	'Ignore',0
 	mkeyw	'Observe',1
 
+pathtab	db	3			; SET SEND/RECEIVE PATHNAMES
+	mkeyw	'off',0
+	mkeyw	'relative',1
+	mkeyw	'absolute',2
+
 				; Statistics data storage area
 fsta	statinfo <>		; for last operation values
 ssta	statinfo <>		; for session values
@@ -284,6 +291,7 @@ fsucmsg	db	'completed, ',0
 fbadmsg	db	'failed, ',0
 fintmsg	db	'interrupted',0
 bytesmsg db	'bytes: ',0
+streamstat db	' Streaming used$'
 				; attributes msgs shared with msssen/mssrcv
 ferbyte	db	'file_size',0		; '1' and '!'
 ferdate db	'date/time',0		; '#'
@@ -333,6 +341,7 @@ xchmsg	db	'Transfer char-set: $'
 xchmsg1	db	'Transfer locking-shift: $'
 xchmsg2	db	'Transfer translation: $'
 xchmsg3 db	'Transfer mode sensing: $'
+xcrcmsg	db	'Transfer CRC: $'
 chmsg	db	'File char set: $'
 unkmsg	db	'Unknown-char-set: $'
 diskst	db	'Dir: $'
@@ -364,11 +373,11 @@ snpdst	db	'Number of padding chars S: $'
 spadst	db	'Padding char S: ',5eh,'$'
 retrymsg db	'Retry send/receive packet limit: $'
 swinst	db	'Sliding window slots (max): $'
+strmmsg db	'Streaming: $'
 dispst	db	'Display: $'
 timmsg	db	'Timer: $'
 srvmsg	db	'Timeout (sec) waiting for a transaction: $'
 dblmsg	db	'Send double-char: $'
-ignmsg	db	'Receive ignore-char: $'
 escmes	db	'Escape character: $'
 exitmes	db	'Exit warning: $'
 scpmsg	db	'Script commands Echo, If, Input, Minput, Output, Pause,'
@@ -407,6 +416,7 @@ ssndmsg	db	'Send pathnames: $'
 srcvmsg	db	'Receive pathnames: $'
 servmsg	db	'Server commands available to remote user: $'
 sdefmsg	db	'ASSIGN: $'
+sbyemsg	db	'BYE:    $'
 scwdmsg	db	'CD/CWD: $'
 sdelmsg	db	'DELETE: $'
 sdirmsg	db	'DIR:    $'
@@ -442,8 +452,10 @@ shom9m3	db	cr,lf,' No macro(s)$'
 memmsg1	db	cr,lf,' DOS free memory (bytes):$'
 memmsg2	db	cr,lf,' Total free bytes: $'
 varstng	db	' \v($'
-cntlmsg1 db	cr,lf,' Unprefixed control codes (sent as-is without'
+cntlmsg1 db	cr,lf,lf,' Unprefixed control codes (sent as-is without'
 	db	' protective prefixing):',cr,lf,' $'
+cntlmsg2 db	cr,lf,lf,' Prefixed control codes (includes 127, 255, and'
+	db	' packet start/end):',cr,lf,' $'
 prterr	db	'?Unrecognized value$'
 lpktnam	db	'Packet.log',54 dup (0)	; default packet log filename
 lsesnam	db	'Session.log',54 dup (0); default capture/session filename
@@ -544,34 +556,36 @@ stpro	stent	<stlnum,spakst,,dtrans.slong>		; SHOW PROTOCOL
 	stent	<stnum,rtimst,,trans.rtime>
 	stent	<onechr,sqcst,,dtrans.squote>
 	stent	<onechr,rqcst,,trans.rquote>
-	stent	<srchkw,ssndmsg,ontab,sndpathflg>
-	stent	<srchkw,srcvmsg,ontab,rcvpathflg>
+	stent	<srchkw,ssndmsg,pathtab,sndpathflg>
+	stent	<srchkw,srcvmsg,pathtab,rcvpathflg>
 	stent	<prsar,msohst,msrec,trans.ssoh,trans.rsoh>
 	stent	<prsarv,snpdst,msrecv,dtrans.spad,trans.rpad>
 	stent	<prsar,meolst,msrec,trans.seol,trans.reol>
 	stent	<prsar,spadst,msrec,dtrans.spadch,trans.rpadch>
 	stent	<onechr,dblmsg,,dtrans.sdbl>
-	stent	<onechr,ignmsg,,dtrans.rign>
-	stent	<prsnd,sndmsg1>
 	stent	<rptstat,repst>
-	stent	<stnum,retrymsg,,maxtry>
+	stent	<prsnd,sndmsg1>
 	stent	<srchkw,blokst,blktab,dtrans.chklen>
-	stent	<onoff,timmsg,,flags.timflg>
+	stent	<stnum,retrymsg,,maxtry>
 	stent	<stnum,swinst,,dtrans.windo>
-	stent	<srchkw,debon,logsta,flags.debug>
 	stent	<prhnd>
+	stent	<srchkw,strmmsg,ontab,streaming>
+	stent	<onoff,timmsg,,flags.timflg>
 	stent	<srchkw,xtypmsg,xftyptab,dtrans.xtype>
 	stent	<srchkw,capmsg,logsta,flags.capflg>
-	stent	<stmsg,atton>
+	stent	<srchkw,xtypmsg,xftyptab,dtrans.xtype>
+	stent	<srchkw,debon,logsta,flags.debug>
 	stent	<srchkww,chmsg,setchtab,flags.chrset>
-	stent	<srchkb,sachmsg,ontab,attchr,flags.attflg>
+	stent	<stmsg,atton>
 	stent	<srchkw,xchmsg,xfchtab,dtrans.xchset>
-	stent	<srchkb,sadtmsg,ontab,attdate,flags.attflg>
+	stent	<srchkb,sachmsg,ontab,attchr,flags.attflg>
 	stent	<srchkw,xchmsg2,xfertab2,dtrans.xchri>
-	stent	<srchkb,salnmsg,ontab,attlen,flags.attflg>
+	stent	<srchkb,sadtmsg,ontab,attdate,flags.attflg>
 	stent	<srchkw,xchmsg1,xfertab1,dtrans.lshift>
-	stent	<srchkb,satymsg,ontab,atttype,flags.attflg>
+	stent	<srchkb,salnmsg,ontab,attlen,flags.attflg>
 	stent	<srchkw,xchmsg3,xfertab3,dtrans.xmode>
+	stent	<srchkb,satymsg,ontab,atttype,flags.attflg>
+	stent	<srchkw,xcrcmsg,ontab,dtrans.xcrc>
 	dw	0
 
 stscpt	stent	<stmsg,scpmsg>				; SHOW SCRIPT
@@ -601,19 +615,20 @@ stserv	stent	<pasz,lusrmsg,offset luser>		; SHOW SERVER
 	stent	<stmsg,servmsg>
 	stent	<srchkb,sdefmsg,endistab,defflg,denyflg>
 	stent	<srchkb,skermsg,endistab,kerflg,denyflg>
-	stent	<srchkb,scwdmsg,endistab,cwdflg,denyflg>
+	stent	<srchkb,sbyemsg,endistab,byeflg,denyflg>
 	stent	<srchkb,slogmsg,endistab,pasflg,denyflg>
-	stent	<srchkb,sdelmsg,endistab,delflg,denyflg>
+	stent	<srchkb,scwdmsg,endistab,cwdflg,denyflg>
 	stent	<srchkb,smsgmsg,endistab,sndflg,denyflg>
-	stent	<srchkb,sdirmsg,endistab,dirflg,denyflg>
+	stent	<srchkb,sdelmsg,endistab,delflg,denyflg>
 	stent	<srchkb,sprtmsg,endistab,prtflg,denyflg>
-	stent	<srchkb,sfinmsg,endistab,finflg,denyflg>
+	stent	<srchkb,sdirmsg,endistab,dirflg,denyflg>
 	stent	<srchkb,sqrymsg,endistab,qryflg,denyflg>
-	stent	<srchkb,sgetmsg,endistab,getsflg,denyflg>
+	stent	<srchkb,sfinmsg,endistab,finflg,denyflg>
 	stent	<srchkb,sretmsg,endistab,retflg,denyflg>
-	stent	<srchkb,sspcmsg,endistab,spcflg,denyflg>
-	stent	<srchkb,shstmsg,endistab,hostflg,denyflg>
+	stent	<srchkb,sgetmsg,endistab,getsflg,denyflg>
+;; OLD	stent	<srchkb,sspcmsg,endistab,spcflg,denyflg>
 	stent	<srchkb,stypmsg,endistab,typflg,denyflg>
+	stent	<srchkb,shstmsg,endistab,hostflg,denyflg>
 	dw	0
 stserv2	stent	<stnum,srvmsg,,srvtmo>
 	dw	0
@@ -673,7 +688,10 @@ fclearl	proc	far
 	call	clearl
 	ret
 fclearl	endp
-
+fposcur	proc	far
+	call	poscur
+	ret
+fposcur	endp
 ; Display asciiz message pointed to by DS:DX on Last error line
 ERMSG	PROC	NEAR
 	test	flags.remflg,dquiet	; quiet screen?
@@ -710,6 +728,7 @@ ERMSG	ENDP
 ; Decode and display Message packet pointed to by SI.
 MSGMSG	PROC	NEAR
 	mov	decbuf,0		; clear output buffer for rem query
+	call	dodec			; decode to decbuf, SI is pktinfo ptr
 	test	flags.remflg,dquiet	; quiet screen?
 	jnz	msgmsgx			; nz = yes
 	cmp	[si].datlen,0		; anything present?
@@ -729,8 +748,7 @@ msgms2:	push	si
 	call	poscur
 	call	clearl			; clear the line
 	pop	si
-msgms3:	call	dodec			; decode to decbuf, SI is pktinfo ptr
-	mov	dx,offset decbuf	; final error message string, asciiz
+msgms3:	mov	dx,offset decbuf	; final error message string, asciiz
 	call	prtasz			; display asciiz message
 msgmsgx:ret
 MSGMSG	ENDP
@@ -1180,69 +1198,6 @@ perprw2:pop	ax
 	ret
 perpr	endp
 
-winpr	proc	near			; print number of active window slots
-	push	ax
-	mov	al,windused		; window slots in use
-	cmp	al,winusedmax		; exceeds running max noted?
-	jbe	winpr5			; be = no
-	mov	winusedmax,al		; update max
-winpr5:	pop	ax
-	cmp	trans.windo,1		; windowing in use?
-	jbe	winprx			; be = no, no message
-	test	flags.remflg,dregular	; regular display?
-	jz	winprx			; z = no, no display
-	cmp	fmtdsp,0		; formatted display?
-	je	winprx			; e = no, no display here
-	test	flags.remflg,dserver	; server mode?
-	jnz	winpr4			; nz = yes, writing to their screen
-	cmp	flags.xflg,0		; receiving to screen?
-	je	winpr4			; e = no
-winprx:	ret
-winpr4:	push	ax
-	push	bx
-	push	cx
-	push	dx
-	push	si
-	cmp	windflag,0		; have we written an initial value?
-	jne	winpr1			; ne = yes
-	mov	dx,scrnp		; position cursor
-	dec	dh
-	xor	dl,dl			; 0 = left most column for text
-	call	poscur
-	call	clearl			; clear the line
-	mov	ah,prstr
-	mov	dx,offset windmsg	; the text
-	int	dos
-	xor	al,al			; display an initial 0
-	mov	oldwind,-1
-	mov	windflag,1		; say have done the work
-	jmp	short winpr2
-winpr1:	mov	al,windused		; window slots in use
-	cmp	al,oldwind		; same as before?
-	je	winpr3			; e = yes, ignore
-winpr2:	push	ax
-	mov	dx,scrnp		; position cursor
-	dec	dh
-	call	poscur
-	call	clearl
-	pop	ax
-	mov	oldwind,al		; remember last value
-	xor	ah,ah
-	call	decout			; display value
-	mov	ah,prstr
-	mov	dx,offset windmsg2	; ' of '
-	int	dos
-	mov	al,trans.windo		; number of window slots
-	xor	ah,ah
-	call	decout
-winpr3:	pop	si
-	pop	dx
-	pop	cx
-	pop	bx
-	pop	ax
-	ret
-winpr	endp
-
 ; Show file kind (text, binary) and character set, must preserve SI
 filekind proc	near
 	cmp	flags.xflg,0		; receiving to screen?
@@ -1470,10 +1425,107 @@ code	ends
 
 code1	segment
 	assume	cs:code1
+winpr	proc	far			; print number of active window slots
+	push	ax
+	mov	al,windused		; window slots in use
+	cmp	al,winusedmax		; exceeds running max noted?
+	jbe	winpr5			; be = no
+	mov	winusedmax,al		; update max
+winpr5:	pop	ax
+	cmp	trans.windo,1		; windowing in use?
+	jbe	winprx			; be = no, no message
+	test	flags.remflg,dregular	; regular display?
+	jz	winprx			; z = no, no display
+	cmp	fmtdsp,0		; formatted display?
+	je	winprx			; e = no, no display here
+	test	flags.remflg,dserver	; server mode?
+	jnz	winpr4			; nz = yes, writing to their screen
+	cmp	flags.xflg,0		; receiving to screen?
+	je	winpr4			; e = no
+winprx:	ret
+winpr4:	push	ax
+	push	bx
+	push	cx
+	push	dx
+	push	si
+	cmp	windflag,0		; have we written an initial value?
+	jne	winpr1			; ne = yes
+	mov	dx,scrnp		; position cursor
+	dec	dh
+	xor	dl,dl			; 0 = left most column for text
+	call	fposcur
+	call	fclearl			; clear the line
+	mov	ah,prstr
+	mov	dx,offset windmsg	; the text
+	int	dos
+	xor	al,al			; display an initial 0
+	mov	oldwind,-1
+	mov	windflag,1		; say have done the work
+	jmp	short winpr2
+winpr1:	mov	al,windused		; window slots in use
+	cmp	al,oldwind		; same as before?
+	je	winpr3			; e = yes, ignore
+winpr2:	push	ax
+	mov	dx,scrnp		; position cursor
+	dec	dh
+	call	fposcur
+	call	fclearl
+	pop	ax
+	mov	oldwind,al		; remember last value
+	xor	ah,ah
+	call	decout			; display value
+	mov	ah,prstr
+	mov	dx,offset windmsg2	; ' of '
+	int	dos
+	mov	al,trans.windo		; number of window slots
+	xor	ah,ah
+	call	decout
+winpr3:	pop	si
+	pop	dx
+	pop	cx
+	pop	bx
+	pop	ax
+	ret
+winpr	endp
+
+; Say Streaming: Active on formatted display
+streampr proc	far
+	test	flags.remflg,dregular	; regular display?
+	jz	strmx			; z = no, no display
+	cmp	fmtdsp,0		; formatted display?
+	je	strmx			; e = no, no display here
+	test	flags.remflg,dserver	; server mode?
+	jnz	strm1			; nz = yes, writing to their screen
+	cmp	flags.xflg,0		; receiving to screen?
+	je	strm1			; e = no
+strmx:	ret
+strm1:	push	ax
+	push	bx
+	push	cx
+	push	dx
+	push	si
+	mov	dx,scrnp		; position cursor
+	dec	dh
+	xor	dl,dl			; 0 = left most column for text
+	call	fposcur
+	call	fclearl			; clear the line
+	mov	ah,prstr
+	mov	dx,offset streammsg	; the text
+	int	dos
+	pop	si
+	pop	dx
+	pop	cx
+	pop	bx
+	pop	ax
+	ret
+streampr endp
 
 ; Start recording of statistics for this operation. Enter with al = 0 for
 ; receive, al = 1 for send.
 fbegtim	proc	FAR
+	mov	crcword,0		; clear CRC-16 for last file
+	mov	word ptr lastfsize,0	; clear size of last xfered file
+	mov	word ptr lastfsize+2,0
 	test	sflag,80h		; is this a duplicate call?
 	jz	begtim1			; z = no
 	ret				; else just return
@@ -1487,6 +1539,7 @@ begtim1:push	ax
 	and	al,1
 	mov	sflag,al		; save direction of xfer (1=send)
 	xor	ax,ax		; clear statistics counters for this file
+	mov	crcword,ax		; clear CRC-16 value of last group
 	cld
 	mov	di,offset fsta.prbyte	; start of the structure
 	mov	cx,offset fsta.xstatus2 + 1 - offset fsta.prbyte ; end
@@ -1693,7 +1746,7 @@ logtra7:mov	dx,offset diskio.string	; local name
 	int	dos
 	jmp	short logtra9
 
-logtra8:mov	dx,offset templp	; Send. local name
+logtra8:mov	dx,offset diskio.string; templp	; Send. local name
 	call	strlen
 	mov	ah,write2
 	int	dos
@@ -1781,7 +1834,12 @@ logtra10a:mov	dx,offset bytesmsg	; "bytes: "
 	int	dos
 logtra11:pop	bx
 	pop	di
-logtra12:xor	ax,ax
+logtra12:
+	mov	ax,tfilsz		; low order word of transferred size
+	mov	word ptr lastfsize,ax
+	mov	ax,tfilsz+2		; high order word
+	mov	word ptr lastfsize+2,ax
+	xor	ax,ax
 	mov	tfilsz,ax		; clear file size area
 	mov	tfilsz+2,ax
 	mov	fsta.xname,al		; clear statistics "as" name
@@ -1901,7 +1959,12 @@ fshosta	proc	far			; STATISTICS display
 	mov	ah,prstr
 	mov	dx,offset crlf
 	int	dos
-	mov	dx,offset windmsg	; Window slots used/negotiated
+	cmp	streamok,0		; if did not use streaming
+	je	shostat1		; e = no streaming
+	mov	dx,offset streamstat
+	int 	dos
+	jmp	shostat2
+shostat1:mov	dx,offset windmsg	; Window slots used/negotiated
 	int	dos
 	mov	al,winusedmax		; max used
 	xor	ah,ah
@@ -1917,7 +1980,7 @@ fshosta	proc	far			; STATISTICS display
 	mov	cx,1
 	call	shoprt
 
-	mov	dx,offset timemsg	; elapsed time material
+shostat2:mov	dx,offset timemsg	; elapsed time material
 	mov	ah,prstr
 	int	dos
 	mov	cx,15			; field width
@@ -2813,7 +2876,7 @@ STATUS	PROC	NEAR
 stat0a:	mov	dx,offset crlf
 	mov	ah,prstr
 	int	dos			; print a crlf
-					; STAT0 is an external ref (in mster)
+					; STAT0 is an external ref (in msster)
 STAT0:	call	cmblnk			; clear the screen
 	call	locate			; home the cursor
 	mov	bx,offset sttab		; table to control printing
@@ -3123,7 +3186,23 @@ cntlsho	proc	near
 	mov	ah,prstr
 	mov	dx,offset cntlmsg1 	; first msg
 	int	dos
+	mov	temp,0			; show unprotected
 	mov	dx,1			; do 7-bit unprotected forms
+	call	cntlwk			; call worker
+	mov	ah,prstr
+	mov	dx,offset crlf
+	int	dos
+	mov	ah,conout
+	mov	dl,' '
+	int 	dos
+	mov	dx,8080h		; do 8-bit unprotected forms
+	call	cntlwk
+
+	mov	ah,prstr
+	mov	dx,offset cntlmsg2 	; protected msg
+	int	dos
+	mov	dx,1			; do 7-bit unprotected forms
+	mov	temp,1			; show protected
 	call	cntlwk			; call worker
 	mov	ah,prstr
 	mov	dx,offset crlf
@@ -3135,13 +3214,34 @@ cntlsho	proc	near
 	call	cntlwk
 	clc
 cntlsho1:ret
+cntlsho endp
+code	ends
 
-cntlwk:	mov	cx,32
+code1	segment
+	assume	cs:code1
+
+; worker for cntlsho to display prefixed and not code values
+cntlwk	proc	far
+	mov	cx,32
 	xor	bx,bx
 	xor	si,si			; items per line counter
-cntlwk1:test	protlist[bx],dl		; unprotected?
+cntlwk1:cmp	temp,0			; doing unprotected?
+	je	cntlwk4			; e = yes
+	cmp	bl,trans.ssoh		; packet start of header?
+	je	cntlwk5			; e = yes, always prefixed
+	cmp	bl,trans.seol		; packet end of line?
+	je	cntlwk5			; e = yes, always prefixed
+	test	protlist[bx],dl		; unprotected?
+	jz	cntlwk5			; z = no
+	jmp	short cntlwk2		; skip unprotected
+
+cntlwk4:cmp	bl,trans.ssoh		; packet start of header?
+	je	cntlwk2			; e = yes, always prefixed
+	cmp	bl,trans.seol		; packet end of line?
+	je	cntlwk2			; e = yes, always prefixed
+	test	protlist[bx],dl		; unprotected?
 	jz	cntlwk2			; z = no
-	mov	ax,bx
+cntlwk5:mov	ax,bx
 	add	al,dh			; add possible 128 offset
 	push	dx
 	call	decout
@@ -3151,7 +3251,7 @@ cntlwk1:test	protlist[bx],dl		; unprotected?
 	pop	dx
 	inc	si			; count item displayed
 cntlwk2:inc	bx
-	cmp	si,16			; done plenty for one line?
+	cmp	si,17			; done plenty for one line?
 	jb	cntlwk3			; b = no
 	push	dx
 	mov	ah,prstr
@@ -3163,8 +3263,18 @@ cntlwk2:inc	bx
 	pop	dx
 	xor	si,si
 cntlwk3:loop	cntlwk1
-	ret
-cntlsho endp
+	cmp	temp,0			; showing prefixed?
+	je	cntlwk6			; e = no
+	xor	ah,ah
+	mov	al,127			; always prefixed
+	add	al,dh			; high bit
+	call	decout
+cntlwk6:ret
+cntlwk	endp
+code1	ends
+
+code	segment
+	assume cs:code
 
 ; Display Send and Receive chars
 prsar	proc	near
@@ -3253,7 +3363,8 @@ prhnd:	mov	si,offset handst	; copy in initial message
 	cmp	[bx].hndflg,0		; Is handshaking in effect?
 	jne	prh0			; ne = yes, show what we're using
 	jmp	stms1			; no, say so and return
-prh0:	xor	ah,ah
+prh0:	mov	al,[bx].hands		; handshake char
+	xor	ah,ah
 	call	outnum			; show handshake as decimal number
 	ret
 

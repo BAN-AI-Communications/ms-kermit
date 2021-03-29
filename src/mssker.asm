@@ -2,16 +2,17 @@
 ; File MSSKER.ASM
 	include mssdef.h
 ; Edit history
-; 18 Jan 1995 version 3.14
+; 20 Mar 1998 version 3.16
 ; Last edit
-; 18 Jan 1995
-;****************************** Version 3.14 ***************************** 
+; 23 Apr 1999
+;****************************** Version 3.16 ***************************** 
 ; KERMIT, Celtic for "free" 
 ;
 ; The name "Kermit" is a registered trade mark of Henson Associates, Inc.,
 ; used by permission.
 ;
-;	MS-DOS Kermit Program Version 3.15 beta, Sept 97
+;	MS-DOS Kermit Program Version 3.16  alpha, Feb 98
+;	MS-DOS Kermit Program Version 3.15  15 Sept 97
 ;	MS-DOS Kermit Program Version 3.14, 18 Jan 95
 ;	MS-DOS Kermit Program Version 3.13, 8 July 93
 ;	MS-DOS Kermit Program Version 3.12, Feb 1992
@@ -31,7 +32,7 @@
 ; 
 ;       Based on the Columbia University KERMIT Protocol.
 ; 
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -72,7 +73,7 @@ braceop	equ	7bh			; opening curly brace
 bracecl	equ	7dh			; closing curly brace
 
 _STACK	SEGMENT				; our stack
-	dw	1500 dup (0)		; for TCP code
+	dw	1500+1024 dup (0)		; for TCP code
 	dw	200 dup(0)		; for main Kermit code
 msfinal	label	word			; top of stack
 _STACK	ENDS
@@ -89,10 +90,10 @@ verident label	byte
 patchena db	'$patch level'
 patchid	db	' 0 $'
 copyright db	cr,lf
-	db	'Copyright (C) Trustees of Columbia University 1982, 1997.'
+	db	'Copyright (C) Trustees of Columbia University 1982, 2000.'
 	db	cr,lf,'$'
 copyright2 db	cr,lf,lf
- db ' Copyright (C) 1982, 1997, Trustees of Columbia University in the'
+ db ' Copyright (C) 1982, 2000, Trustees of Columbia University in the'
  db	cr,lf
  db ' City of New York.  The MS-DOS Kermit software may not be, in whole' 
  db	cr,lf
@@ -153,6 +154,7 @@ msgterm	db	cr,lf,' Terminal emulation is ',0
 msgnot	db	'not ',0
 msgavail db	'available$',0
 xms	xmsreq <>			; XMS request block
+takepause db   ' Take debug, press a key to continue, Control-C to quit$'
 data	ends
 
 data1	segment
@@ -259,7 +261,7 @@ tophlp	db	cr,lf
 	db	'  While <condition> {commands}'
 	db	cr,lf
 	db	'  Minput   (Input with many patterns)'
-	db	'  Write  FILE or log file   text'
+	db	'  Write/Writeln  FILE or log file   text'
 	db	cr,lf
 	db	'  Move    (send files, delete source)'
 	db	'  Undefine  (macro or array element)'
@@ -272,7 +274,7 @@ tophlp	db	cr,lf
 	db	'$'
 
 qckhlp	db	cr,lf
-	db	'MS-DOS Kermit 3.15, 15 Sept 1997, Copyright (C) 1982, 1995,'
+	db	'MS-DOS Kermit 3.16, 31 Oct 2000, Copyright (C) 1982, 2000,'
 	db	cr,lf
 	db	'Trustees of Columbia University in the City of New York.'
 	db	cr,lf,lf
@@ -563,6 +565,7 @@ comtab  db	106 - 1			; COMND tables
 	mkeyw	'Wait',scwait
 	mkeyw	'While',whilecmd
 	mkeyw	'Write',write
+	mkeyw	'Writeln',writeln
 	mkeyw	'Xecho',xecho
 	mkeyw	'XIF',xifcmd
 	mkeyw	':',comnt		; script labels, do not react
@@ -706,7 +709,7 @@ shellbuf db	40 dup (0)	; buffer for name
 eexit	db	cr,'exit',cr
 leexit	equ	$-eexit
 onexit	db	8,0,'ON_EXIT',CR ; <length>on_exit macro name
-onexlen	equ	$-onexit-2	 ; length of name
+onexlen	equ	$-onexit-2-1	 ; length of name
 mfmsg	db	'?Not enough memory to run Kermit$'
 mf7msg	db	'?Attempted to allocate a corrupted memory area$'
 spcmsg	db	' bytes available on drive '
@@ -769,7 +772,7 @@ code	segment
 	extrn	takopen_file:far, takopen_macro:far, sforward:near
 	extrn	hide_assign:near, hide_define:near, dial:near, declare:near
 	extrn	sharray:near, localmac:near, switch:near, move:near
-	extrn	retrieve:near, undefine:near, xecho:near
+	extrn	retrieve:near, undefine:near, xecho:near, writeln:near
 ifndef	no_tcp
 	extrn	sesdisp:near
 endif	; no_tcp
@@ -1063,7 +1066,19 @@ START	ENDP
 ; This is the 'EXIT' command.  It leaves KERMIT and returns to DOS
  
 EXIT	PROC	NEAR
-	mov	ah,cmeol
+	mov	bx,offset rdbuf
+	xor	dx,dx			; no help
+	mov	ah,cmline
+	call	comnd
+	jc	exit3
+	or	ax,ax			; any bytes?
+	jz	exit3			; z = no
+	mov	dx,offset crlf
+	mov	ah,prstr
+	int	dos
+	mov	dx,offset rdbuf
+	call	prtasz			; display optional message
+exit3:	mov	ah,cmeol
 	call	comnd			; get a confirm
 	jc	exit1			; c = failure
 	mov	flags.extflg,1		; set the exit-Kermit flag
@@ -1089,7 +1104,7 @@ break1:	mov	al,taklev		; Take level
 	or	al,al			; in take/macro?
 	jz	breakx			; z = no
 	mov	bx,takadr
-break2:	test	[bx].takattr,take_while ; is this a for/while/switch macro?
+break2:	test	[bx].takattr,take_while+take_switch ; for/while/switch macro?
 	jnz	break3			; nz = yes
 	sub	bx,size takinfo		; work backward
 	dec	al
@@ -1486,7 +1501,27 @@ takrd32:inc	di
 	inc	di
 	mov	[bx].takcnt,di		; new count
 takrd34:pop	temp
-	pop	es
+	cmp	flags.takdeb,0		; single step?
+	je	takrd37			; e = no
+	mov	ah,prstr
+	mov	dx,offset takepause
+	int	dos
+	mov	ah,0ch			; clear keyboard buffer
+	mov	al,coninq		; quiet input
+	int	dos
+	cmp	al,3			; Control-C?
+	je	takrd35			; e = yes
+	or	al,al			; scan code?
+	jne	takrd36			; ne = no
+	mov	ah,coninq		; read the second byte
+	int	dos
+	or	al,al			; null for Control-Break?
+	jne	takrd36			; ne = no
+takrd35:mov	flags.cxzflg,'C'	; say want to exit now
+takrd36:mov	ah,prstr
+	mov	dx,offset crlf
+	int	dos
+takrd37:pop	es
 	pop	di
 	pop	dx
 	pop	cx
@@ -1537,13 +1572,12 @@ takrwork3:pop	es
 	pop	bx
 	ret
 takrworker endp
-
 code1	ends
 code	segment
 	assume	cs:code
+
 ; put mskermit.ini onto take stack if it exists.  Just like
 ; the take command, except it doesn't read a filename
-
 rdinit	proc	near			; read Kermit init file
 	mov	ax,offset ininm2	; default name to try
 	cmp	decbuf,0		; alternate init file given?
@@ -1804,12 +1838,15 @@ ptchrwa:mov	ah,cmword
 	call	comnd			; line length is in ax
 	ret
 PATCH	endp
+code	ends
+code1	segment
+	assume	cs:code1
 
 ; Get command line into a Take macro buffer. Allow "-f filspec" to override
 ; normal mskermit.ini initialization filespec, allow command "stay" to
 ; suppress automatic exit to DOS at end of command line execution. [jrd]
 
-gcmdlin	proc	near
+gcmdlin	proc	far
 	mov	cmdlinetake,0		; flag for DOS command line Take
 	mov	word ptr decbuf,0	; storage for new init filename
 	push	es
@@ -1976,6 +2013,9 @@ bracech2:stc				; say brace detected
 bracech3:clc				; say brace not found
 	ret
 bracechk endp
+code1	ends
+code	segment
+	assume	cs:code
 
 ; Enter with ax pointing to file name.  Searches path for given file,
 ; returns with ax pointing to whole name, or carry set if file can't be found.
@@ -3074,7 +3114,6 @@ crun1:	mov	si,offset slashc	; DOS command begins with slashc area
 	mov	bx,dx
 	add	bx,cx
 	mov	byte ptr [bx],cr	; end string with a c/r for dos
-	inc	cx			; count the c/r
 	mov	byte ptr [bx+1],0	; and terminate
 	pop	bx
 	mov	[si],cl			; put length of argument here
@@ -3372,8 +3411,8 @@ dskspa1:and	dl,5fh			; convert to upper case
 	sub	dl,'A'-1		; 'A' is 1, etc
 	push	bx
 	push	cx
-	mov	ah,36h			; get disk free space, bx=sect/cluster
-	int	dos			; dx:ax=sectors, cx=bytes/sector
+	mov	ah,36h			; get disk free space, ax=sect/cluster
+	int	dos			; bx=clusters free, cx=bytes/sector
 	cmp	ax,0ffffh		; error response?
 	jne	dskspa2			; ne = no
 	pop	cx
@@ -3442,9 +3481,11 @@ isfil4:	pop	ax
 	mov	ah,first2		; search for first
 	int	dos
 	pushf				; save flags
+	push	ax			; save result in ax
 	mov	dx,offset buff		; reset dma
 	mov	ah,setdma
 	int	dos
+	pop	ax
 	popf				; recover flags
 	jnc	isfil1			; nc = file found
 	mov	filtst.fstat,al		; record DOS status
@@ -3457,7 +3498,7 @@ isfil4:	pop	ax
 	or	filtst.fstat,80h	; set high bit for more serious error
 	jmp	short isfil2	
 isfil1:	cmp	byte ptr filtst.fname,0	; did DOS fill in a name?
-	je	isfil2			; z = no
+	je	isfil2			; z = no, fail
 	clc
 	jmp	short isfil3
 isfil2:	stc				; else set carry flag bit

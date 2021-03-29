@@ -4,7 +4,7 @@
 ; display facilities (via msg buffer or DOS) for char, strings, etc.
 ;
 ; Copyright 1991, University of Waterloo.
-;	Copyright (C) 1982, 1997, Trustees of Columbia University in the 
+;	Copyright (C) 1982, 1999, Trustees of Columbia University in the 
 ;	City of New York.  The MS-DOS Kermit software may not be, in whole 
 ;	or in part, licensed or sold for profit as a software product itself,
 ;	nor may it be included in or distributed with commercial products
@@ -32,7 +32,7 @@ ioctl	equ	44h
 allocmem equ	48h
 freemem	equ	49h
 
-MSGBUFLEN equ	512			; coordinate with msntnd.c
+MSGBUFLEN equ	1024			; coordinate with msntnd.c
 BIOSCLK	equ	046ch
 HI_MAX	equ	018h
 LO_MAX	equ     0b0h
