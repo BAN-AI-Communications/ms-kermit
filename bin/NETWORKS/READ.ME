@@ -1,0 +1,37 @@
+MS-DOS KERMIT 3.14 NETWORK SUPPORT
+
+This directory contains several supplementary files for network users:
+
+SETUP.DOC (text)
+  Detailed information about setting up your PC for networking: boards,
+  interface standards, drivers and shims, interrupts, memory management,
+  Windows, etc.
+
+PKTADDR.COM, PKTADDR.DOC
+  From the Crynwr packet-driver collection.  Tells you the hardware address of
+  your network adapter if you have an Ethernet-class packet driver loaded for
+  it.  Read PKTADDR.DOC for details.
+
+SLIP8250.COM, SLIP8250.DOC
+  SLIP (serial-line IP) packet driver that works with Kermit and most other
+  TCP/IP applications that support a SLIP-class packet driver.  Read
+  SLIP8250.DOC for details.  Obtain other packet drivers separately from
+  your network board vendor, from Cyrnwr Software, or from Columbia University.
+
+WINPKT.COM, WINPKT9.COM, WINPKT.DOC
+  A shim to allow packet-driver applications (such as MS-DOS Kermit, when its
+  TCP/IP stack is active) to run under Windows and still use the network.
+
+DIS_PKT9.DOS, DIS_PKT9.DOC
+  A shim to allow packet-driver applications to run over an NDIS network
+  board driver.
+
+ODIPKT.COM, ODIPKTPN.COM, ODIPKT.DOC
+  A shim to make an ODI driver look like a packet driver, for when Kermit
+  is running under Windows and needs to make ODI connection, to be used
+  in conjunction with WINPKT.
+
+Also see the Networks Appendix of "Using MS-DOS Kermit" plus supplementary
+information in KERMIT.HLP, KERMIT.BWR, and KERMIT.UPD.
+
+(End of NETWORKS\READ.ME)

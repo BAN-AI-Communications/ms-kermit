@@ -1,0 +1,30 @@
+MS-DOS KERMIT 3.14 WINDOWS STUFF
+
+See the main READ.ME file for installation instructions.
+
+Contents of this directory:
+
+READ.ME
+  This file.
+
+KERMIT.PIF
+  Program Information File for Kermit.  If you have not installed Kermit as
+  C:\KERMIT\KERMIT.EXE, then use the PIF editor to change the program filename.
+
+If you will be making network connections from MS-DOS Kermit in Windows,
+also be sure to either Lock Application Memory in the PIF file, or else load
+WINPKT appropriately, over your packet driver, to provide the needed
+coordination between your packet driver and Windows.
+
+To use Kermit in Windows over an ODI driver, you can't use Kermit's built-in
+ODI support -- instead, you must run ODIPKT over the ODI driver, and then
+WINPKT over ODIPKT.  Or else (maybe) lock Kermit in memory and skip ODIPKT
+and WINPKT.
+
+For detailed information on all the above, as well as for information about
+Windows for Workgroups, please read NETWORKS\SETUP.DOC.
+
+And no, MS-DOS Kermit can't be used with Winsock.  Winsock can only be used
+by 100% pure Windows applications, which MS-DOS Kermit is not.
+
+(End of WINDOWS\READ.ME)

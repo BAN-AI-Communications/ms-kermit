@@ -1,0 +1,137 @@
+; FILE ZYXEL.SCR
+;
+; An MS-DOS Kermit script program for dialing the ZyXEL 1496
+; modem, to be used with MS-DOS Kermit 3.11 or later.  The modem is set
+; up for compression, error correction, all types of fallback.
+; RTS/CTS flow control, fixed interface speed of 57600 or 38400.
+;
+; Authors: Christine M. Gianone, Frank da Cruz; Columbia U, June 1993.
+;   PP14400.SCR adapted for Zoom modem by:
+;   Phillip Feldman <feldman@wiener.pstat.ucsb.edu>, Sept 1993.
+;   Further modified for ZyXEL modem by:
+;   Richard Stanton <stanton@haas.berkeley.edu>
+;
+;   This script is almost identical to ZOOM.SCR.  Changes:
+;
+;   W1 means nothing to ZyXEL.
+;   S95 register doesn't exist.
+;   X5 gives more information than X4.
+;   &N0 tells modem to negotiate highest rate possible.
+;   &H3 gives RTS/CTS flow control, rather than &K3.
+;   &Y1 tells modem to send nondestructive, expedited breaks.
+;   &K4 tells modem to try V42/V42bis, then work down (through MNP etc.)
+;   No forced hangup settings.
+
+def errfail echo \%1, hangup, goto fail ; Macro to handle failures.
+if < VERSION 312 errfail {MS-DOS Kermit 3.12 or later required.}
+if eq "\v(system)" "UNIX" if = \v(local) 0 stop 1 You must SET LINE first
+
+define chkerr if fail stop 1 \%1
+define chkok input 3 OK, if fail stop 1 \%1
+
+set input echo on               ; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore           ; Use caseless string comparisons
+
+;set parity none                ; Avoid parity foulups
+set flow none                   ; Avoid flow control deadlocks
+hangup                          ; Begin by dropping DTR
+pause 1                         ; for one second
+
+set speed 57600                 ; Modem autobauds up to 57600
+
+echo Configuring ZyXEL U-1496E modem on \v(line)...
+
+:INIT
+output ATQ0V1\13                ; Enable word result codes
+chkok {Can't get modem's attention}
+
+echo Enabling verbose result codes...
+output AT E1 &D2 X5\13 ; Echoing, result codes, etc.
+chkok {Can't initialize modem}
+
+echo Enabling modulation negotiation...
+output AT &N0 N1\13             ; Start modulation speed negotiation at V32bis
+chkok {Can't enable modulation speed negotiation}
+echo Enabling hardware flow control...
+output AT &H3\13                ; RTS/CTS hardware flow control
+chkok {Can't enable RTS/CTS}    ; On modem
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts                ; And in Kermit too, but only now
+echo Configuring modem to ignore BREAK...
+output AT &Y1\13            ; Make modem ignore BREAK
+chkok {Can't become transparent to BREAK}
+echo Enabling error correction and data compression...
+output AT &K4\13  ; Enable error correction & compression
+                                ; with automatic speed buffering
+chkok {Can't enable compression EC and fallback}
+
+if def \%1 if not equal "\%1" "=" goto BEGIN
+echo Modem initialization complete, no number to dial
+end 0
+
+:BEGIN                          ; Now DIAL.
+clear                           ; Clear INPUT buffer.
+set count 100                     ; Dialing retry counter, 5 tries allowed.
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+pause 1
+goto dial                       ; 1st time, skip pause and Redialing message
+
+:REDIAL
+set alarm 30
+pause 30                        ; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number.
+set alarm 200                   ; (For detecting keyboard interruptions.)
+if > VERSION 312 clear input    ; Clear echo from INPUT buffer.
+if < VERSION 313 clear
+input 100 \10                    ; Wait for the linefeeds...
+
+:GETMSG
+input 100 \10                    ; ...that surround the response message.
+if success goto gotmsg          ; Got a message.
+if alarm errfail {No response from modem.} ; No response in 90 seconds.
+hangup                          ; User interrupted from keyboard,
+output \13                      ; cancel dialing by sending carriage return,
+goto again                      ; and go try again right away.
+
+:GOTMSG
+reinput 1 CONNECT               ; Got a message, was it CONNECT?
+if success goto done            ; If so, we're done.
+reinput 1 BUSY                  ; Line is busy.
+if success goto busy            ; Go wait a while and then dial again.
+reinput 1 ERROR                 ; Command syntax error.
+if success errfail {Dialing command error}
+reinput 1 NO CARRIER            ; Phone didn't answer or no carrier.
+if success errfail {No answer or no carrier}
+reinput 1 NO DIALTONE           ; No dialtone when phone taken off hook.
+if success errfail {No dialtone - Is your modem connected to the phone line\63}
+goto getmsg                     ; None of the above, get another message.
+
+:BUSY
+if < \v(count) 2 goto quit      ; Don't wait 30 seconds if tries are used up.
+Echo Line is busy, will dial again in 30 seconds
+echo Press any key to cancel...
+output \13                      ; CR cancels dialing
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+define errfail                  ; Erase local macro definitions...
+end 0                           ; Finished, return success code.
+
+:FAIL                           ; Dialing failed, no beep.
+define errfail                  ; Erase local macro definitions...
+end 1                           ; Return failure code.
+
+; End of ZYXEL.SCR

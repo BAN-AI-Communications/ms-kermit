@@ -1,0 +1,3436 @@
+File KERMIT.UPD (MSKERM.UPD)					 January 1995
+
+		     SUPPLEMENT TO "USING MS-DOS KERMIT":
+		 CHANGES AND NEW FEATURES SINCE VERSION 3.11
+
+Most recent update: Wed Jan 11 15:21:57 1995
+
+MS-DOS Kermit is:
+
+  Copyright (C) 1982, 1995, Trustees of Columbia University in the City of New
+  York.	 The MS-DOS Kermit software may not be, in whole or in part, licensed
+  or sold for profit as a software product itself, nor may it be included in
+  or distributed with commercial products or otherwise distributed by
+  commercial concerns to their clients or customers without written permission
+  of the Office of Kermit Development and Distribution, Columbia University.
+  This copyright notice must not be removed, altered, or obscured.
+
+Kermit software is furnished without warranty of any kind.  Neither Columbia
+University, nor the individual authors, nor Digital Press, nor Data General
+Corporation, nor any other institution or individual that has contributed to
+the development or documentation warrant the software in any way.
+
+See the file KERMIT.HLP (MSKERM.HLP) for contact information.
+
+CONTENTS:
+
+     INTRODUCTION
+ (0) THE "KERMIT" ENVIRONMENT VARIABLE
+ (1) DIALING AND THE DIALING DIRECTORY
+ (2) FOSSIL DRIVERS, ISDN, HAYES ESP SERIAL BOARD
+ (3) FILE TRANSFER RECOVERY
+ (4) FASTER METHOD FOR TRANSFERRING BINARY FILES
+ (5) OTHER FILE TRANSFER IMPROVEMENTS
+ (6) IMPROVED CLIENT/SERVER OPERATION
+ (7) IBM MAINFRAME FILE TRANSFER
+ (8) NEW CHARACTER-SET SUPPORT
+ (9) CONNECT-MODE STATUS LINE AND POPUP HELP SCREENS
+(10) THE APC ESCAPE SEQUENCE
+(11) VT320 TERMINAL EMULATION
+(12) ANSI TERMINAL EMULATION
+(13) DATA GENERAL DASHER TERMINAL EMULATION
+(14) WYSE-50 TERMINAL EMULATION
+(15) COMPOSE-KEY SEQUENCES FOR ENTERING SPECIAL CHARACTERS
+(16) WIDE SCREENS AND HORIZONTAL SCROLLING
+(17) EXPANDED MEMORY
+(18) GRAPHICS TERMINAL EMULATION
+(19) OTHER TERMINAL EMULATION CHANGES AND IMPROVEMENTS
+(20) SCRIPT PROGRAMMING CHANGES AND ADDITIONS
+(22) GENERAL COMMUNICATIONS
+(22) COMMAND PARSER
+(23) TCP/IP NETWORKING
+(24) MULTIPLE TCP/IP SESSIONS -- KERMIT'S TCP/IP SESSION MANAGER
+(25) SMALL MEMORY-SIZE EDITIONS
+(26) BBS OPERATORS GUIDE
+APPENDIX I:  NEW TERMINAL EMULATIONS - TECHNICAL SUMMARY
+
+------------------------------
+INTRODUCTION
+
+MS-DOS Kermit 3.11 was released in September 1991, and is fully described in
+Chapter 14 of "Using MS-DOS Kermit", second edition.  Subsequent releases add
+a few features not described in the book.  This file describes these new
+features.
+
+MS-DOS Kermit 3.12 was released in September, 1992:
+
+ . Networking and communications improvements, including ODI support.
+ . Japanese Kanji text-file transfer translation.
+ . Locking-shift protocol for efficient 8-bit file transfer on 7-bit links.
+ . A new method for transferring files with IBM mainframes.
+ . Ability to SET PORT TCP/IP to non-TELNET ports.
+
+MS-DOS Kermit 3.13, July 1993:
+
+ . A new faster method for transferring binary and precompressed files
+ . Larger packets and windows allowed, up to 9024 x 31.
+ . Switching among multiple simultaneous TCP/IP sessions
+ . Data General DASHER terminal emulation
+ . Graphics-mode support for 132-column operation on EGA & VGA video adapters
+ . Text-mode support for 132-column operation on ET4000 & other VESA adapters
+ . Horizontal scrolling of wide terminal screens
+ . Expanded-memory option for screen rollback and graphics image retention
+ . Hebrew character-set translation and Hebrew terminal emulation
+ . East European character-set translation
+ . Icelandic CP861 code page support
+ . Separate code page selection for terminal emulation and file transfer
+ . Compose-key sequences for entering accented characters
+ . New KERMIT PATH environment variable
+ . Support for Novell SLIP_PPP ODI driver and other networking improvements
+ . BOOTP improvements
+ . TELNET improvements, including option negotiation display
+ . DIAL-command support for additional modem types
+
+MS-DOS Kermit 3.14, January 1995:
+
+ . ANSI terminal emulation
+ . Wyse-50 terminal emulation
+ . Data General DASHER and DEC VT terminal emulation improvements
+ . Kanji character-set translation during terminal emulation
+ . HP-Roman8 terminal character-set
+ . Control over timeslicing method in Windows, DesqView, OS/2, NT
+ . Control over automatic video-mode switching
+ . Selectable fore- and background colors for underline simulation
+ . Additional scan codes for Alt/Ctrl/Shift - SpaceBar/Esc combinations
+ . Revised printer support for better interoperation with Novell CAPTURE
+ . Additional control over TCP/IP and TELNET protocol features
+ . Debugging display of TELNET options negotiation
+ . Networking support for Telebit PPP
+ . TCP/IP fixes, speedups, and refinements
+ . Multiple TCP/IP sessions to the same host now allowed
+ . Support for Artisoft Int14 redirector
+ . Support for Meridian Technology SuperLAT network connections
+ . SET SPEED 28800
+ . Workarounds for buggy SMC FDC37C665 UART simulator on Pentium motherboards
+ . Support for Hayes ESP serial communications board in 16550A mode
+ . Support for Fossil Drivers
+ . User control over treatment of carrier signal on serial connections
+ . Binary-mode file transfer recovery
+ . Ability to send partial files manually
+ . Control of run-length encoding
+ . Improved client/server operation
+ . Prompt string value now evaluated each time prompt is issued
+ . ASK/ASKQ responses now taken literally
+ . New APC command sends APC strings
+ . Incoming APC strings ignored by default for safety
+ . Revised CONNECT-mode status line for additional information
+ . Separate CONNECT-mode help and one-character command menus
+ . New script programming commands
+ . Improved consistency of backslash-quoting in commands
+ . New built-in string, file, and numeric functions
+ . Additional built-in variables
+ . Revised command-line handling of substitution variables
+ . Transaction log of file transfers now records detailed rejection 
+   reason if based on file attributes
+ . Available also in special reduced forms for limited memory
+
+See the READ.ME file in the top-level directory of the Kermit diskette for
+installation instructions and an overview of what's included on the disk.
+------------------------------	
+
+(0) THE "KERMIT" ENVIRONMENT VARIABLE
+
+The DOS environment variable KERMIT may be used for setting certain
+parameters, even if Kermit doesn't read its initialization file.
+Set this environment variable in your AUTOEXEC.BAT file:
+
+  SET KERMIT=text
+
+<text> can be one or more MS-DOS Kermit startup parameters of the form
+<name> <value>, separated by semicolons.  Startup parameters include:
+
+  INPUT <number>	(allocates storage for INPUT command buffer)
+  ROLLBACK <number>	(allocates storage for <number> rollback screens)
+  WIDTH <number>	(allocates sorage for given screen width, 80-207)
+  COMn <address> <irq>	(sets COM1, COM2, COM3, or COM4 address and IRQ)
+  PATH <path>		(where Kermit looks for TAKE files)
+
+PATH and WIDTH are new to v3.13.  WIDTH defines the width of the terminal-
+screen rollback memory.  If you want to roll back wide screens, you should
+specify the width, e.g. 132.  AUTOEXEC.BAT example:
+
+  SET KERMIT=ROLLBACK 50;WIDTH 132;PATH C:\KERMIT  
+
+PATH affects the init-file search, the TAKE command, and IF INPATH.
+  
+(1) DIALING AND THE DIALING DIRECTORY
+
+MS-DOS Kermit includes flexible and extensible facilities for dialing
+with most of today's popular modems.
+
+(1.1) The Standard Dialing Method
+
+If you installed Kermit from the distribution disk according to instructions,
+you'll have the standard DIAL macro, defined in Kermit's initialization file,
+MSKERMIT.INI, at your disposal.  The DIAL macro:
+
+ . Uses your dialing directory if you have one.
+ . Uses a modem-specific script to configure and dial your modem.
+ . Redials several times automatically if the line is busy.
+ . Is entirely scripted, so you can change it if you want to.
+
+To use the dial macro, simply type "dial" followed by the phone number at
+the MS-Kermit> prompt, for example:
+
+  MS-Kermit> dial 9876543
+
+or:
+
+  MS-Kermit> dial 1 800 987-6543
+
+The DIAL macro uses two additional files: xxxxx.SCR, a script program for
+dialing your modem ("xxxxx" is HAYES, T3000, ROLM, etc), and DIALUPS.TXT, your
+dialing directory (optional).  
+
+(1.1.1) Telling Kermit Which Kind of Modem You Have
+
+Kermit comes with dialing scripts lots of modems.  Different modems have
+different commands and capabilities, so each kind must be handled separately.
+The scripted approach allows new modems to be added easily, without changing
+the Kermit program itself.  It also allows for bugs to be fixed, parameters
+changed, behavior altered, etc, without changing the program.  Modem scripts
+are ordinary text files in Kermit's MODEMS subdirectory that anybody can type,
+print, or edit.  The script language, and modem scripts in particular, are
+described in detail in "Using MS-DOS Kermit".
+
+Unless you say otherwise, Kermit assumes you have a Hayes 2400 modem and uses
+MODEMS\HAYES.SCR for dialing.
+
+How to say otherwise?  The modem script is chosen in any of the following ways
+(using the Telebit T3000 modem as an example, which has a T3000.SCR file in
+the KERMIT\MODEMS directory):
+
+ 1. Set a DOS environment variable, MODEM, to be the name of your modem;
+    add the following line to your AUTOEXEC.BAT file: 
+
+	SET MODEM=T3000
+
+    or give this command at the DOS prompt before starting Kermit.
+
+ 2. Or use the following Kermit command:
+
+	DEFINE _MODEM T3000 ; Note the underscore!
+
+ 3. Or, in v3.14 and later, tell Kermit to:
+
+	SET MODEM T3000     ; Note: no underscore, no "=" sign.
+
+    which is equivalent to "define _modem t3000".
+
+Methods 2 and 3 are both regular Kermit commands.  You can put them in your
+MSCUSTOM.INI file if you want them in effect every time you start Kermit,
+or you can type them at the MS-Kermit> prompt.
+
+Each method has the same effect.  It tells Kermit to look for a file called
+T3000.SCR in Kermit's MODEMS subdirectory.  You can substitute any string for
+"T3000", as long as there is a corresponding .SCR file in the MODEMS
+subdirectory.  For example, SET MODEM PP14400 tells Kermit to look in its
+MODEMS subdirectory for PP14400.SCR.  See MODEMS\READ.ME for a list of the
+dialing scripts that are included in the standard Kermit package and a full
+description of how they work.
+
+If you have a modem for which no suitable dialing script is provided, you can
+write a new script program for dialing, modeled after one of the other dialing
+scripts (see "Using MS-DOS Kermit") and put it in the MODEMS subdirectory, and
+then tell Kermit about it using one of the three methods above.  Note that
+some dialing scripts might work with multiple brands of modems, perhaps less
+than optimally.  For example HAYES.SCR will probably work with any Hayes-
+compatible modem; PP14400.SCR reportedly also works with Zoltrix modems, etc.
+
+(1.1.2) Creating a Dialing Directory
+
+Kermit's dialing directory lets you:
+
+ . Use names instead of phone numbers for dialing
+ . Choose a particular speed or parity automatically for each entry
+
+For example, suppose you regularly make a modem call to XYZ Corporation
+at 1 800 765-4321.  Rather than type:
+
+  DIAL 18007654321
+
+every time you want to make this call, you could type:
+
+  DIAL XYZ
+
+Your dialing directory is a plain-text file in your Kermit directory (the same
+directory as your MSKERMIT.INI file) called DIALUPS.TXT.  A DIALUPS.TXT file
+is already supplied on the Kermit diskette, which you can edit (using any text
+editor, such as the DOS EDIT program).  The file contains one line per entry:
+
+  name	 number	  speed	   parity   comments
+
+The "name" is the name you want to use for this entry in your DIAL commands.
+"number" is the telephone number; "speed" is the dialing speed in bits per
+second, "parity" is the parity to use (even, odd, mark, space, or none).  The
+name, number, speed, and parity are separated from each other by one or more
+spaces.  Any words after the parity are ignored, so you can use them for
+comments.  If trailing fields (speed, parity) are omitted, Kermit's current
+values are used (but then you can't have a comment).  If you want to tell
+Kermit explicitly to use its current value for speed or parity, use an equal
+sign (=).  Examples:
+
+  xyz        18007654321
+  sprintnet  7654321	  2400	 mark
+  oofanet    6543210	  1200	 odd	This entry has a comment.
+  tymnet     93,876-5432  2400	 even	You can put punctuation in the phone #.
+  hometone   T5551212	  1200	 none	T in number forces tone dialing
+  homepulse  P5551212	  1200	 none	P in number forces pulse dialing
+  anyspeed   999-9999	  =	 none	Use current speed, whatever it is.
+  anyparity  888-8888	  9600	 =	Use current parity, whatever it is.
+  whocares   777-7777	  =	 =	Use current speed and parity.
+  defaults   987-6543
+
+To use the dialing directory, just type DIAL followed by the name, spelled out
+in full (case doesn't matter), for example:
+
+  MS-Kermit>dial xyz
+
+If you type a name or number that is not in the directory, Kermit dials
+exactly the characters you type, for example DIAL 5552370 dials the number
+5552370.  DIAL FRED (if FRED is not in the directory) tells Kermit to dial the
+letters FRED, which won't accomplish anything useful with most modems (unless
+the modem itself has an internal dialing directory).
+
+  IMPORTANT: Kermit assumes neither Tone nor Pulse dialing.  Kermit's dialing
+  command for Hayes-like modems is ATD, not ATDT or ATDP because Tone dialing
+  is not available in many areas.  If you want to force (say) Tone dialing,
+  include a "T" at the beginning of the phone number (e.g. "dial T76543231")
+  or configure your modem beforehand for Tone dialing.
+
+To view your dialing directory, type LIST.  To view particular entries in your
+dialing directory, type LIST XXX, where XXX is a sequence of characters that
+appears in the desired entries (usually the name):
+
+  MS-Kermit>list tymnet
+  tymnet   93,876-5432  2400   even  You can put punctuation in the phone #.
+
+The DIAL command assumes your dialing directory is stored on your PC as
+DIALUPS.TXT in your Kermit directory, i.e. the same directory as your MS-DOS
+Kermit initialization file.  If you want to keep it someplace else or use some
+other name, create a DOS environment variable in your AUTOEXEC.BAT file:
+
+  SET DIALFILE=C:\PHONES\MSKERMIT.KDD
+
+or in your MSCUSTOM.INI file:
+
+  DEFINE _DIALFILE C:\PHONES\DIALING.DIR ; (Note underscore)
+
+If you want to use the directory sometimes but not others, define a separate
+macro for dialing without it, e.g.:
+
+  define call take C:\KERMIT\MODEMS\\\m(_modem).SCR
+
+As of MS-DOS Kermit 3.14, dialing scripts are available for about 20 different
+modems; many new ones were added in 3.13 and 3.14; see the READ.ME file in
+MODEMS directory for details.
+
+NOTE: Most of the dialing scripts for high-speed modems (V.32 and above)
+ignore Kermit's current speed as well as any speeds given in your dialing
+directory.  Instead, Kermit uses a fixed high interface speed (usually 57600
+bps) and configures the modem to negotiate the best connection speed and then
+automatically buffer between the connection speed and the interface speed.
+
+(1.2) The Default Dialing Method
+
+As of version 3.14, even if you did not install Kermit according to
+instructions, or if you did not start it with the standard initialization
+file, you'll still have a simple DIAL capability.  The new built-in dialing
+method is used if you give a DIAL command, but no DIAL macro is defined.  The
+built-in method does the following:
+
+ . Gets and saves the SET CARRIER setting.
+ . Executes the SET CARRIER OFF command.
+ . Sends ATD, then the phone number, then carriage return to the modem.
+ . Waits up to 90 seconds for the CD signal to come on.  If it comes on
+   at any time within 90 seconds, the DIAL command completes immediately
+   and sets a success code; otherwise (after 90 seconds, or if you
+   interrupt it with Ctrl-C), it completes with a failure code.
+ . Upon completion, it restores your previous SET CARRIER setting.
+
+Thus, the default dialing method assumes a Hayes-like modem, but only to the
+extent that it uses ATD as its dialing command.  It does not change your
+current speed, parity, flow control, or other parameters; it does not look for
+a dialing directory, it does not attempt to reconfigure the modem, and it does
+not rely on any responses from the modem, other than the CD signal coming on
+when the connection is complete.
+
+This dialing method is used whenever you give a DIAL command and no DIAL macro
+is defined.  This implies, by the way, that you can define your own DIAL
+command to do anything you want, replacing the standard definition from the
+MSKERMIT.INI file.  As always, whenever you want to do override or remove any
+definitions or settings that are made in MSKERMIT.INI, please do this in your
+MSCUSTOM.INI file rather than by editing MSKERMIT.INI itself.  For example:
+
+  define dial  ; Remove DIAL macro definition, use built-in default DIAL.
+  define dial blah blah blah ...  ; Replace standard DIAL definition
+
+The internal default dialing macro is called __DIAL (the word "DIAL" preceded
+by two underscores).  Type "show macro __dial" to view its definition.
+
+(1.3) Manual Dialing
+
+Of course, Kermit also lets you dial "manually" in CONNECT mode.  Simply
+type CONNECT and then, in the terminal-emulation screen, type AT commands or
+whatever commands are appropriate for your modem.  If Kermit won't let you
+CONNECT, then give a SET CARRIER OFF command first (SET CARRIER OFF means
+Kermit does not care about the CD signal; SET CARRIER ON, which is NOT the
+default, means Kermit requires carrier to communicate).  Normally, the
+modem does not present the CD signal if it doesn't have a connection.
+
+And of course, you can also write your own script programs to dial the modem.
+You don't have to use the ones that are supplied with Kermit.
+
+(2) FOSSIL DRIVERS, ISDN, HAYES ESP SERIAL BOARD
+
+(2.1) FOSSIL DRIVERS
+
+MS-DOS Kermit supports Fossil serial port drivers through the SET PORT BIOSn
+(n = 1-4) communications channel.  The presumption is an external agent has
+selected the speed (Fossil redefines some IBM PC slow speeds to be higher
+speeds) and flow control.  Kermit will not touch the serial port hardware if
+the SET PORT BIOSn command is given before any command inquires about port
+information.  Thus a BBS may have a Fossil driver managing serial port
+hardware and Kermit is a polite user of one port via Interrupt 14h.
+
+A Fossil driver can also be used with the new (v3.14) SET PORT option:
+
+  SET PORT FOSSIL <1..99>
+
+to select Fossil COM port 1 through 99, thus lifting the normal upper limit of
+4 on the port number, and also enabling block reads and writes, which are more
+efficient (particularly in multitasking environments) than BIOS single-
+character I/O.  Here again, speed and flow control must be set in the fossil
+driver itself, and can't be set from Kermit.  Using this method, it is not
+possible to test whether a Fossil driver is really active.  If a call fails in
+a common way because no driver is present, Kermit declares the port to be
+inoperative and quits the connection.  Thus there is a user-assumed risk in
+SET PORT FOSSIL, since we can't check first to be sure a proper driver is
+present.  If in doubt go back to SET PORT BIOSn which are normal, safe
+(probably slower) BIOS serial port channels.  Note: Kermit supports only a
+single Fossil connection at time.
+
+Another note: although Kermit supports the fossil driver specification, this
+does not mean that we necessarily support particular fossil drivers, or can
+provide help about them.  Some fossil drivers might have bugs; these are the
+responsibility of the fossil driver authors.  One such bug, reportedly, is
+that a certain fossil driver will stop working after its first connection has
+been closed.  The workaround is to fully reinitialize the driver by giving
+Kermit another SET PORT FOSSIL n command.
+
+Applications that use fossil drivers, such as BBS packages, differ in their
+expectations about what "external protocols" (such as Kermit, when invoked
+from another program) should do with the fossil driver; some expect the 
+external application to "deinitialize" the fossil driver (fossil function
+05h), others expect it not to do so.  MS-DOS Kermit will behave either way,
+according to:
+
+SET FOSSIL DISABLE-ON-CLOSE { ON, OFF }
+  When OFF (the default), Kermit does NOT deinitialize the fossil driver
+  upon exit.  When ON, Kermit issues fossil function 05h to deinitialize
+  the fossil driver.
+
+If you experience problems with your software after invoking Kermit on it
+as an external protocol on a fossil port, then try changing this setting.
+
+(2.2) ISDN
+
+Integrated Services Digital Network (ISDN) boards serve ISDN digital
+telephones, which provide (among other things) 64Kbps data transmission.  ISDN
+boards are not serial boards, and therefore require special drivers.  There is
+a Common Application Programming Interface (CAPI) for ISDN boards, defined by
+German Telecom and German ISDN manufacturers.  CAPI drivers are supplied by
+ISDN board manufacturers.  MS-DOS Kermit 3.14 does not support CAPI directly,
+but shims exist that allow Kermit to be used with ISDN anyway, by disguising
+CAPI as the Fossil, Int 14, or Packet Driver interface, all of which are
+supported by Kermit.  Examples:
+
+ . cFos is a shareware fossil driver for CAPI, written by Martin Winkler &
+   Christoph Lueders of Bonn, Germany.  It is available via anonymous ftp
+   from ftp.dfv.rwth-aachen.de:/pub/network/isdn/cfos, or by dialup to the
+   Zaphods BBS in Bonn: +49 228 9111041.  It supports both the Fossil and
+   Int 14 interfaces, and presents ISDN controls in the form of Hayes-like
+   AT commands.
+
+ . PAPI is free software, GNU Public License, providing a SLIP-class packet
+   driver interface to a CAPI driver, written by Dietmar Friede, Friede
+   Consulting, Munich (Muenchen), German <capi@friede.de>.  Available via
+   ftpmail to ftp.germany.eu.net (send email to archive-server@germany.eu.net
+   containing the word "help"), or by ftp directly from
+   ftp.dfv.rwth-aachen.de.
+
+(2.3) HAYES ESP
+
+The Hayes ESP serial board emulates 16550A UARTs, but with more buffering and
+several specialized modes of operation.  Kermit works fine with the ESP board
+when the board is running in 16550A emulation mode, and when the Hayes Windows
+ESP drivers are active.  In this mode no drivers are needed at DOS level; just
+run the Hayes DOSSETUP.EXE program to define serial port address and IRQ
+values.  If those port values differ from IBM conventions, or refer to COM3 or
+COM4 then use SET COMn <port> <irq> (n=1-4) to inform Kermit of the board's
+operating values.  A dual-port ESP board has been tested successfully in DOS
+and Windows, with and without the extra Windows drivers, with MS-DOS Kermit
+3.13 and 3.14.
+
+(3) FILE TRANSFER RECOVERY
+
+Version 3.14 adds the ability to continue interrupted binary-mode file
+transfers, and also allows you to "manually" recover from certain other types
+of failures.
+
+The new RESEND command lets you continue a file transfer from the point where
+it was interrupted (for example, because of a telephone disconnection) without
+having to retransmit the data that was already successfully transmitted.
+Before seeing how to use this feature, let's look at the restrictions:
+
+ 1. Recovery works only for binary-mode transfers between computers that have
+    a Kermit program that support this feature.  It can not be used with
+    text-mode transfers.  In other words, if you want to be able to use the
+    recovery feature, you must tell the file sender to:
+
+      SET FILE TYPE BINARY
+
+ 2. The original transfer must have been done with SET FILE INCOMPLETE KEEP
+    in effect at the receiver, meaning that incompletely received files are
+    kept rather than discarded.	 In MS-DOS Kermit 3.14 and C-Kermit 5A(190),
+    this is the default, which is a change from previous releases.
+
+ 3. Recovery only works between two Kermit programs that have this capability
+    and negotiate it successfully.  As of this writing, these programs include
+    MS-DOS Kermit 3.14 and later for DOS and Windows and C-Kermit 5A(190) and
+    later for UNIX, VMS, OS/2, AOS/VS, Stratus VOS, and the Commodore Amiga.
+
+ 4. You should never use SET FILE COLLISION RENAME if you intend to use the
+    recovery feature, since that will change the partially-transmitted file's
+    name and Kermit won't be able to locate it during recovery operations or,
+    worse, will append the incoming data to the wrong file.
+
+To recover a failed upload: reestablish the connection, access the same
+account and directory to which you were sending the file previously, start
+Kermit there and put it in RECEIVE or SERVER mode.  Then escape back to MS-DOS
+Kermit and give it these commands:
+
+  SET FILE TYPE BINARY
+  RESEND filename [ as-name ]
+
+The RESEND command should use exactly the same names as the SEND command that
+was interrupted.  When you RESEND a file, the receiving Kermit, upon getting
+the filename, looks up the file and gets its size; it sends the size back to
+the sending Kermit, and the sending Kermit resumes sending from that point;
+the receiving Kermit appends incoming material to the partial file rather than
+creating a new file.
+
+You can recover a failed download in the same way.  Just make sure you are
+accessing the same directories as before, and the files have (or are being
+sent with) the same names as before.
+
+When a file is being resent, the file file receiver ignores its SET FILE
+COLLISION setting; thus you need not change your FILE COLLISION setting when
+RESENDing, and you will not find it altered afterwards either.
+
+If the RESEND command is used, but a partial file of the same name does not
+exist on the receiving end, RESEND behaves just like SEND -- it sends the
+whole file.  If the file on the receiving is the same size as the sender's
+copy (or larger), RESEND does nothing; both files are left alone.  These
+properties let you resume the interrupted transfer of a group of files.
+Suppose you had originally done this:
+
+  Receiver:			    Sender:
+   SET FILE INCOMPLETE KEEP	     SET FILE TYPE BINARY
+   RECEIVE (or SERVER)		     SEND *.ZIP
+
+and the phone hung up in the middle of one of the ZIP files.  Just reestablish
+the connection, and recover this way:
+
+  Receiver:			    Sender:
+   SET FILE INCOMPLETE KEEP	     SET FILE TYPE BINARY
+   RECEIVE (or SERVER)		     RESEND *.ZIP
+
+The files that were already sent are skipped, the file that was partially sent
+is recovered, and the files that were not sent yet are sent.
+
+For the recovery feature feature to be useful at all, the default for SET FILE
+INCOMPLETE was changed from DISCARD to KEEP when the RESEND command was added
+in version 3.14.  Otherwise an interrupted transfer would leave no partial
+file behind unless you had remembered to change the default.  But now you have
+to pay closer attention to Kermit's messages to know whether a transfer
+failed; previously, if it failed, the file would not show up on the receiving
+end at all; now, you'll get a partial file which could easily be mistaken for
+a complete file unless you change the default back to DISCARD or read the
+screen messages, or keep a transaction log.
+
+Using RESEND, you can write a script program to really, REALLY send a file.
+Here is a sample, in which we dial up a UNIX computer and send the MS-DOS
+Kermit distribution ZIP file.  This script program runs under C-Kermit 5A(190)
+or later on OS/2 (and with a change in the dialout device name, under UNIX
+too), and under MS-DOS Kermit 3.14 or later.  If the transfer fails, we
+reestablish the connection and restart the transfer from the point of failure,
+as many times as it takes to get the file across.
+
+---(cut here)---
+ask \%u { username: }
+askq \%p { \%u's password: }
+
+; Settings for entire session.
+;
+define \%s 20		  ; Seconds to pause between each try
+define \%n 7654321	  ; Phone number
+def _modem hayes	  ; Modem type
+set port com1		  ; Communication port
+set speed 19200		  ; Speed
+
+set file type binary	  ; File transfer mode must be binary
+set input timeout quit	  ; This is just to keep the script program short...
+set count 50		  ; Try up to 50 times to send the file
+goto nomsg		  ; Skip message the first time
+
+:LOOP			  ; Come here to redial
+hangup			  ; Give the phone a rest
+echo CONNECTION BROKEN.
+echo Pausing for \%s seconds...
+sleep \%s
+Echo redialing...
+
+:NOMSG
+dial \%n		  ; Dial the phone number
+if fail goto AGAIN	  ; Keep trying...
+output \13		  ; System answered, send a carriage return
+input 15 login:		  ; Get login prompt
+output \%u\13		  ; Send user ID
+input 8 Password:	  ; Get password prompt
+output \%p\13		  ; Send password
+input 60 {$ }		  ; Get system prompt
+cd \budget		  ; CD to desired local source directory
+output cd budget\13	  ; and remote destination directory
+input 8 {$ }		  ; Get system prompt
+out kermit -r\13	  ; kermit -r(eceive) on remote system
+input 10 KERMIT READY	  ; Wait for READY message
+pause 1			  ; Plus a second for safety
+resend fy9495.wks	  ; RESEND the file
+if success goto done	  ; Success means file is completely transferred
+
+:AGAIN
+if count goto LOOP	  ; Otherwise, try again.
+Stop 1 Too many tries.	  ; Too many tries, give up.
+
+:DONE
+echo File transferred OK  ; Success, give message
+output exit\13		  ; Log out from remote computer
+pause 5			  ; Give it time...
+hangup			  ; Hang up
+stop 0 Script succeeded	  ; Finished, the end.
+---(cut here)---
+
+Manual Recovery: The PSEND Command
+
+The PSEND ("partial send") command is like the SEND command, but it begins
+sending from a specified position in the file:
+
+  PSEND <filename> <position> [ <as-name> ]
+
+<filename> must refer to a single file, not a file group.  <position> is the
+byte position after which to begin sending; 0 means the beginning, 1000 means
+the 1001st byte.  As with the SEND command, the file is sent under its own
+name unless you specify an "as-name".  Unlike RESEND, PSEND can be used for
+both text and binary transfers; no special capabilities are required of the
+Kermit program on the receiving end.  The PSEND command can be viewed as a
+"do-it-yourself" recovery feature to be used when the other Kermit program
+does not support recovery, or when a text file transfer was interrupted.
+
+For example, suppose you were sending a file called OOFA when the connection
+hung up, and that the receiving Kermit program had been instructed to keep
+incompletely received files (SET FILE INCOMPLETE KEEP).  If the transfer was
+in binary mode, you could note the length of the partial file on the receiving
+end; let's say it was 123456.  Then tell the file receiver to:
+
+  SET FILE COLLISION APPEND
+  RECEIVE
+
+and tell the sender to:
+
+  SET FILE TYPE BINARY
+  PSEND OOFA 123456
+
+If the receiver does not support SET FILE COLLISION APPEND, you could just use
+PSEND to create a new file:
+
+  SET FILE TYPE BINARY
+  PSEND OOFA 123456 OOFA.NEW
+
+and then, after the transfer is complete, join the two pieces together on the
+receiving end, using a system command or utility.
+
+If the file transfer was in text mode, you would could use the same method IF
+the other computer also used CRLF for line termination (like DOS does), but if
+the other computer was (say) UNIX, which uses LF for line termination, the
+sizes would be different, and you would have to figure out the correspondence
+by inspection.
+
+(4) FASTER METHOD FOR TRANSFERRING BINARY FILES
+
+This feature (v3.13) lets you improve MS-DOS Kermit's file transfer
+performance on connections you know are transparent to a certain set of
+control characters.  It lets you tell MS-DOS Kermit exactly which control
+characters need to be prefixed and which ones do not when it is sending files.
+
+SET CONTROL-CHARACTER UNPREFIXED { <code>..., ALL }
+  Says that you think it is safe to include the control character represented
+  by <code> without prefixing in packets which MS-DOS Kermit sends.  The
+  <code> is the numeric ASCII code for a control character, 0-31, 127-159, or
+  255. For example, linefeed (code 10) is normally sent as two printable
+  characters, #J.  SET CONTROL UNPREFIXED 10 lets linefeed be sent literally.
+  You can include the word ALL to unprefix all control characters, or you can
+  specify a list of one or more numeric values, separated by spaces.
+  Examples:
+
+     SET CONTROL UNPREFIXED 31		 ; A single control character
+     SET CONTROL UNPREFIXED 2 4 5 18 20	 ; A list of control characters
+     SET CONTROL UNPREFIXED ALL		 ; All control characters
+
+  If you can safely declare a lot of control characters to be UNPREFIXED, you
+  can send binary files (particularly precompressed ones) up to about 20-25
+  percent faster.  If you include a control character in this category that
+  causes trouble, however, the transfer will fail, so experimentation is
+  necessary.  NOTE: This command will not allow you to "unprefix" the
+  following characters if MS-DOS Kermit's current FLOW-CONTROL setting is
+  XON/XOFF: 17, 19, 145, 147; nor will it let you unprefix characters 127 or
+  255 on a TELNET (SET PORT TCP/IP) connection.
+
+SET CONTROL-CHARACTER PREFIXED { <code>..., ALL }
+  Says that the given control character(s) must be prefixed in Kermit packets.
+  By default, all control characters, 0-31, 127-159, and 255, are prefixed.
+  NOTE: when sending files *to* MS-DOS Kermit, you must SET CONTROL PREFIXED
+  (at least) 1 129 (assuming the start-of-packet character is Ctrl-A).
+
+SHOW CONTROL-PREFIXING
+  Displays the code values of the control characters that are currently
+  UNPREFIXED.
+
+The purpose of the SET CONTROL UNPREFIX command is to UNILATERALLY configure
+MS-DOS Kermit to skip prefixing and printable encoding of selected control
+characters to achieve higher performance when sending files.  This feature
+takes advantage of the fact that most (not all) Kermit programs will accept
+control characters within packet data-fields literally, provided they get
+through at all, and provided they do not have a special meaning to the
+receiving Kermit program (such as, in many cases, the packet-start and -end
+characters).
+
+There is no protocol negotiation between the two Kermit programs to determine
+a "safe set" of control characters, and in fact any such negotiation would be
+pointless because in most cases the two Kermit programs don't have all the
+needed information.  For example, there might be a terminal server or PAD
+between them that is sensitive to a particular control character, even though
+the two Kermit programs are not.
+
+If you include in your SET CONTROL UNPREFIXED list one or more control
+characters that are unsafe, any of several things might happen:
+
+ 1. Transfer of any file containing these characters will fail.
+
+ 2. The receiving Kermit program might be interrupted or halted.
+
+ 3. Your connection might become hung, stuck, or broken.  This includes the
+    situation where a control character causes a PAD, terminal server, or
+    similar device to change modes -- e.g. to go from online mode to command
+    mode.
+
+The set of safe control characters depends on the two Kermit programs, their
+settings, the host operating systems and their settings, the communication and
+flow control methods, and all the devices, drivers, and protocols that lie
+between the two Kermit programs.  You must be willing to experiment in order
+to achieve the optimal safe set.
+
+Under ideal conditions (totally transparent and clean serial connection, no
+Xon/Xoff, MS-DOS Kermit is not in SERVER mode, and C-Kermit has been told to
+SET TRANSFER CANCELLATION OFF), the minimum set of control characters that
+needs to be prefixed is:
+
+  SENDER	  RECEIVER	   PREFIXED CONTROLS
+   MS-DOS Kermit   MS-DOS Kermit    1, 129
+   MS-DOS Kermit   C-Kermit	    0
+   C-Kermit	   MS-DOS Kermit    0, 1, 129
+   C-Kermit	   C-Kermit	    0
+
+For example, to set up C-Kermit to unprefix the minimum set of prefixed
+control characters for sending files to MS-DOS Kermit, tell C-Kermit to:
+
+  SET FLOW NONE		   ; Or SET FLOW RTS/CTS
+  SET CONTROL UNPREFIX ALL
+  SET CONTROL PREFIX 1 129 ; C-Kermit always prefixes character 0
+
+When the mininum set doesn't work, use the SET CONTROL PREFIX command to
+prefix additional control characters.  Some experimentation will be required.
+Here is the list of control characters that are apt to cause trouble and
+therefore likely candidates for prefixing:
+
+set con p 0   ; Ctrl-@ = NUL, internal string terminator in C-Kermit.
+	      ;		 Also, often discarded as padding.
+set con p 1   ; Ctrl-A = Packet-start character.
+set con p 3   ; Ctrl-C = Packet breakout for remote-mode C-Kermit,
+	      ;		 packet breakout for server-mode MS-DOS Kermit,
+	      ;		 likely to cause interruptions on other systems.
+set con p 13  ; Ctrl-M = Carriage return, always prefix on TELNET connections.
+set con p 14  ; Ctrl-N = Shift Out
+set con p 15  ; Ctrl-O = Shift In
+set con p 16  ; Ctrl-P = Commonly-used X.25/X.3 PAD escape character
+set con p 17  ; Ctrl-Q = XON, must be prefixed with Xon/Xoff flow control
+set con p 19  ; Ctrl-S = XOFF, must be prefixed with Xon/Xoff flow control
+set con p 27  ; Ctrl-[ = ESC, prefix if going through some kind of ANSI device
+set con p 28  ; Ctrl-\ = CONNECT-mode escape for C-Kermit
+set con p 29  ; Ctrl-] = CONNECT-mode escape for TELNET
+set con p 30  ; Ctrl-^ = Cisco terminal server escape.
+set con p 127 ; Ctrl-? = DEL, often discarded as padding.
+	      ;		 Also becomes TELNET IAC if parity bit is added.
+set con p 128 ; = NUL	 + 128
+set con p 129 ; = Ctrl-A + 128
+set con p 131 ; = Ctrl-C + 128
+set con p 141 ; = CR + 128
+set con p 145 ; = XON + 128
+set con p 147 ; = XOFF + 128
+set con p 255 ; 255 = TELNET IAC, use P on TCP/IP TELNET connections
+
+Notes:
+
+ . If MS-DOS Kermit has initiated a TCP/IP connection, prefixing of 255
+   (TELNET IAC) is forced automatically.
+
+ . Kermit will not let you unprefix XON (17), XOFF (19), XON+128 (145), or
+   XOFF+128 (147) if its FLOW-CONTROL setting is XON/XOFF.  If you want to
+   unprefix these, make sure *both* Kermits have been told to SET FLOW NONE
+   (or RTS/CTS), and that XON/XOFF flow control is not in effect anywhere
+   along the communication path between the two Kermits.
+
+ . When sending files to C-Kermit 5A(189) and earlier, you should normally SET
+   CONTROL PREFIX 3 and SET CONTROL PREFIX 131, because C-Kermit (by default)
+   takes two Ctrl-C's (3 or 131) in a row as cancellation of packet-mode.
+   However, you can UNPREFIX these characters if you know your file does not
+   contain two Ctrl-C's in a row, or if you tell C-Kermit to SET TRANSFER
+   CANCELLATION OFF, or SET TRANSFER CANCELLATION ON <code> <number> when you
+   know that <number> copies of <code> do not occur in a row in the data.
+   In C-Kermit 5A(190) and later, this precaution should not be necessary
+   (see C-Kermit 5A(190) update documentation).
+
+(5) OTHER FILE TRANSFER IMPROVEMENTS
+
+ . Bigger file transfer window sizes and packet buffers, depending on
+   available memory.  Packets may be up to 9024 bytes in length, and the
+   window can contain up to 31 packets of the maximum length (32 in version
+   3.14).  Use the regular commands to select these sizes: SET RECEIVE
+   PACKET-LENGTH and SET WINDOW.  Also see the Memory Management section of
+   KERMIT.BWR (MSKERM.BWR).
+
+ . Locking shifts for efficient transfer of 8-bit text on 7-bit connections
+   (version 3.12, important for Cyrillic, Hebrew, and Japanese text):
+
+   SET TRANSFER LOCKING-SHIFT { OFF, ON, FORCED }
+     The default setting is ON, meaning that MS-DOS Kermit will attempt to
+     negotiate use of this feature with the other Kermit if the parity is not
+     NONE, in which case locking shifts will be used if the other Kermit
+     agrees (C-Kermit 5A and IBM Mainframe Kermit 4.2.4 will agree, others
+     will not).	 OFF means don't negotiate locking shifts, and FORCED means to
+     use them regardless of negotiations.
+
+ . Dynamically varying packet length to adapt automatically to changing noise
+   conditions.  This happens automatically when MS-DOS Kermit is sending files.
+   No commands are needed.  If packets are damaged by noise or timeouts occur,
+   MS-DOS Kermit cuts the packet length in half and then gradually grows it
+   back to the maximum negotiated size as (if) transmission errors subside.
+
+ . A file transfer "thermometer" (3.13), improved statistics reporting
+   including, for serial connections only, the efficiency of the transfer
+   expressed as a percent, the ratio of actual file characters transferred per
+   second to the connection speed.
+
+   SET REPEAT { COUNTS {ON, OFF}, PREFIX <character>}
+     Turns repeat-count prefixing (run-length encoding) on and off, and
+     lets you select the repeat-count prefix.
+
+ . Control over pathnames (3.14):
+
+   SET { SEND, RECEIVE } PATHNAMES { ON, OFF }
+     RECEIVE PATHNAMES OFF is useful on BBSs or other unattended systems to
+     restrict incoming files to the current directory.  SEND is OFF and
+     RECEIVE is ON by default (except in minimal-size "Kermit Lite", which
+     is designed for use as an external Kermit protocol, where both are OFF)
+     by default.  SEND PATHNAMES, even when ON, never includes the disk
+     letter.  RECEIVE PATHNAMES ON expects DOS syntax; does not result in
+     creation of directories; OFF can be overridden by "RECEIVE filename".
+
+ . File Lists (3.14):
+
+   SEND @filename
+     If the SEND command is given an "indirect file name" (i.e. a filename
+     that starts with an at-sign (@)), it will read the name(s) of the
+     file(s) to send from the given file.  This provides a convenient method
+     for sending an arbitrary group of files in a single operation.  The
+     list of filenames can contain one filename per line, or it can contain
+     a comma-separated list of names, or any mixture of the two.  Filenames
+     can contain disk letters, directory names, and DOS-format wildcards.
+
+(6) IMPROVED CLIENT/SERVER OPERATION
+
+"What Am I" protocol (3.14) allows the client in a Kermit client/server
+relationship to announce the transfer mode (text or binary) and the filename
+conversion method (converted, literal) to the server.  In other words, in a
+client/server connection, these items are now controlled by the CLIENT rather
+than by the FILE SENDER, which is hopefully more what one would expect.
+
+Various REMOTE SET commands are now effective simultaneously at the client
+and the server, e.g.:
+
+  REMOTE SET FILE TYPE { TEXT, BINARY }
+
+In version 3.14 and C-Kermit 5A(190), it is possible for the Kermit client
+to set and query variables in the Kermit server:
+
+REMOTE ASSIGN <variable name> <value>
+  The length of the name plus the value must be less than 510 bytes.  Syntax
+  for the variable name is that of the other Kermit, and the variable is
+  \%letter or a macro name (a "user" class in remote query).  The value is
+  interpreted fully by the local Kermit before transmission; protect remote
+  variable names with double backslashes.  Example:
+
+    remote assign \%c sending time is \v(time) var time is \\v(time).
+    remote query user \%c
+
+  yields:
+
+    sending time is 09:05:00 var time is \v(time)
+
+REMOTE QUERY {KERMIT, SYSTEM, USER} <name>
+  Asks the server to send the value of the given type of variable that has the
+  specified name.  Responses are also recorded in \v(query) if they are short
+  enough to fit within one Kermit packet.  Longer results will be displayed on
+  the screen but not in \v(query).  KERMIT-class objects are \v(..) items, not
+  settable by the user.	 SYSTEM-class objects are in the operating system's
+  enviroment (PATH and similar).  USER-class objects are variables and macros
+  creatable by the user, such as \%letter or a macro name.
+
+ENABLE or DISABLE REMOTE ASSIGN and QUERY
+  Security controls for an MS-DOS Kermit server.  Defaults are ENABLE.
+
+The status of a file transfer was changed in v3.14 to report SUCCESS if a file
+was rejected by the receiver because of date/time when SET FILE COLLISION
+UPDATE is in effect.  The rejection simply means the transmitted file is not
+newer than the current file so no transfer is needed.  A new bit-value, 256,
+is introduced into the \v(status) variable if a file transfer fails because of
+file attribute mismatches.
+
+(7) IBM MAINFRAME FILE TRANSFER
+
+"Doomsday Kermit" (DDK) techniques allow file transfer with IBM mainframes
+through 3270 protocol converters that do NOT support transparent mode, to be
+used in conjunction with IBM Mainframe Kermit's SET CONTROLLER FULLSCREEN
+command on VM/CMS, MVS/TSO, or CICS.  MS-DOS Kermit 3.13 or later and IBM
+Mainframe Kermit 4.2.3 or later required.  Commands:
+	
+  SET PARITY EVEN	 ; Or whatever
+  SET FLOW XON/XOFF	 ; Or whatever
+  SET SEND START 62	 ; Greater-than sign
+  SET RECEIVE START 62	 ; Ditto
+  SET BLOCK BLANK-FREE-2 ; New block-check type
+  SET HANDSHAKE NONE
+
+BLANK-FREE-2 is a new block-check type, exactly like type 2, except encoded
+to never contains blanks.  Give IBM Mainframe Kermit the following commands:
+
+  SET CONTROLLER FULL
+  SET SEND START 62
+  SET RECEIVE START 62
+  SET BLOCK BLANK-FREE-2
+  SET HANDSHAKE 0
+
+Doomsday Kermit file transfers are not as reliable as regular Kermit protocol
+transfers, and they are much slower.  Use this method only as a last resort;
+that is, only when you can't get a transparent-mode fullscreen connection or
+a linemode connection to the mainframe.
+
+(8) NEW CHARACTER-SET SUPPORT
+
+(8.1) HP Roman8
+
+The Hewlett Packard Roman8 character set is supported in version 3.14 as
+a terminal character set.
+
+(8.2) SET TERMINAL CODE-PAGE
+
+A command is available in version 3.13 and later to tell MS-DOS Kermit what
+your actual code page is, for purposes of character-set translation during
+terminal emulation:
+
+  SET TERMINAL CODE-PAGE CPnnn
+
+where nnn are digits.  This command is necessary because most PCs fail to
+report active code pages other than CP437 and CP850 correctly, and so Kermit
+generally has no way to find out when you have some other code page loaded.
+This command is distinct from SET FILE CHARACTER-SET, so you can select
+translations for terminal emulation and file transfer separately if you want
+to.  MS-DOS Kermit knows about the following code pages:
+
+ Code Page  File-Xfer  Term-Emul  Comments
+   CP437	Y	   Y	  Original PC, and usually hardware, code page
+   CP850	Y	   Y	  Multilingual West European code page
+   CP852**	Y	   Y	  Multilingual East European code page
+   CP860	Y	   Y	  Portuguese code page
+   CP861**	Y	   Y	  Icelandic code page
+   CP862**	Y	   Y	  Hebrew code page
+   CP863	Y	   Y	  Canadian-French code page
+   CP865	Y	   Y	  Norwegian/Danish code page
+   CP866	Y	   N	  Cyrillic code page
+ Shift-JIS*	Y*	   Y***	  Japanese Kanji multibyte code page = CP982
+
+  * New to version 3.12
+ ** New to version 3.13
+*** New to version 3.14
+
+Specific code pages are discussed in the following sections.  Some of them
+can use (or must use) fonts supplied in the PCFONTS directory of the Kermit
+diskette.  The macros that are supplied to work with these fonts assume a
+screen size of 25x80.  Other screen sizes are possible; please read the
+file PCFONTS\READ.ME for further information.
+
+(8.3) East European Character Sets
+
+Roman character sets for East European languages (Czech, Polish, Hungarian,
+Romanian, etc) (version 3.13).	Commands:
+
+   SET TERMINAL CHARACTER-SET LATIN2 ; ISO 8859-2 Latin Alphabet 2
+   SET TRANSFER CHARACTER-SET LATIN2 ; ISO 8859-2 Latin Alphabet 2
+   SET TERMINAL CODE-PAGE CP852	     ; Code page 852
+   SET FILE CHARACTER-SET CP852	     ; Code page 852
+
+MS-DOS 5.0 and later include the East European Code Page, CP852.  To use it:
+
+ 1. Add the following lines to your AUTOEXEC.BAT file and then reboot:
+
+    C:\DOS\MODE CON: CP PREPARE=((850,,437,852) C:\DOS\EGA.CPI)
+
+ 4. To load the East European code page, use this DOS command:
+
+    C:\DOS\MODE CON: CP SELECT=852
+
+Or just use LOADFONT CP852.F16 in the Kermit diskette PCFONTS directory
+(Kermit macro EFONT).
+
+(8.4) The Icelandic Code Page
+
+New Icelandic code page support (version 3.13).	 Commands:
+
+  SET TERMINAL CHARACTER-SET LATIN1 (or DEC-MCS, or whatever)
+  SET TRANSFER CHARACTER-SET LATIN1
+  SET TERMINAL CODE-PAGE CP861
+  SET FILE CHARACTER-SET CP861
+
+Use MODE CON CP PREPARE, if necessary, to install this code page.  Use MODE
+CON CP SELECT=861 to load it.  Or use LOADFONT CP861.F16 in the Kermit PCFONTS
+directory (IFONT macro).
+
+(8.5) Cyrillic
+
+Cyrillic text-file transfer has been part of Kermit since version 3.11, and is
+documented in "Using MS-DOS Kermit".  For Cyrillic terminal emulation, please
+refer to the READ.ME and other files in the CYRILLIC subdirectory of the
+Kermit diskette, new to version 3.14.
+
+(8.6) Japanese Kanji
+
+MS-DOS Kermit supports conversion of multibyte Kanji character sets in both
+file transfer and terminal emulation.
+
+(8.6.1) Kanji File Transfer
+
+The Japanese Kanji code page for PCs is CP982 (this is the FILE
+CHARACTER-SET).  The Kanji code on the wire (in the file transfer packets) is
+Japanese Extended UNIX Code (EUC).  For file transfer, the commands are:
+
+  SET TRANSFER CHARACTER-SET JAPANESE-EUC
+  SET FILE CHARACTER-SET SHIFT-JIS
+
+(8.6.2) Kanji File Terminal Emulation
+
+Special Japanese-model IBM PCs have Kanji fonts in firmware, allowing display
+of Kanji characters in Japanese-DOS.  It is also possible to display Kanji on
+USA-model IBM PCs and compatibles with VGA adapters.  In this case,
+Japanese-DOS/V (not Japanese-DOS) must be used.
+
+You can display Kanji even in English DOS/V if you have the Japanese font
+(software) driver and Japanese (software) keyinput driver (you can even use
+the 101 English keyboad).  Japanese-DOS/V is a revolutionary operating system
+that opens the Japanese IBM-PC market.  Prior to DOS/V, Japanese customers had
+to buy expensive special Kanji PC models that could not run English
+applications.  Japanese DOS/V consists of:
+
+  Baseline DOS/V
+  + Japanese font driver
+  + Japanese fonts
+  + Japanese keyinput driver
+  + Japanese dictionary
+
+The Japanese font driver displays Japanese characters in VGA 640 x 480 graphic
+mode, and sometimes it might conflict with English applications.  However you
+can easily switch back and forth because the baseline DOS/V is the same.
+
+As of v3.14, terminal emulation works in Kanji mode on Japanese DOS/V
+computers when CP982 is loaded and you choose a Japanese character set with
+the following command:
+
+  SET TERMINAL CHARACTER-SET JIS-KANJI
+
+JIS-KANJI should work for all host-based multibyte Kanji character sets; it is
+the same as Japanese EUC, which is a superset of all the other Kanji sets,
+such as JIS X 0208, DEC Kanji, and JIS7, and includes double-width JIS-ROMAN
+in G0 and double-width JIS-KATAKANA in G2.  NOTE: In JIS-KANJI, GR points to
+G3 instead of G2 (as it does in the Japanese VT382 terminal).
+
+For single-width, single-byte Roman and Katakana characters, use:
+
+  SET TERMINAL CHARACTER-SET { JIS-KATAKANA, JIS-ROMAN }
+
+JIS-KATAKANA refers to the Katakana character set of JIS X 0201, and JIS-ROMAN
+refers to the Roman character set of same standard, which is identical to
+ASCII except in two positions.  JIS-ROMAN and JIS-KATAKANA can be combined
+into a single 8-bit character set as follows:
+
+  SET TERMINAL CHARACTER-SET JIS-ROMAN G0
+  SET TERMINAL CHARACTER-SET JIS-KATAKANA G1 (or G2 or G3)
+
+Because the PC local Kanji-code is Shift-JIS (CP982), TRANSPARENT can be used
+if the remote Kanji code is Shift-JIS.
+
+When sending characters from the keyboard (or with the TRANSMIT command), you
+must first turn off the status line, because this line is used for composing
+Kanji characters:
+
+  SET MODE-LINE OFF
+
+Then you must specify, in addition to the host character set, a shifting
+method:
+
+  SET TERMINAL OUTPUT-SHIFT { EUC-KANJI, DEC-KANJI, JIS7-KANJI }
+
+These work as follows:
+
+EUC-Kanji
+  Shift-JIS Roman/ASCII  -> US-ASCII/JIS-Roman (1 byte)
+  Shift-JIS Katakana     -> SS2 + JIS X 0201 (in GR) (2 bytes)
+  Shift-JIS Kanji        -> JIS X 0208 (in GR) (2 bytes)
+
+DEC-Kanji
+  Shift-JIS Roman/ASCII  -> 1 byte US-ASCII/JIS-Roman (1 byte)
+  Shift-JIS Katakana     -> JIS X 0208 Katakana (in GR) (2 bytes)
+  Shift-JIS Kanji        -> JIS X 0208 Kanji (in GR) (2 bytes)
+
+JIS7-Kanji
+  This is not actually a shift-machanism, but rather changes the G0 character
+  set between ASCII/Roman and Kanji by using ISO-2022 designation sequences.
+  For Shift-JIS Katakana characters, Kermit maps to JIS X 0208 Katakana if you
+  set TERMINAL CHARACTER-SET to JIS-KANJI.  On the other hand, if you SET
+  TERMINAL CHARACTER-SET to JIS-KATAKANA, the Shift-In/Shift-Out mechanism is
+  used.
+
+For ASCII/Roman and Kanji character sets, there are several possibilities:
+
+For Kanji
+  Final Character
+	4/0  (@)    JIS C 6226 (1978)    so-called JIS78 Kanji
+	4/2  (B)    JIS X 0208 (1983)    so-called JIS83 Kanji
+
+For ASCII/Roman
+  Final Character
+	4/2  (B)    US-ASCII
+	4/10 (J)    JIS-Roman (JIS X 0201)
+	4/8  (H)    This is wrong but still used in same cases, perhaps
+		    due to a misprint in JIS C 6228 (1975).
+
+To choose one of the combinations, you can specify one of the following with
+SET TERMINAL OUTPUT-SHIFT JIS7-KANJI command:
+
+		    Kanji desig.     ASCII/Roman desig.
+    JIS83-US         <ESC> $ B        <ESC> ( B
+    JIS83-Roman      <ESC> $ B        <ESC> ( J
+    JIS83-75Roman    <ESC> $ B        <ESC> ( H
+    JIS78-US         <ESC> $ @        <ESC> ( B
+    JIS78-Roman      <ESC> $ @        <ESC> ( J
+    JIS78-75Roman    <ESC> $ @        <ESC> ( H
+
+For example, if your host uses JIS78-75Roman combination, use the following
+command:
+
+  SET TERMINAL OUTPUT-SHIFT JIS7-KANJI JIS78-75ROMAN
+  
+(8.7) Hebrew File Transfer and Terminal Emulation
+
+Hebrew terminal emulation and file transfer were added in version 3.13.
+Commands:
+
+  SET TRANSFER CHARACTER-SET HEBREW
+  SET FILE CHARACTER-SET CP862
+  SET TERMINAL CHARACTER-SET { HEBREW-ISO, HEBREW-7 }
+  SET TERMINAL DIRECTION { RIGHT-TO-LEFT, LEFT-TO-RIGHT }
+  SET TERMINAL CODE-PAGE CP862
+
+Version 3.14 adds a complete Hebrew support package -- keyboard mappings,
+fonts, special documentation, and so on.  See the HEBREW.DOC in the HEBREW
+directory for details.
+
+(8.8) Character-set Translation Goal Selection
+
+SET TRANSFER TRANSLATION { READABLE, INVERTIBLE }
+  Default is READABLE. INVERTIBLE attempts to use code points as much in
+  common between the transfer and file character sets as possible, with the
+  transfer character set having priority.  Thus INVERTIBLE can create code
+  points which do not display correctly on the destination machine but yield
+  the closest match when a file is sent back to the originator.
+
+(8.9) Terminal-to-Host Keyboard Character Shifting
+
+SET TERMINAL OUTPUT-SHIFT { NONE, AUTOMATIC, SI/SO, SS2, SS3, JIS7, EUC }
+  Allows you to type 8-bit characters on a 7-bit terminal connection.
+  MS-DOS Kermit supplies the selected type of shifting:
+
+  NONE	- (Default) No shifting
+  SI/SO - Shift-In Shift-Out around each 8-bit character (GR = G1)
+  SS2	- Single-Shift 2 before each 8-bit character (GR = G2)
+  SS3	- Single-Shift 3 before each 8-bit character (GR = G3)
+  AUTO	- Shift type depends on current character set GR assignment	 
+  JIS7	- For sending JIS7-coded Kanji
+  EUC	- For sending EUC-coded Kanji
+
+(8.10) CHINESE
+
+There is nothing new here except for this explanation, courtesy of Ching Mo
+Chang of Washington State University.
+
+MS-DOS Kermit may be used on regular IBM PCs and compatibles equipped with
+regular USA keyboard and VGA video adapter, running at least the following
+Chinese versions of DOS (both of which are available via anonymous ftp as
+indicated):
+
+ . KCDOS - Big5 (ROC) encoding.  Host cnd.org, /pub/software/dos/chinese-sys.
+ . ZWDOS - GB 2312-80 (PRC) encoding.  Host cnd.org, /pub/software/dos/ZWDOS.
+
+The two encodings correspond to the two major encodings used on host computers
+and services.  So you would run the appropriate DOS version, and then simply
+tell Kermit to:
+
+  set parity none
+  set terminal bytesize 8
+  set terminal character-set transparent
+
+This allows Chinese characters to be viewed, typed, and transmitted during
+terminal emulation.  Input is according to the input method supplied in the
+particular version of DOS.
+
+(9) CONNECT-MODE STATUS LINE AND POPUP HELP SCREENS
+
+In version 3.14, the status line was changed to say:
+
+ Esc:Alt-x help:Alt-h <host/port-info> bp1 echo:xxx <term> ....
+
+This means you should use Alt-x to escape back to the prompt.  The old method
+(the CONNECT-mode escape character, normally Ctrl-], followed by the letter C)
+still works too.  Alt-h pops up a help screen listing the special characters.
+
+  WARNING: If you remap the special characters, the status line and
+  popup help screens will not know about it, so it is best not to do
+  this, particularly with \Kexit (Alt-x) and \Khelp (Alt-h).
+
+In v3.14, if you type the escape character, a help screen pops up
+automatically so you will always know what to do next.
+
+In the status line, "bp1" replaces the "parity" designation, which took up too
+much space.  "b" is the character size, 7 or 8 bits (7 if Kermit's PARITY is
+not NONE *or* if TERMINAL BYTESIZE is 7); "p" is the parity (n, e, o, m, s =
+None, Even, Odd, Mark, or Space), and "1" means 1 stop bit (this can't be
+changed, but we display it anyway).  Example:
+
+ Esc:Alt-x help:Alt-h COM1 19200 7n1 echo:rem VT320 ....
+
+The four dots represent the VT100 keyboard LEDs.
+
+(10) THE APC ESCAPE SEQUENCE
+
+...For Auto-Upload, Auto-Download, Auto-Anything-Else...
+
+The handling of the CSI ? 34 h / l escape sequences by the VT220 and VT320
+terminal emulators changed between versions 3.12 and 3.13 in order to support
+Hebrew VT220/320/420 terminal emulation, and because DEC software such as
+DECforms expects to use these sequences to control screen-writing direction.
+
+Old way (described on pages 180-181 of "Using MS-DOS Kermit"): CSI ? 34 h / l
+invoked the TERMINALR and TERMINALS macros, if you had them defined.  This
+required each Kermit user to define them, for example in their MSCUSTOM.INI
+files, a big management problem for large user communities.
+
+New way: CSI ? 34 h / l controls screen-writing direction, left-to-right or
+right-to-left (for Hebrew and Arabic), as it does on real Hebrew-model VT
+terminals.
+
+To replace the TERMINALR/TERMINALS function, MS-DOS Kermit 3.13 and later
+support the Application Program Command (APC) escape sequence, which is
+accepted by Kermit's VT emulators, VT100 and above:
+
+  APC <string> ST
+
+In the 7-bit environment, APC is ESC _ and ST (string terminator) is ESC \.
+In the 8-bit environment, APC is decimal 159 and ST is 156 decimal.  The
+<string> can be any MS-DOS Kermit command or list of commands, separated by
+commas, and can be up to 1024 bytes in length.	Upon receipt of this escape
+sequence, MS-DOS Kermit executes the command(s) in the string and then
+automatically resumes CONNECT mode.
+
+  NOTE: In this respect, APC differs from the old TERMINALR/TERMINALS
+  mechanism, which did NOT automatically re-enter CONNECT mode.	 Thus, if
+  you are recycling your TERMINALR/TERMINALS macros for APC use, be sure
+  to remove the ", connect" from the end of their definitions, or else you
+  will have to escape back twice the next time you want the MS-Kermit> prompt.
+
+For safety, the APC mechanism is disabled unless you say otherwise.  This
+is controlled by the command:
+
+  SET TERMINAL APC { ON, OFF, UNCHECKED }
+
+OFF (the default) means Kermit will not execute any commands and will ignore
+APCs.  ON means that Kermit will execute only commands that are relatively
+safe.  UNCHECKED means Kermit will execute ANY commands sent via APC,
+including commands that might delete your files, etc.  UNCHECKED is required
+for RUN, i.e. to run DOS commands or external programs.  Use UNCHECKED at your
+own risk.
+
+APC is much more flexible than the old TERMINALS/TERMINALR mechanism, and can
+be used for any purpose at all.	 For example, it can be used to configure
+MS-DOS Kermit for use with a particular host or application by sending the
+appropriate list of SET commands: communication parameters like parity,
+protocol parameters like packet-length and window size, key mappings, etc.
+
+It can also be used to initiate file transfers automatically from the host
+without having to escape back to MS-DOS Kermit.	 Here's an example you can use
+with C-Kermit 5A.  In your C-Kermit 5A customization file (.mykermrc or
+CKERMOD.INI), add commands like this:
+
+  define autosend set delay 0, apc receive, send \%1 \%2, statistics
+  define autoreceive apc {send \%1 \%2}, receive, statistics
+
+The APC command is new to C-Kermit 5A(189); if you have an earlier release of
+C-Kermit you can define APC as a macro:
+
+  define apc output \27_\%1\27\92
+
+You can set up similar procedures with IBM mainframe Kermit, e.g. in VM/CMS by
+stacking commands and using XECHO to emit the escape sequences.
+
+You can expand these commands to handle text and binary mode if you want to:
+
+  ; Text transfers
+  define tsend set del 0, set file type text, apc receive, send \%1, stat
+  define treceive apc {set fil typ text, send \%1 \%2}, stat
+  ;
+  ; Binary transfers
+  define bsend set del 0, set file type binary, apc receive, send \%1, stat
+  define breceive apc {set fil typ binary, send \%1 \%2}, stat
+
+Use your imagination, the possibilities are endless!
+
+(11) VT320 TERMINAL EMULATION
+
+The following features added in v3.14:
+
+Select character attribute ; CSI Ps " q
+  Ps - 0 or 2, erasable.
+  PS - 1, not erasable.
+
+Selective erase in display ; CSI ? Ps J
+  Ps - 0, cursor to end (default).
+  Ps - 1, beginning to cursor.
+  Ps - 2, complete display.
+
+Selective erase in line	   ; CSI ? Ps K
+  Ps - 0, cursor to end (default).
+  Ps - 1, beginning to cursor.
+
+(12) ANSI TERMINAL EMULATION
+
+"ANSI" terminal emulation, useful primarily for accessing BBSs, is available
+as of version 3.14 via the command:
+
+  SET TERMINAL TYPE ANSI
+
+ANSI emulation is similar to VT100 emulation, but with host-controlled colors
+and using 8-bit IBM code-page 437 characters for line and box drawing, plus
+some unique escape sequences for cursor save/restore, and different
+interpretation of several other escape sequences used by the VT100.
+
+Terminal screen colors are automatically set to black on white, TERMINAL
+BYTESIZE is automatically set to 8, TERMINAL CHARACTER-SET is forced to
+TRANSPARENT, and your code page is set to CP437 (provided you have CP437
+prepared; otherwise your code page is not changed).
+
+Kermit's ANSI emulation does nothing special with the keys; in particular,
+there is no attempt at "PCTERM" keyboard handling, in which unique key-down
+and key-up sequences are transmitted separately for every single IBM key
+(including Shift, Alt, etc), apparently needed for the SCO UNIX console
+terminal (also called "DOORWAY mode)", but evidently not needed for BBS's.
+There is also no support for so-called ANSI music.
+
+If you SET TERMINAL TYPE anything-but-ANSI after having SET TERMINAL TYPE
+ANSI, your previous code page, TERMINAL BYTESIZE, COLOR, and CHARACTER-SET are
+restored.
+
+Hint: Some BBS's send a "cursor position report request" when you log in,
+ESC [ 6 n.  When writing login scripts for BBS's, you should account for
+this.  For example:
+
+  input 10 \27[6n		; Cursor position report request
+  if success output \27[24;1R	; Cursor position report
+
+(13) DATA GENERAL DASHER TERMINAL EMULATION
+
+MS-DOS Kermit 3.13 added built-in emulation of the Data General DASHER D463
+(monochrome) and D470 (color) text/graphics terminals:
+
+  SET TERMINAL TYPE { D463, D470 }
+
+Because DASHER escape sequences can include XON and XOFF characters, you must
+also tell MS-DOS Kermit not to use regular bidirectional Xon/Xoff flow control
+during DASHER terminal emulation.  Instead, on network connections, SET FLOW
+NONE; on serial connections, SET FLOW RTS/CTS if available, or else use
+unidirectional Xon/Xoff with the new command:
+
+  SET FLOW OUTGOING-XON/XOFF
+
+For using Western European languages on a Data General host:
+
+  SET TERMINAL CHARACTER-SET DG-INTERNATIONAL
+
+DG function and special keys are supported via new keyboard verbs, which can
+be assigned as desired with SET KEY: \KdgF1..F15, \KdgC1..C4, arrow keys,
+Home, \KdgPoint, \KdgSPCL, \KdgNC.  These verbs are not assigned
+automatically, you must assign them yourself.  Here, for example, is a sample
+macro that assigns the DG F1-F12 keys to the PC's F1-F12 keys:
+
+define dasher set key cle,set flow outgoing-xon/xoff,set term type d463,-
+  set ke \315 \kdgf1,set ke \316 \kdgf2,set ke \317 \kdgf3,-
+  set ke \318 \kdgf4,set ke \319 \kdgf5,set ke \320 \kdgf6,-
+  set ke \321 \kdgf7,set ke \322 \kdgf8,set ke \323 \kdgf9,-
+  set ke \324 \kdgf10,set ke \389 \kdgf11,set ke \390 \kdgf12
+
+Verbs \KdgSF1 thru \KdgSF15, for the shifted DASHER function keys, were added
+in v3.14.
+
+Arrow-key codes (\Klfarr, etc) are adjusted automatically according to the
+terminal type (VT52/Heath, VT100/102, VT220/320, Data General, or Wyse).
+
+For SPCL key operation, see the Compose Key section below.
+
+A comprehensive set of DG DASHER key assignments is given in the DASHER.INI
+(MSIDGK.INI) file, supplied by Data General Corporation.  This mapping follows
+that used in DG's CEO Connection product.
+
+Compressed text (see section 16 below) is supported in either text or graphics
+mode, depending on your video adapter and preferences; in graphics mode,
+regular and compressed text can be mixed on the same screen.  Full-color DG
+graphics are also supported including polygon fill, and the mouse (Microsoft
+or compatible) is supported for CEO Drawing Board and other graphics
+applications; mouse movements control the crosshair cursor and the left mouse
+button sends \KdgF1.
+
+The DG International Character Set (DGI) is supported during terminal
+emulation, with conversion to CP437 if CP437 is active, otherwise to CP850.
+CP850 is recommended, since it is the closest match to DGI.  Other code pages
+are not supported in DG terminal emulation, nor are Hebrew, Latin/2, and Kanji
+terminal emulation.  Also not supported for DG terminal emulation:
+downloadable fonts/character-sets; retention of graphics screens after
+escaping back or switching to text mode; compressed fonts for monochrome, CGA,
+or Hercules video adapters.
+
+Technical details of DG terminal emulation are listed in Appendix I.
+
+(14) WYSE-50 TERMINAL EMULATION
+
+MS-DOS Kermit 3.14 adds built-in emulation of the Wyse-50 text terminal.  This
+emulation is about the same as Wyse-60 in "Wyse mode", since the Wyse-60 is
+essentially a Wyse-50 with additional emulations added.  To emulate a Wyse-50:
+
+  SET TERMINAL TYPE WYSE50
+
+Wyse function keys are supported via the keyboard verbs \KwyseFn (n = 1
+through 16), and shifted Wyse functions keys via \KwyseSFn.  The regular
+\KxxArr verbs (xx = Up, Dn, Lf, Rt) automatically switch to Wyse mode in Wyse
+emulation.
+
+Restrictions include:
+
+ . No function key labels, nor local or host message fields.
+ . No erasing with the NUL character; space is used in all cases.
+ . Video attribute Blank is ignored.
+ . Split screens are ignored because insufficent information is available.
+ . Local printing is severely curtailed because much makes little sense to
+   DOS systems.
+ . No block mode nor host controllable duplex.
+ . No local editing.
+ . No host control of the keyboard.
+ . No host-initiated transmission of screen contents or fields.
+ . No host-controlled monitor mode (use Kermit's instead).
+
+Enhancements:
+ . Transparent printing a`la the Wyse 60 and 50+ terminals
+
+Technical details of Wyse terminal emulation are listed in Appendix I.
+
+(15) COMPOSE-KEY SEQUENCES FOR ENTERING SPECIAL CHARACTERS
+
+Special characters (accented letters, etc) may be entered in the normal ways
+described in "Using MS-DOS Kermit", second edition, Chapter 13, and, starting
+in version 3.13, as compose-key sequences via two new compose-key verbs:
+
+  \Kcompose ; DEC Compose key
+  \KdgSPCL  ; Data General SPCL ("special") key
+
+These two verbs are identical, and are assigned to Alt-c by default.  To enter
+a special character, press this key followed by two more keys.	For example,
+you can enter A-acute like this:
+
+  Alt-c ' A
+
+That is, press Alt-c (or other key or key combination you have assigned
+\Kcompose or \KdgSPCL to), then acute accent (apostrophe), then capital A.
+In general, compose-key combinations are intuitive: letter+grave accent,
+letter+acute accent (apostrophe), letter+doublequote (for umlaut or
+diaeresis), letter+asterisk (ring above), etc; complete listing below.
+
+When you press the compose key, the letter C appears at the right of the
+CONNECT-mode status line and remains there until you type the next two keys.
+If the two keys form a valid compose sequence, the corresponding character is
+sent to the host.  If not, Kermit beeps.  In both cases, the C disappears from
+the status line at the end of the compose sequence.  To cancel a compose
+sequence in progress, just type one or two Ctrl-C characters (or any two
+characters that are not a legal compose sequence).
+
+Compose sequences are available only for those 8-bit Latin1-class (i.e.
+Western European) terminal character-sets that are valid for Kermit's current
+terminal emulation:
+
+Terminal Type:	 Character Sets:
+ VT220 or 320	  LATIN1, DEC-MCS
+ D463 or D470	  LATIN1, DG-INTERNATIONAL
+
+Compose sequences are entirely independent of your PC's current code page.
+
+MS-DOS Kermit's compose-key sequences are:
+
+Case and order insensitive:
+  Input pair		DG Int	Latin1	Graphic			
+  ++			23h	n/a	#			
+  AA			40h	n/a	@			
+  ((			5Bh	n/a	[			
+  // or /<		5Ch	n/a	\			
+  ))			5Dh	n/a	]			
+  ^<space>		7Eh	n/a	^			
+  (-			7Bh	n/a	{			
+  /^			7Ch	n/a	|			
+  )-			7Dh	n/a	}
+  <<			B1h	ABh	<< (Left guillemot)
+  0^ or *<space>	BCh	B0h	Degree, ring above
+  +-			B6h	B1h	+-
+  >>			B0h	BBh	>> (Right guillemot)
+  SS			FCh	DFh	German double s (Ess-Zet)
+  /U			A3h	B5h	Greek mu
+  2^			A4h	B2h	2 superscript
+  3^			A5h	B3h	3 superscript
+  C/ or C|		A7h	A2h	Cent sign
+  L- or L=		A8h	A3h	Pound Sterling
+  Y- or Y=		B5h	A5h	Yen sign
+  SO or S! or S0	BBh	A7h	Paragraph sign
+  XO or X0		A6h	A5h	Currency sign
+  A-			A9h	A4h	Feminine ordinal
+  CO or C0		ADh	A9h	Copyright sign
+  PP or P!		B2h	B6h	Pilcrow sign
+  .^			B9h	B7h	Middle dot
+  O-			AAh	BAh	Masculine ordinal
+  12			A2h	BDh	Fraction one-half
+  !!			ABh	A1h	Inverted exclamation
+  ??			ACh	BFh	Inverted query mark
+  T-			AFh	n/a	Not equals sign
+  TM			B3h	AEh	Trademark sign
+  FF			B4h	n/a	Florin sign (DGI only)
+  <=			B7h	n/a	Less than or equals sign (DGI only)
+  >=			B8h	n/a	Greater than or equals sign (DGI only)
+  ,-			A1h	ACh	Not sign
+  ""			BDh	A8h	Diaeresis
+  ''			BEh	B4h	Accent acute
+  RO			AEh	AEh	Registered sign
+  ||			n/a	A6h	Vertical broken bar
+  --			n/a	ADh	Soft hyphen
+  -^			n/a	AFh	Macron
+  ,,			n/a	B8h	Cedilla
+  34			n/a	BEh	Fraction three-fourths
+  XX			n/a	D7h	Multiplication sign
+  -:			n/a	F7h	Division sign
+  1^			n/a	B9h	Superscript 1
+  14			n/a	BCh	Fraction one-fourth
+
+Case and order sensitive:
+  Input pair		DG Int	Latin1	Graphic			
+  EO			D7h	n/a	OE digraph
+  AE			C6h	C6h	AE digraph
+  ae			E6h	E6h	ae digraph
+  ,C			C7h	C7h	Cedilla
+  ,c			E7h	E7h	cedilla
+  /O			D6h	D8h	O oblique stroke
+  /o			F6h	F8h	o oblique stroke
+  HT			n/a	DEh	Icelandic Thorn (yes, HT, not TH)
+  ht			n/a	FEh	Icelandic thorn (ht, not th)
+  -D			n/a	D0h	Icelandic Eth
+  -d			n/a	F0h	Icelandic eth
+
+Case sensitive, order insensitive:
+  Input pair		DG Int	Latin1	Graphic			
+  'A			C0h	C1h	A-acute
+  'a			E0h	E1h	a-acute
+  `A			C1h	C0h	A-grave
+  `a			E1h	E0h	a-grave
+  ^A			C2h	C2h	A-circumflex
+  ^a			E2h	E2h	a-circumflex
+  "A			C3h	C4h	A-diaeresis
+  "a			E3h	E4h	a-diaeresis
+  ~A			C4h	C3h	A-tilde
+  ~a			E4h	E3h	a-tilde
+  *A			C5h	C5h	A-ring
+  *a			E5h	E5h	a-ring
+  'E			C8h	C9h	E-acute
+  'e			E8h	E9h	e-acute
+  `E			C9h	C8h	E-grave
+  `e			E9h	E8h	e-grave
+  ^E			CAh	CAh	E-circumflex
+  ^e			EAh	EAh	e-circumflex
+  "E			CBh	CBh	E-diaeresis
+  "e			EBh	EBh	e-diaeresis
+  'I			CCh	CDh	I-acute
+  'i			ECh	EDh	i-acute
+  `I			CDh	CCh	I-grave
+  `i			EDh	ECh	i-grave
+  ^I			CEh	CEh	I-circumflex
+  ^i			EEh	EEh	i-circumflex
+  "I			CFh	CFh	I-diaeresis
+  "i			EFh	EFh	i-diaeresis
+  ~N			D0h	D1h	N-tilde
+  ~n			F0h	F1h	n-tilde
+  'O			D1h	D3h	O-acute
+  'o			F1h	F3h	o-acute
+  `O			D2h	D2h	O-grave
+  `o			F2h	F2h	o-grave
+  ^O			D3h	D4h	O-circumflex
+  ^o			F3h	F4h	o-circumflex
+  "O			D4h	D6h	O-diaeresis
+  "o			F4h	F6h	o-diaeresis
+  ~O			D5h	D5h	O-tilde
+  ~o			F5h	F5h	o-tilde
+  'U			D8h	DAh	U-acute
+  'u			F8h	FAh	u-acute
+  `U			D9h	D9h	U-grave
+  `u			F9h	F9h	u-grave
+  ^U			DAh	D8h	U-circumflex
+  ^u			FAh	F8h	u-circumflex
+  "U			DBh	DCh	U-diaeresis
+  "u			FBh	FCh	u-diaeresis
+  "Y			DDh	n/a	Y-diaeresis
+  "y			FDh	FFh	y-diaeresis
+  'Y			n/a	DDh	Y-acute
+  'y			n/a	FDh	y-acute
+
+(16) WIDE SCREENS AND HORIZONTAL SCROLLING
+
+Kermit changes between 80 and 132 column mode at host request (CSI ? 3 h / l)
+or when you give an explicit SET TERMINAL WIDTH { 80, 132 } command.  Until
+version 3.13, 132-column screens were possible only on PCs with video adapters
+that have a 132-column text mode.  Now MS-DOS Kermit also includes support for
+DEC VT 132-column mode and Data General compressed text on EGA and VGA video
+adapters that do not have a 132-column text mode, by entering graphics mode
+and writing the characters dot by dot. 128 columns are displayed rather than
+132 due to the PC's screen geometry but you can use MS-DOS Kermit's horizontal
+scrolling feature to see the rightmost 4 columns.  Wide screens are handled
+according to the following commands:
+
+SET TERMINAL VIDEO-CHANGE {ENABLED, DISABLED, DOS-ONLY}
+  Enable or disable the video screen from switching between 80 and 132
+  columns.  By default, this is enabled in DOS only (DOS-ONLY).  Video-mode
+  switching can wreak havoc on some (but not all) PCs when done in a Microsoft
+  Windows window and so by default video-mode switching is disabled in
+  Windows.  Use ENABLED to enable it AT YOUR OWN RISK.  If it works, Windows
+  will probably force Kermit into a fullscreen session.  If it doesn't work,
+  then disable it again and use horizontal scrolling instead, or run Kermit
+  under plain DOS or in a fullscreen DOS window under Windows.  v3.14.
+
+SET TERMINAL COMPRESSED-TEXT {GRAPHICS, TEXT}
+  Tells whether Kermit should use text (fast) or graphics (slow) mode for
+  compressed text (wide screens).  By default, it will use whichever method
+  it thinks is appropriate to your video adapter.  Graphics is allowed
+  on EGA, VGA or higher video systems.  v3.13.
+
+Text mode will not actually display compressed text unless your video adapter
+supports this function, but Kermit's virtual screen is adjusted to
+the terminal-emulation width.  For example, if your screen shows 80 characters
+per line, but your terminal width is 132, then wrapping occurs at column 132
+(perhaps off the screen) rather than column 80, and Kermit reports its screen
+width as 132 (e.g. in response to a report-request escape sequence).
+
+Of course, for 132-column operation, it is always better if your video adapter
+supports 132 columns directly -- the video board does all the work, which is
+much faster than writing screen dots in software!  This works if Kermit knows
+which kind of video adapter you have (Kermit determines this from a hopefully
+unique "signature" in the video BIOS, provided it has not been hidden from
+Kermit by Windows or your memory manager, see KERMIT.BWR).  Here is a list of
+such boards:
+
+  ATI EGA and VGA Wonder
+  AST, Dell, and other boards based on Western Digital VGA boards
+  AT&T / Olivetti
+  Everex Viewpoint EV-659, FVGA-673, EV-678, Micro Enhancer Deluxe
+  IBM SVGA (= Tseng ET4000, e.g. on PS/ValuePoint)
+  IBM XGA
+  Paradise AutoSwitch EGA Mono
+  Paradise Professional
+  Paradise VGA Plus 16 (ROM BIOS 003056-xxx firmware)
+  Paradise VGA Plus (ROM BIOS 003056-xxx firmware)
+  Paradise VGA Professional (ROM BIOS 003056-xxx firmware)
+  Paradise VGA1024
+  STB VGA/EM (Tseng TVGA)
+  STB VGA/EM Plus (Tseng 4000), VGA/EM-16, VGA/EM-16 Plus
+  Tseng Labs EVA board with 132-column kit installed
+  Tseng Labs UltraPAK mono/Hercules with 132 column modes
+  Tseng Labs ET4000 SVGA
+  VESA-compatible video BIOS
+  Video 7 Vega Deluxe with 132X25.COM driver installed and Video 7 VGA
+
+If you have an adapter capable of 132-column operation, but Kermit does not
+know how to activate it, set up your COLS132.BAT and COLS80.BAT files to do
+the switching, as described in "Using MS-DOS Kermit".
+
+For Data General DASHER terminal emulation, screen widths up to 207 are
+supported for purposes of horizontal scrolling.  DG terminal emulation is in
+text mode by default.  As soon as the host commands the terminal to display
+compressed text, Kermit switches the entire screen to 132-column text mode if
+your video adapter supports it, and otherwise switches to (slower) graphics
+mode.  As in VT terminal emulation, this behavior is controlled by the SET
+TERMINAL COMPRESSED-TEXT command.  Unlike VT terminals, DASHER terminals (and
+MS-DOS Kermit, when in graphics mode) can display compressed and regular text
+on the screen at the same time.
+
+(16.1) WIDE SCREENS AND ROLLBACK
+
+Normally, Kermit only keeps 80 columns in its screen-rollback memory.  If you
+want to be able to roll back screens of 132 (or, for DG terminal emulation, up
+to 207) columns, you must set the KERMIT environment variable WIDTH to 132 (or
+the desired number) in your AUTOEXEC.BAT file, for example:
+
+  SET KERMIT=WIDTH 132
+
+The KERMIT environment variable must contain a WIDTH definition before you
+start MS-DOS Kermit in order for it to take effect.  Wide rollback screens
+need more memory than regular ones.
+
+NOTE: The KERMIT=WIDTH value and SET TERMINAL WIDTH value are two different
+things.	 The former controls memory allocation in the rollback buffer, the
+latter controls the actual display width (virtual or real) of your screen.
+
+(16.2) HORIZONTAL SCROLLING  
+
+If your logical screen width is greater than the physical screen width, MS-DOS
+Kermit 3.13 lets you scroll the screen horizontally by pushing keys.  The new
+keyboard verbs are:
+
+  \Klfpage    Scroll left one "page" (= 20 columns) (screen moves right)
+  \Klfone     Scroll left one column
+  \Krtpage    Scroll right one page (screen moves left)
+  \Krtone     Scroll right one column
+
+These verbs are unassigned by default. Here are the commands you could add to
+your MSCUSTOM.INI file if you wanted to assign them to the gray (T-pad) arrow
+keys on the extended (101) PC keyboard:
+
+  SET KEY \2459 \Krtpage  ; Alt-Left arrow makes screen move left on page
+  SET KEY \5491 \Krtone	  ; Ctrl-Left arrow moves screen one column to left
+  SET KEY \2461 \Klfpage  ; Alt-Right arrow makes screen move right one page  
+  SET KEY \5492 \Klfone	  ; Ctrl-Right arrow moves screen one column right
+
+When these keys are used in combination with the PageUp/Down keys, your screen
+becomes a "virtual window" on your session, which you can move around in
+arbitrary directions.
+
+By analogy with SET TERMINAL ROLLBACK { ON, OFF }, which tells Kermit whether
+to move a rolled-back screen automatically to the bottom when new characters
+arrive from the host, the new command:
+
+  SET TERMINAL HORIZONTAL-SCROLL { AUTOMATIC, MANUAL }
+
+tells Kermit whether to scroll horizontally when a character arrives that
+would be displayed to the left or right of the visible screen. By default,
+horizontal scrolling is MANUAL during VT terminal emulation, and AUTOMATIC
+during DASHER emulation.  MANUAL means you have to push keys to scroll the
+screen horizontally, AUTOMATIC means that Kermit moves the screen to "catch"
+incoming characters.
+
+(17) EXPANDED MEMORY
+
+Graphics screens and terminal rollback screens can now be kept in expanded
+memory (EMS), and the size of the screen rollback buffer can selected and
+changed at runtime.  When sufficient expanded memory is available, you can
+have up to 8000 rollback screens.
+
+SET ROLLBACK <number>
+  Specifies the number of text screens to be kept in the rollback buffer.
+  Each 24x80 screen occupies about 4K; bigger screens need more space.  Don't
+  confuse this command with SET TERMINAL ROLLBACK, which tells what to do when
+  characters arrive for the screen while it is rolled back.
+
+SET TERMINAL EXPANDED-MEMORY { ON, OFF }
+  Whether to use expanded memory for retention of graphics screens and for
+  text terminal-emulation rollback screens.  Default is OFF, use conventional
+  memory.  ON leaves extra room in conventional memory for running other
+  programs, does not rely on your video adapter's memory for storing graphics
+  images, and allows more rollback screens, limited only by the size of your
+  PC's available physical memory.  ON requires that an expanded memory
+  manager, such as EMM386 or QEMM, be used correctly to configure EMS memory.
+
+See the Memory Management section of KERMIT.BWR (MSKERM.BWR) for further info.
+
+(18) GRAPHICS TERMINAL EMULATION
+
+SET TERMINAL GRAPHICS { ..., VESA, ...}
+  VESA now supported for graphics terminal emulation (Tektronix, Sixel, etc).
+  This is an 800x600 display on display adapters (e.g. SVGA) that support it.
+  This in comparison to VGA with 640x480 (v3.14).
+
+TIFF dumps of graphics screens have improved coloration, especially among
+black and shades of gray (v3.14).
+
+SAS 6.10 and later on UNIX platforms (MIPS, Intel, and Alpha as of this
+writing) includes new SAS/GRAPH drivers that take advantage of Kermit's
+color Sixel graphics capabilities:
+
+KRMTVGA
+  Requires VGA video adapter.  You must tell Kermit to
+  SET TERM GRAPHICS VGA or SET TERM GRAPHICS VESA.
+
+KRMTAUTO
+  Requires that you set your terminal graphics to auto-sensing
+  (SET TERM GRAPHICS AUTO, which is the default).
+
+To view a graph from an interactive SAS/GRAPH session, use this syntax at the
+beginning of your graphics program:
+
+  GOPTIONS DEVICE=KRMTVGA; -or-  GOPTIONS DEVICE=KRMTAUTO; 
+
+Users running release 6.08 of SAS have access to a driver called 
+KERMIT that does Tektronix 4014 emulation.  Prior to that release, they
+can use this syntax in their GOPTIONS statement to get a monochrome
+graph:
+
+  GOPTIONS DEVICE=TEK4014 GPROLOG='1b5b3f333868'x GEPILOG='1b5b3f33386c'; 
+
+For more information on these device drivers, contact SAS Institute Technical
+Support at (919)-677-8008 and ask for the GRAPHICS group.
+
+(19) OTHER TERMINAL EMULATION CHANGES AND IMPROVEMENTS
+
+SET TERMINAL ANSWERBACK { ON, OFF }
+  Whether Kermit should respond with string "MS-DOS-KERMIT nnn_ttt" if, during
+  terminal emulation, it receives Ctrl-E (ENQ) from host.  Default is OFF, no
+  reply.  As of v3.14 nnn = Kermit version number, ttt = terminal type, e.g.
+  "MS-DOS-KERMIT 314_VT320", terminated by a carriage return.
+
+SET TERMINAL ANSWERBACK { MESSAGE [ text ] }
+  The text, if any, is appended to the standard answerback message, separated
+  by an underscore, e.g. "MS-DOS-KERMIT 314_VT320_123 Science Hall".  The text
+  can be up to 30 characters long, and may contain \nnn codes, and is shown in
+  the SHOW TERMINAL display as "ab msg: text".  It is not possible to replace
+  the standard message, only to append additional text to it.  Thus, programs
+  sending ENQ to MS-DOS Kermit programs can depend on finding the program
+  name, version, and terminal type as the first three items.  v3.14.
+
+SET TERMINAL COLOR 20
+  If Kermit receives a "reset visual attributes" escape sequence (CSI 0 m)
+  from the host, this does not affect the screen coloration.  However, some
+  applications expect it to restore the default fore- and background colors.
+  SET TERMINAL COLOR 20 tells Kermit to do this.  v3.14.
+
+SET TERMINAL ERASE {NORMAL-BACKGROUND, CURRENT-COLOR}
+  What Kermit should do about color when it receives a screen erasure command
+  from the host, such as CSI Pn J, CSI Pn K, etc.  Default is NORMAL: fill the
+  erased area with the default (SET TERMINAL COLOR) background color.
+  CURRENT-COLOR means to use the background color most recently set by a
+  host-generated CSI 4x m escape sequence.  v3.14.
+
+SET TERMINAL RESET
+  Causes the terminal emulator to reset to startup defaults when CONNECT mode
+  is entered the next time.  The dynamic reset is still keyboard verb \Kreset.
+
+SET TERMINAL TIMESLICE-RELEASE {ENABLE, DISABLE}
+  ENABLE (default) lets Kermit release a CPU time slice to mulitasking systems
+  Windows, OS/2, NT, and DESQview when idle.  Unfortunately, under at least
+  OS/2, a Packet Driver loaded into the same DOS box may not receive enough
+  CPU cycles to work effectively unless we disable timeslice-release.
+  Enabling frees CPU cycles for other tasks; disabling may improve performance
+  of Kermit and related comms drivers.  The timeslice release mechanism is
+  active only while in CONNECT mode; the operating system's normal scheduler
+  takes care of matters while at the Kermit prompt.
+
+SET TERMINAL UNDERSCORE <fg-color> <bg-color>
+  Lets you select the fore- and background colors for underscore simulation
+  on color monitors.  Syntax is the same as SET TERM COLOR, 3x and 4x numbers.
+
+Downloadable DEC function keys now have their own \Kverbs, \KudkF6..F20;
+unassigned by default.
+
+SET KEY now recognizes separate scan codes for the Esc, Space, and Enter keys
+when combined with Ctrl, Shift, and Alt keys:
+
+      Unmodified  Ctrl	Shift	 Alt	C-S    C-A    S-A  C-S-A
+  Space	    313	  1337	  825	2361   1849   3385   2873   3897
+  Enter	    284	  1308	  796	2332   1820   3356   2844   3868
+  Esc	    257	  1281	  769	2305   1793   3329   2817   3841
+
+Now you can make separate SET KEY assignments to each combination of Space,
+Enter, and Esc with the Alt, Shift, and Ctrl keys.
+
+(20) SCRIPT PROGRAMMING CHANGES AND ADDITIONS
+
+\\ quoting now works.  Also \; etc.  Semicolons not preceeded by whitespace
+and not at the beginning of a line are now considered to be part of the text.
+
+All-new string, numeric, and file functions:
+
+ \Fcharacter(number)   The character whose numeric value is given
+ \Fcode(character)     The numeric code for the character
+ \Fcontents(variable)  The contents of the variable (variable name is literal)
+ \Fdate(filename)      The creation date of the given file
+ \Fdefinition(macro)   The literal definition of the given macro
+ \Ffiles(filespec)     The number of files that match the filespec
+ \Findex(s1,s2,p)      The position of string s1 in s2 starting at position p
+ \Flength(string)      The length of the given string
+ \Fliteral(string)     The string, literally, unevaluated
+ \Flower(string)       The string with uppercase letters changed to lowercase
+ \Flpad(string,len,char) The string left padded to given length with char
+ \Fmaximum(n1,n2)      The maximum of the two numbers, which may be variables
+ \Fminimum(n1,n2)      The minimum of the two numbers, ditto
+ \Fnextfile()	       Next file from \Ffiles() list
+ \Frepeat(string,num)  num repetitions of the string
+ \Freverse(string)     The string, reversed left to right
+ \Freplace(s1,s2,s3)   Replace all occurrences of s2 in the string s1 with s3
+ \Fright(string,num)   The rightmost num characters of the string
+ \Frpad(string,len,char) The string right-padded to given length with char
+ \Fsize(file)	       The size (bytes) of the given file
+ \Fsubstr(string,p,len) Substring of string, starting at p, of given length
+ \Fupper(string)       The string with lowercase letters changed to uppercase
+
+Built-in variables (* are new to 3.14):
+
+ \v(argc)		Number of arguments to current macro
+*\v(carrier)		SET CARRIER setting
+*\v(charset)		Code Page currently active, such as CP437
+*\v(cmdfile)		Name of currently executing command file, if any
+*\v(console)		ANSI if ANSI.SYS loaded, else NONE
+ \v(count)		Current SET COUNT value
+*\v(cmdlevel)		Command level (for macros & TAKE files)
+                         0 or 1 = top level, 2 = 2nd level, 3 = 3rd level, ...
+*\v(cps)		Characters per second, most recent file transfer
+ \v(date)		Current date
+*\v(inidir)		Full pathname of MSKERMIT.INI's directory
+ \v(ndate)		Current date, numeric format
+ \v(directory)		Current directory
+ \v(dosversion)		Numeric DOS version, e.g. 500 for 5.00
+ \v(errorlevel)		ERRORLEVEL value
+*\v(inpath)		Drive:\path\ resulting from last IF INPATH command
+*\v(input)		INPUT buffer, first string ending in LF, CR, or FF
+ \v(keyboard)		Keyboard type, e.g. 88, 101
+ \v(line)		Synonym for \v(port)
+*\v(monitor)		Monitor type - COLOR, MONO
+*\v(parity)		Current SET PARITY setting
+ \v(platform)		IBM-PC (or other)
+ \v(port)		Current SET PORT setting
+ \v(program)		MS-DOS_KERMIT
+*\v(prompt)		Current SET PROMPT setting
+*\v(query)		Result of last REMOTE QUERY command, if not a file
+ \v(session)		Current TCP/IP session number (1 through 6)
+*\v(tcpip_status)	Status of current TCP/IP session
+*\v(space)		Free space on current disk, bytes
+ \v(speed)		Current SET SPEED setting
+*\v(startup)		Disk:\Directory\ from which Kermit was started
+ \v(status)		Status of most recent command, 0 = success
+*\v(sysid)		System identification in Kermit packets (U8)
+ \v(system)		MS-DOS
+ \v(tcp_status)		TCP connection status
+ \v(terminal)		Current SET TERMINAL TYPE setting
+ \v(time)		Current time
+ \v(ntime)		Current time, numeric (seconds since midnight)
+ \v(version)		MS-DOS Kermit numeric version number, e.g. 314
+
+Note: \v(ndate) and \v(ntime) are suitable for construction of filenames.
+
+New or changed commands:
+
+ASK[Q] <variable-or-macro-name> prompt
+  Modified to retain the response string literally rather than expand
+  embedded substitution variables (version 3.14).
+
+APC text
+  Sends text string (Kermit commands to be executed on the other end) with
+  prefix of ESC _ and postfix of ESC \ out the currently selected port.  This
+  is an Applications Program Command to receptive VT200 and above terminal
+  emulators.  C-Kermit 5A(190) and MS-DOS Kermit 3.13 and later understand APC
+  sequences while in CONNECT mode.
+
+CD <anything>\
+  Now works in DOS 5.00 (previously DOS would object to the trailing
+  backslash). Numerically named directories, such as CD \123 should be denoted
+  with double slashes, as CD \\123, to prevent conversion to an internal
+  binary number during command reading.  v3.14.
+
+CHECK {TCP/IP, NETWORKS, GRAPHICS, TERMINALS}
+  Tests if these conditional-build items are present in MS-DOS Kermit. Reports
+  success or failure.
+
+GETC <variable-or-macro-name> <prompt>
+  Like ASK, but reads a single character from the keyboard.  v3.14.
+
+END [ <number> [ <text> ] ]
+  Stops execution of the current macro or TAKE file and returns immediately to
+  the level which invoked it, i.e. the next higher level.  <number> and <text>
+  are used as in the STOP command. v3.13.  POP is a synonym for END.
+
+IF DIRECTORY <string> <command>
+  Executes the <command> if <string> is the name of an existing directory.
+  v3.14.
+
+IF INPATH filename
+  Saves the resulting path, if the file were found, in variable \v(inpath).
+  Command success or failure indication continues to work as before.  v3.13.
+
+IF NEWER <file1> <file2> <command>
+  Executes the <command> if <file1> is newer than <file2>.  v3.14.
+
+IF NUMERIC <string> <command>
+  Executes the <command> if <string> contains only digits.  v3.14.
+
+IF < <number> <number> <command>
+IF = <number> <number> <command>
+IF > <number> <number> <command>
+IF COUNT, IF NUMERIC, IF VERSION
+  Now all work with 32-bit numbers, v3.14.
+
+IF [ NOT ] EXIST <filename>
+  Succeeds if the given file exists, fails otherwise.
+
+IF [ NOT ] INPATH <filename>
+  Succeeds if the given file can be found by normal DOS search rules, i.e. if
+  it is in the current disk/directory, or in the DOS PATH, and if it succeeds,
+  sets \v(inpath) to the path where the file was found.  v3.14.
+
+INCREMENT <variable> [ <value> ]
+  Adds the <value>, which must be a positive number (or a variable that
+  evaluates to a positive number), to the value of the given variable.	If the
+  <value> is not specified, then 1 is added.  If the <variable> is not defined
+  or has a non numeric value, the command fails and the value of the variable
+  is not altered.  As of v3.14, INCREMENT works with 32-bit numbers.
+
+DECREMENT <variablename> [ <value> ]
+  Subtracts the <value>, which must be a positive number (or a variable that
+  evaluates to a positive number), from the value of the given variable.  If
+  the <value> is not specified, then 1 is subtracted.  If the <variable> is
+  not defined or has a non numeric value, the command fails and the value of
+  the variable is not altered.	As of v3.14, works with 32-bit numbers.
+
+MPAUSE <number>
+  Like PAUSE, but pauses for the given number of milliseconds.  v3.14.
+
+OUTPUT \L
+  Sends a Long BREAK (1.5 sec) (v3.13).	 OUTPUT \B continues to send a regular
+  BREAK (250 msec).  On TELNET connections, both of these send a TELNET BREAK.
+
+READ <variablename>
+  No longer processes the data it reads; it is stored literally in the
+  variable.  v3.14.
+
+SET TAKE { ERROR, ECHO } { ON, OFF }
+SET MACRO ERROR { ON, OFF }
+  Separate control of echoing and error handling in macros and TAKE files.
+  ECHO ON means to echo commands as they are read from the file or macro
+  definition.  ERROR ON means to exit from the command file or macro
+  definition if an error occurs; ERROR OFF means don't exit, continue
+  processing (e.g. let errors be handled by IF FAILURE / IF SUCCESS).  v3.14.
+
+SET MODEM [ <text> ]
+  Synonym for DEFINE _MODEM <text>.  v3.14.
+
+SET PROMPT <text>
+  <text> now evaluated each time prompt is printed.
+  So "SET PROMPT [\v(dir)] MS-Kermit>" always shows your current directory,
+  "SET PROMPT \v(time)>" shows the current time, etc.  v3.14.
+
+SLEEP { <number>, <hh:mm:ss> }
+  Like PAUSE, but does not sample the communications device.  But it does
+  sample the keyboard (like PAUSE) and wakes up if a key is pressed.  v3.14.
+
+STOP [ <number> [ <text> ] ]
+  Stops execution of the current macro or TAKE file and returns immediately to
+  top command level.  The <number> and <text> operands are new to v3.13.
+  <number> is a return code that can be tested by IF SUCCESS.  It is also
+  assigned to \v(status).  Text is an optional message to be printed.
+
+Hidden script support commands, v3.14:
+
+_ASSIGN and _DEFINE
+  These are the same as ASSIGN and DEFINE, except the destination macro name
+  is subject to expansion of embedded substitution variables, as in "_define
+  foo\%a this is a definition".
+
+FORWARD label
+  Like GOTO except the label search starts at the current position and looks
+  only forward rather than from the beginning as GOTO does.  Failures pop up
+  through the command stack, all searches are still only forward.
+
+(21) GENERAL COMMUNICATIONS
+
+SET CARRIER { ON, OFF } specifies treatment of Carrier Detect signal:
+  OFF  = ignore it.
+  ON   = require it at all times except during DIAL macro execution.
+
+SET STOP-BITS { 1, 2 }
+  Set serial port stop-bits to 1 (default) or 2.  2 is hardly ever needed.
+  v3.14.
+
+SET EXIT WARNING { ON, OFF }
+  If you try to EXIT from Kermit while a connection (serial or network)
+  appears to be active, Kermit warns you and gives you a chance to change
+  your mind if SET EXIT WARNING is ON.  If OFF, it just EXITs with no
+  questions asked (as in v3.13 and earlier).  v3.14.
+
+SET PORT SUPERLAT <nodename>
+  Support for Meridian Technology SuperLAT network interface.  v3.14.
+
+TEST COMx
+  Tests to see if COMx (x = 1..4) is present and usable.  v3.14.
+
+(22) COMMAND PARSER
+
+Display of substitution variables and functions changed in v3.14.  Now the
+original typing (or TAKE file content) is displayed without showing the
+replacement text.  Character and word deletion thus operate on what is visible
+rather than on the underlying contents.  This simplifies the presentation and
+makes it more intuitive.  Context sensitive help, "?", extends to functions
+and variables nested within functions and variables.
+
+(23) TCP/IP NETWORKING
+
+See the networks sections in KERMIT.HLP, KERMIT.BWR, and NETWORKS\SETUP.DOC
+for additional information.  New networking features since "Using MS-DOS
+Kermit", second edition, was published include:
+
+ . Support for ODI, SLIP, and Novell SLIP_PPP drivers, support for
+   Telebit PPP drivers.
+
+ . Up to six simultaneous TCP/IP sessions.
+
+ . TCP/IP fixes, speedups, and refinements (packet fragment reassembly, 
+   additional ICMP responses, user-selectable maximum segment size, tighter 
+   round trip timing estimation, much higher long-distance throughput,
+   and ensuring the TCP PUSH bit is always set to help some older servers.)
+
+New commands:
+
+   SET PORT BWTCP <ip-address> (v3.14)
+     Make a TCP/IP connection using the Beame & Whiteside TCP/IP protocol
+     stack.
+
+   SET TCP ADDRESS TELEBIT-PPP (v3.14)
+     Use Telebit's PPP ODI driver, and get my TCP address from there. Section
+     PROTOCOL KERMIT of Novell's NET.CFG can hold a line such as MYIP below 
+     which will have the IP number filled in by the PPP driver:
+
+	Protocol KERMIT
+		bind telebit
+		MYIP   123.123.123.2		< MYIP word to match ODIPPP
+						< ODIPPP writes IP number
+	Link Driver ODIPPP
+		Frame PPP
+		Protocol IPX  0 PPP
+		Protocol IP   0800 PPP
+		Protocol ARP  0806 PPP
+		Protocol RARP 8035 PPP
+		IPCP DYNAMIC "PROTOCOL KERMIT: MYIP:" < matches spelling above
+
+   SET TCP/IP MSS <number> (v3.14)
+     Maximum TCP Segment Size, to override built-in defaults of 1046 bytes 
+     local and 536 bytes if routed (plus 40 bytes TCP and IP headers).	This
+     may be considered MTU (maximum transmission unit) but smarter because
+     TCP informs the other side.  Maximum size is 1460 bytes (1500 byte pkt).
+
+   SET TCP/IP PACKET-DRIVER-INTERRUPT { <number>, ODI } (v3.12)
+     Normally Kermit searches from 0x60 to 0x7e for a packet driver.  This
+     command allows you to (a) specify a particular interrupt, in case you
+     have more than one packet driver loaded, or (b) tell Kermit to skip the
+     packet-driver interrupt search and use the ODI interface.	Note: the ODI
+     interface is used by default for TCP/IP connections if a packet driver
+     cannot be found but an ODI driver can be found.
+
+ . The ability to select a particular TCP port when making a connection:
+
+   SET PORT TCP/IP <ip-name-or-address> [ <tcp-port-number> ]
+     The default TCP port number is 23, which is the TELNET protocol socket.
+     You can specify any other port number except 25.  Version 3.12.
+
+ . New TCP/IP server mode accepts incoming TCP/IP connections (v3.12):
+
+   SET PORT TCP/IP * [ <tcp-port-number> ]
+     If you specify asterisk (*) instead of an IP host name or address,
+     MS-DOS Kermit waits for an incoming connection on the specified TCP
+     port (23 by default).  This connection is useful only when MS-DOS Kermit
+     is in SERVER mode or, for chatting, CONNECT mode.	It does not give
+     clients a DOS command processor.
+
+ . RFC 1395 BOOTP compliance allows MS-DOS Kermit to receive its fully
+   qualified domain name from a BOOTP server.  Also, MS-DOS Kermit's SHOW
+   COMMUNICATIONS command now displays the IP address of the BOOTP server
+   from which its TCP/IP parameters were received.
+
+ . New commands to govern TELNET protocol:
+
+   SET { TCP/IP == TELNET } (TCP/IP and TELNET are synonyms)
+   SET TELNET TERM-TYPE <text>
+     Normally, MS-DOS Kermit sends its actual terminal-emulation type when the
+     remote TELNET server asks for a terminal type report. But the remote
+     computer might not support Kermit's current terminal type, or might know
+     it by a different name.  This command lets you specify a terminal-type
+     name for Kermit to send instead of the normal one.
+
+   SET TELNET NEWLINE-MODE { OFF, ON, RAW }
+     During terminal emulation on a TCP/IP connection, MS-DOS Kermit follows
+     the TELNET specification and transmits carriage and line feed (CRLF)
+     whenever you type carriage return (the Enter key).  If the remote TELNET
+     server is confused by this, use SET TCP/IP NEWLINE-MODE OFF to make
+     Kermit send CR and NUL rather than CR and LF, or RAW to send CR "bare".
+
+   SET TELNET MODE { NVT-ASCII, BINARY }
+     NVT-ASCII is the normal TELNET mode; you may also select BINARY if
+     needed.  Mode selection is effective only when starting a connection, and
+     can be overriden by TELNET negotiations.
+
+   SET TELNET DEBUG-OPTIONS { ON, OFF } = OFF
+     In v3.14 you can display TELNET option negotiations on the screen capture
+     them in screen dump or session log files, or print them, just like any
+     other CONNECT-mode screen text. DEBUG-OPTIONS is useful for debugging
+     misbehaving TELNET sessions.  Refer to the TELNET RFCs, or a TCP/IP book,
+     for an explanation of what they mean.
+
+ . MS-DOS Kermit now replies to traceroute requests, handles ICMP redirects.
+
+ . TELNET window (i.e. screen) size (NAWS) negotiation.
+     When using Kermit's internal Telnet and the remote host has agreed to the
+     TELNET option to receive screen dimensions each time the Kermit screen
+     changes size, then Kermit sends the appropriate TELNET Option report.
+
+(24) MULTIPLE TCP/IP SESSIONS -- KERMIT'S TCP/IP SESSION MANAGER
+
+MS-DOS Kermit 3.13 and later support up to six simultaneous TCP/IP sessions.
+Each session is identified by a digit, 1 to 6.	The commands are:
+
+SET PORT TCP <ip-hostname-or-address> [ <tcp-port-number> ]
+  Starts a new session and assigns it a session number, 1 to 6.
+   
+In v3.14, command syntax was added to allow you to say whether a SET PORT TCP
+<host> command should continue an existing session or start a new session, so
+now it's possible to have multiple sessions to the same host:
+
+SET PORT TCP/IP <host> <port> [ NEW ]
+  Starts a new session to the given host, even if there is an existing session
+  to that same host.  NEW is the default.
+
+SET PORT TCP/IP <host> <port> RESUME
+  Resumes a current session on the given host.
+
+SET PORT TCP/IP <session number 1..6>
+  Resumes a current session whose session identification is 1..6.
+  Use SHOW SESSION to see which session numbers are defined.
+
+\v(session)
+  This variable contains the current TCP/IP session number, 1 to 6.
+
+\KnextSession
+  New CONNECT-mode keyboard verb to toggle instantaneously among active TCP/IP
+  sessions, round-robin style.
+
+Alt-n
+  This is the default key assignment for the \KnextSession verb.
+
+SHOW SESSIONS
+  Displays current sessions.
+
+DEFINE SESSION1 <text>
+  Defines a macro to be executed when switching to session 1.
+  SESSION2 is for session 2, and so on, through SESSION6.
+
+The terminal-emulation status line shows current session number and name.
+Most communication- and terminal-related settings are preserved for each
+session, including the last terminal screen, the key map, the terminal type,
+echoing, etc.  Use the SESSIONn macros to take care of any items that are not
+preserved.  The screen rollback buffer is common to all sessions.
+
+Suppose you normally access two TCP/IP hosts, a DEC VMS and a Data General
+AOS/VS system, and you would like to keep sessions to both alive at once.
+Alt-n switches between them instantaneously, and you can also define
+convenient macros for use at the command prompt or in script programs, such as
+the following, which make the initial connection to each host, and then
+redefine themselves to continue the same session thereafter:
+
+define vax -
+  telnet vax 23 vt320,-
+  if success assign vax telnet \v(session)
+
+define dg -
+  telnet dg 23 d463,-
+  if success assign dg telnet \v(session)
+
+(TELNET is a macro defined in the MS-DOS Kermit MSCUSTOM.INI file.  See
+KERMIT.HLP for more information.)
+
+When a connection is closed, the port number is lost.  So if you had a TCP/IP
+session to a non-TELNET port (i.e. not 23), and it was closed, and you
+continue the session, it will connect to port 23 rather than to the session's
+previous port.
+
+(25) SMALL MEMORY-SIZE EDITIONS
+
+A special "medium" edition of MS-DOS Kermit v3.14 shrinks the program
+executable from about 262KB to 181KB (before packing; see next paragraph) by
+removing all networking support and graphics terminal emulation.  A "lite"
+edition removes all terminal emulation and networking support, and so
+communication is possible only in remote mode (e.g. on a BBS), or via script
+programs.  The size is about 121KB.  Features omitted are displayed on the
+startup herald and are also CHECK-able with the CHECK command.  Lite editions
+require separate patch files.
+
+In version 3.14, Kermit executables are built (for the first time) with the
+"pack" linker option, which shrinks the size of the .EXE file.
+
+            Normal    Packed    Savings
+  Full       262K      228K       34K
+  Medium     181K      158K       23K
+  Lite       121K      103K       18K
+
+(26) BBS OPERATORS GUIDE
+
+Most BBSs today either lack support for Kermit protocol, or supply a poor
+implementation.  Now BBSs can use the Real Thing, MS-DOS Kermit itself, as an
+external protocol.  "Kermit Lite" is a tiny but full-featured Kermit protocol
+and script execution engine.
+
+Why add or upgrade Kermit file transfer?
+
+ 1. Make your BBS accessible to Kermit software programs, which do not
+    include support for other protocols.  Recent releases of MS-DOS and
+    OS/2 C-Kermit include ANSI terminal emulation, favored by BBSs.
+
+ 2. Kermit file transfer is (at least arguably) more robust than other
+    protocols used on BBSs.  That is, it works better when connections
+    are noisy.  And, properly implemented and configured, it is just as
+    fast or faster than other protocols.
+
+ 3. Kermit protocol survives 7-bit connections; most other protocols
+    do not.  This is important when callers arrive over public data networks
+    and other non-direct paths.
+
+ 4. Kermit protocol can be used by Internet-accessible BBSs and other
+    services.  It works well over TELNET connections, even 7-bit ones,
+    and Kermit TELNET clients are available for most popular operating
+    systems: DOS, Windows, OS/2, UNIX, VMS, etc.
+
+ 5. Only Kermit protocol is capable of converting from one text character
+    set to another during text-file transfer: This is vital as the BBS
+    world becomes more international, and the BBS client hardware more
+    heterogeneous.  Remember: Not all computers use IBM Code Pages to
+    to represent non-English text!
+
+ 6. MS-DOS Kermit can "autoconfigure" callers for maximum performance,
+    and can initiate "autoupload" and "autodownload" operations without user
+    intervention, provided the client software is MS-DOS Kermit 3.13 or
+    later, or C-Kermit 5A(190) or later for UNIX, OS/2, or VMS.
+
+Follow the instructions that come with your BBS software for installing
+external protocols.  Generally, you must disable the internal Kermit protocol,
+if there is one.  For example, set the security level of the internal Kermit
+to "sysop", or at least out of reach of the normal caller.  Then add Kermit as
+an external protocol.  This typically involves assigning a command letter to
+the protocol and defining two MS-DOS batch files to be executed for uploads
+and downloads, respectively.
+
+(26.1) USING PORTS AND DRIVERS
+
+MS-DOS Kermit operates over existing drivers and over existing settings of
+standard serial ports. It leaves modem signal DTR asserted (high) when it
+exits so a connection can persist beyond Kermit's use of the line.  It uses
+the existing port speed unless instructed otherwise, and it expects the port
+to configured for 8 bits no parity (parity is handled internally by software).
+If the communications hardware employs parity in hardware then tell Kermit to
+use the same parity (command SET PARITY).
+ 
+Fossil drivers (see Section 2 above) can be used by telling Kermit to SET PORT
+FOSSIL n, where n is the Fossil port number (1 to 99).  This enables efficient
+block-mode i/o with the fossil driver.  Speed and flow control must be set in
+the fossil driver, not in Kermit.  You can also use SET PORT BIOSn, n=1-4;
+less efficient, but might work if SET PORT FOSSIL does not.  If the hardware
+ports are accessed via SET PORT COM1 or SET PORT 1 then the fossil driver
+might or might not survive; please be careful.
+
+Of course, you can also use Kermit's built-in COM port driver via SET PORT
+COM1 thru COM4; this method will be fastest of all, but is limited to standard
+COM ports.  Non-standard serial port hardware and IRQs for COM1 to 4 are
+stated to Kermit with command SET COMn <port> <irq>, where again n=1-4.  COM
+ports above 4 (e.g. on Digiboards) can be accessed via Fossil drivers or by
+other tricks (see KERMIT.BWR).
+
+(26.2) GENERAL SETUP
+
+Kermit commands appearing in the BBS's MSKERMIT.INI file might be:
+
+  SET PARITY NONE          ; Usually no parity on BBS
+  SET BLOCK 3		   ; CRC checking for security 
+  SET RECEIVE PACKET 2000  ; Long packets from client, upper limit
+  SET WINDOW 4		   ; Sliding windows, upper limit
+  SET FILE TYPE BINARY	   ; Fine for all DOS to DOS transfers(*)
+  SET CONTROL UNPREFIX ALL ; Unprefix all control characters except...
+  SET CON P 0 1 3 13 17 19 129 131 141 145 147
+  SET RECEIVE PATH OFF     ; Restrict uploads to current directory
+  SET FILE COLL OVERWRITE  ; Incoming files overwrite old files of same name
+  SET CARRIER ON           ; Recover from hangups immediately
+  SET FILE DISPLAY QUIET   ; No file transfer display
+  SET BELL OFF             ; Be quiet
+  SET EXIT WARNING OFF     ; Unattended, don't ask for permission to exit
+  LOG TRANSACTION          ; Log transfers to TRANSACT.LOG if desired(**)
+  DEFINE BSEND SET FILE TYPE BINARY, SEND \%1 ; Use macros for command
+  DEFINE TSEND SET FILE TYPE TEXT, SEND \%1   ; line brevity...
+
+ (*) Unless character-set translation is needed.
+(**) Or specify a different filename; generate a unique one using \v(ndate)
+     and \v(ntime).
+
+The MSKERMIT.INI settings can be overriden on the Kermit command line as
+illustrated below.
+
+The BBS software should invoke MS-DOS Kermit with "command-line arguments",
+i.e. commands to be executed, given on the same line as the "kermit" command.
+Multiple commands can be separated by commas.  Kermit will execute the
+commands and then exit automatically when done.
+
+  WARNING: There is a limit to how long a command line can be, usually
+  about 127.  If you need to issue more commands than will fit on the
+  command line, simply collect them into a file, and then invoke Kermit
+  with a TAKE command for that file.
+
+Communication parameters should be given on the Kermit command line for each
+session, along with the file transfer commands.  The initialization file is
+read and executed, then the command line material is executed, and finally
+Kermit exits when done.  Examples (note the use of BSEND and TSEND macros):
+
+  kermit set port fossil 17, bsend foo.zip
+  kermit set port 2, set speed 57600, set flow rts/cts, bsend bar.zip
+  kermit set com3 \x3e8 5, set por 3, set flow rts/cts, set sp 57, bs baz.zip
+  kermit set port bios1, tsend oofa.txt
+
+Real Kermit software, including MS-DOS Kermit 3.13 and later and C-Kermit
+5A(190) and later (OS/2, UNIX, and VMS versions), when used to dial up a BBS,
+can be configured automatically by the BBS software provided the caller has
+"set terminal apc on" to enable this feature.  The BBS software can then set
+the optimal file transfer parameters in calling Kermit program, and also
+initiate up- and downloads automatically.  Read section 10, THE APC ESCAPE
+SEQUENCE, in this document.  For example:
+
+  kermit -f download.scr, set file type <text-or-binary>, send <filename>
+
+where DOWNLOAD.SCR might look like this:
+
+  SET BLOCK 3 ; etc etc, as above
+  APC SET WINDOW 4, SET REC PACK 2000, RECEIVE	
+
+(26.3) FILE TRANSFER
+
+When MS-DOS Kermit is to receive files, it can be invoked in several ways.
+The transfer mode (text or binary) is determined by the file sender, unless
+it is an extremely primitive Kermit implementation that does not support
+attribute (A) packets (in which it must be given an explicit SET FILE TYPE
+command first):
+
+ 1. Receive a file or files, and store them according to the name they come
+    with; if the incoming name includes a disk letter or directory name,
+    use them when storing the file:
+
+      kermit set receive pathnames on, receive
+
+ 2. Receive files, store them with the name they were sent with, but in the
+    current directory:
+
+      kermit set receive pathnames off, receive
+
+ 3. Receive files, store them under their own names, but in the TEMP directory
+    on the D disk:
+
+      kermit receive d:\temp
+
+ 4. Receive a file, store it with the name "oofa.txt" in the current
+    directory, no matter what name it was sent with:
+
+      kermit receive oofa.txt
+
+ 5. Receive a file, store it as d:\uploads\abc.xyz, no matter what name
+    it was sent with:
+
+      kermit receive d:\uploads\abc.xyz
+
+When MS-DOS Kermit is to send files, it can be given the name(s) of the
+file(s) to send in several ways.  In this case, Kermit should be told what
+mode, text or binary, in which to send the file.  The default mode is text,
+but since the MSKERMIT.INI file might have changed the default, it is best
+to be explicit about it.
+
+ 1. A single filename on the command line, as in these examples:
+
+      kermit set file type text, send oofa.txt
+      kermit set file type binary, send oofa.zip
+      kermit set file type binary, send d:\zips\oofa.zip
+
+    or, using the BSEND and TSEND macros (defined above) for brevity:
+
+      kermit set tsend oofa.txt
+      kermit set bsend oofa.zip
+      kermit set bsend d:\zips\oofa.zip
+
+ 2. A DOS-format wildcard specification on the command line, as in:
+
+      kermit tsend *.txt
+      kermit bsend *.zip
+
+ 3. An indirect file specification, denoted by "@" as the first letter in
+    the filename, in which the named file contains a list of the names of
+    the files to be sent:
+
+      kermit set file type text, send @files.lst
+
+    The list of filenames can contain one filename per line, or it can
+    contain a comma-separated list of names, or any mixture of the two.
+    Filenames can contain disk letters, directory names, and DOS-format
+    wildcards.
+
+ 4. Any other way you can think of, such as telling Kermit to execute a
+    command file:
+
+      kermit take download.scr
+
+Kermits negotiate operating modes to find the greatest common denominator.
+The sending Kermit makes the initial offer and the receiver responds.  Thus
+the BBS operator should place upper limits on packet length, sliding window
+slots, and so on which suit the highest-performance clients and still let the
+client negotiate operating conditions within those limits.  We recommend long
+packets, say 2000 bytes each, and four window slots as efficient parameters;
+this consumes 8KB of file buffer memory (allocated dynamically from DOS for
+each file transfer).  For most PC-based BBSs a default setting of SET FILE
+TYPE BINARY is suitable because the transfers are between like file systems
+(DOS to DOS).
+
+File transfer operations may be logged to a file with the command LOG
+TRANSACTION (by default, the file is called TRANSACT.LOG).
+
+Uploads can be restricted to the current directory using SET RECEIVE
+PATHNAMES OFF.  This is the default for KERLITE.EXE, but for larger versions
+(those with terminal emulators) the default is ON.
+
+To increase throughput to the last bit per second you may unprefix selected
+control codes via the SET PREFIX command.  Kermit will not unprefix XON/XOFF
+codes if they are used for flow control, though we do recommend hardware flow
+control (RTS/CTS) for best efficiency.  Beware that many intervening
+communications boxes may not pass all control codes, and which codes are fatal
+is not testable from the outside.  The biggest gain from unprefixing control
+codes is usually seen with pre-compressed files, and that gain is about 25%
+(which is the proportion of control to printable bytes in a random mixture).
+
+APPENDIX I:  NEW TERMINAL EMULATIONS - TECHNICAL SUMMARY
+
+DEC VT, Heath, and Tektronix terminal emulation specifications are given in
+Appendix II of "Using MS-DOS Kermit".  The following sections briefly specify
+Kermit's ANSI, Data General, and Wyse emulations.
+
+I.1. ANSI TERMINAL EMULATION
+
+ANSI terminal emulation is a VT100 subset but with:
+
+ . SET TERMINAL CHARACTER-SET TRANSPARENT, with PC code page 437 is used
+   transparently, favored by BBSs.
+ . The cursor goes to the home (upper left corner) after an erase in display
+   operation (ESC [ Pn J).
+ . Ctrl-L is treated as "home and clear screen".
+ . Ctrl-N (normally Shift-Out) is ignored.
+ . Host queries about terminal are answered as if a VT100.
+ . The initial screen coloring is forced to be dim white on black.
+ . The terminal status line shows terminal type ANSI.
+
+I.2. DATA GENERAL DASHER TERMINAL EMULATION
+
+Items marked with a * are not implemented in MS-DOS Kermit.  XON/XOFF flow
+control should be set to outgoing only or none or RTS/CTS because Ctrl-Q/S are
+used as D463/D470 commands.  Special D463/D470 Kermit command:
+
+  SET TERMINAL COMPRESSED-TEXT {GRAPHICS, TEXT-132}
+
+The default is GRAPHICS, meaning compressed font characters are drawn as 5x14
+dot pattern cells in IBM PC graphics mode, simulating a text screen.  The
+compressed font used in Graphics mode is Code Page CP437 or CP850.  TEXT-132
+means switch to 132-column EGA/VGA text mode and show all text with that font,
+which only works if your graphics adapter supports this mode.
+
+Graphics is way slower than text and only 128 character cells are available
+across the screen (640 dots / 128 yields 5 dots per character cell including a
+separation dot).  If text is commanded and the display adapter cannot be
+switched to 132 column mode, graphics is used instead.  Compressed fonts are
+available only on EGA/VGA adapters and above, not on Mono, CGA, or Hercules.
+
+Note on line drawing, RS L and the RS G series of commands: the drawing
+remains intact as long as the graphics screen is viewed.  It is not preserved
+if the user returns to the Kermit prompt or switches to the text screen (the
+ALT - key, keyboard verb \ktermtype): the basic screen is first drawn from the
+text screen and then line drawing dots are superimposed.  Leaving this screen
+means the text screen could change and thus a fresh version of it will always
+overwrite the existing material.  The line drawings are not preserved
+separately from the underlying simulated text screen.  The Data General
+CEO_DRAW program provides a REFRESH command to restore graphics images.
+
+A D463 terminal is a monochrome high-resolution text and graphics terminal, a
+D470 is a similar full-color terminal.  The D470 has fewer screen dots than
+the D463 and uses a smaller graphics crosshair.  A D463 graphics screen is 800
+dots across by 576 high, a D470 graphic screen is 640 across by 480 high with
+16 colors.  Aside from a few status reports and the graphics details both
+terminals use the same core emulator.  VTxxx submode is not supported on
+either terminal; please use Kermit's VT320 instead.
+
+When the display adapter is in graphics mode character fonts are sought from
+the display adapter and, when Code Pages are active, from the DOS Code Page
+file EGA.SYS.  Normal-width characters can be drawn from that file, but
+compressed characters will be shown from a CP850 font if the current Code Page
+is other than CP437.  The DOS file EGA.SYS must be in the current directory on
+along the PATH.  CGA, monochrome, and Hercules video display adapters cannot
+use Code Pages; only EGA/VGA and above can.
+
+Special codes sent by DG keyboard function keys, not preassigned to PC keys
+
+ DG Key name	    Kermit Verb	   D463/D470 Data General native mode
+				 prefix	 second character
+ F1..F15	    dgF1..dgF15	   RS	q,r,s,t,u, v,w,x,y,z, {,|,},~,p
+ shift F1..F15	    dgSF1..dgSf15  RS	a,b,c,d,e, f,g,h,i,j, k,l,m,n,`
+ control F1..F15    none	   RS	1,2,3,4,5, 6,7,8,9,:, ;,<,=,>,0
+ ctrl-shft F1..F15  none	   RS	!,",#,$,%, &,',(,),*, +,comma,-,.,
+								<space>
+ C1..C4		    dgC1..dgC4	   RS	\,],^,_
+ shift C1..C4	    none	   RS	X,Y,Z,[
+ Uparrow	    uparr	   Control-W
+ Rightarrow	    rtarr	   Control-X
+ Leftarrow	    lfarr	   Control-Y
+ Downarrow	    dnarr	   Control-Z
+ Home		    none	   Control-H
+ shift Uparrow	    none	   RS Control-W
+ shift Rightarrow   none	   RS Control-X
+ shift Leftarrow    none	   RS Control-Y
+ shift Downarrow    none	   RS Control-Z
+ shift Home	    none	   RS Control-H
+ Erase EOL	    none	   Control-K
+ Erase Page	    none	   Control-L
+ Cmd-Print	    none	   RS Control-U
+ shift Cmd-Print    none	   RS Control-A
+ POINT		    dgPoint	   Full graphics cursor position report
+ SPCL		    dgSPCL	   none, used as prefix for compounds
+ NC		    dgNC	   none, toggles screen between Normal and
+				   Compress fonts, same as if the host sent
+				   RS F J or RS F K.
+
+The mouse: When Kermit is in graphics mode, a Microsoft-compatible mouse may
+be used to control the graphics crosshair. The left mouse button sends the
+POINT command, and the right button sends the dgF1 keyboard verb.  The DG F1
+key frequently means "execute" to many utilities.  On DG keyboards POINT is
+the key combination CMD CURSOR-TYPE.
+
+RECEIVED CODES AND ACTIONS
+
+Note: <n> is the lower four bits of a byte, <nn> is the lower four bits of two
+consecutive bytes as high- then low-order portions of an 8-bit result.  Such
+input bytes may have anything in the upper four bits.
+		
+ Control Seq	Hex		Description of Action
+ Control-@	00h		Used as data within a command
+ Control-A	01h		Print form. Only bold characters in current 
+				window at cursor row and below, followed by 
+				sending a Control-F character to the host.
+ Control-B	02h		Reverse video off
+ Control-C	03h		Blink enable, affects only new chars in Kermit
+ Control-D	04h		Blink disable, affects only new chars
+ Control-E	05h		Read window address
+				Report is Control-_<col><row>  in binary
+ Control-G	07h		Bell
+ Control-H	08h		Window home, go upper left corner of window
+ Control-I	09h		Tab horizontally
+ Control-J	0Ah		Newline, can scroll window if Roll Mode is on,
+				else cursor wraps to upper left corner (Home).
+				Landing on a protected character yields a
+				cursor right operation.
+ Control-K	0Bh		Erase cursor to end of line (stops on first
+				protected mode character)
+ Control-L	0Ch		Erase window, cursor to window home
+ Control-M	0Dh		Carriage return. Go to left margin. If that
+				character is protected then a cursor right
+				is performed.
+ Control-N	0Eh		Blink on
+ Control-O	0Fh		Blink off
+ Control-P <col><row>	10h	Write window address, 255 is do not change.
+				Addresses are in unencoded binary.
+ Control-Q	11h		Print window. All characters in current
+				window at cursor row and below, followed by
+				sending a Control-F character to the host.
+ Control-R	12h		Roll Mode enable (default)
+ Control-S	13h		Roll Mode disable
+ Control-T	14h		Underscore on
+ Control-U	15h		Underscore off
+ Control-V	16h		Reverse video on
+ Control-W	17h		Cursor up. Wraps top to bottom in the window.
+				Landing on a protected character yields a
+				cursor left operation.
+ Control-X	18h		Cursor right. End of line wrap executes New
+				Line. Landing on a protected character repeats
+				the cursor right command (stops at start).
+ Control-Y	19h		Cursor left. Start of line wrap executes a
+				cursor up at right margin. Repeats if a
+				protected mode character is encountered, and
+				stops at starting point if looping.
+ Control-Z	1Ah		Cursor down, one line, same column. Wraps
+				in window bottom to top, landing on a
+				protected character yields a cursor right.
+ Control-[	1Bh		Escape char 
+ Control-\	1Ch		Dim on
+ Control-]	1Dh		Dim off
+ Control-^	1Eh		DG escape char (ASCII name RS)
+ Control-_	1Fh		Used as data within a command
+
+
+ DG Escape Seq			Description of Action
+
+ RS A <n>			Set foreground color (D470). A D463 uses this
+				only for polygon fill. Kermit uses D470 style.
+				<n> is a color code whose 4 lower bits mean:
+				 0 = black, 1..8 = bold blue, green, cyan, red,
+				     magenta, yellow, white, respectively, and
+				 9 = dark grey, 10..16 = dim versions of above.
+ RS B <n>			Set background color (D470). As above
+ RS C				Read model id
+				Report is RS o # <m><x><y>
+				<m> is ASCII 6	(D463/D413)
+				    or 44 decimal (D470)
+				<x> is 010CP000 binary byte
+				    C = 0 if 7 bit, = 1 if 8 bit comms
+				    P = 0 if not, = 1 if printer is available
+				<y> is 0101LLLL binary byte
+				    LLLL is keyboard nationality
+				    0010 Norwegian
+				    0011 Swiss/French (French in Kermit)
+				    0100 Swiss/German (Swiss in Kermit)
+				    1010 French-Canadian
+				    0110 Katakana (not implemented in Kermit)
+				    1000 French-Canadian
+				    1001 US English
+				    1010 United Kingdom
+				    1011 French
+				    1100 German
+				    1101 Swedish/Finnish
+				    1110 Spanish
+				    1111 Danish/Norwegian
+
+ RS D				Reverse video on
+ RS E				Reverse video off
+ RS H				Scroll up
+ RS I				Scroll down
+ RS J				Insert character
+ RS K				Delete character
+
+ RS F 7 <nn>			*Select printer NRC
+ RS F 8				*Display char generator contents, diagnostics
+ RS F 9				Fill screen with grid, diagnostics
+ RS F ? 0			Simulprint off (print and display together)
+ RS F ? 1			Simulprint on  (print and display together)
+ RS F ? 2			Print pass through off (transparent printing)
+ RS F ? 3			Print pass through on (transparent printing)
+ RS F ? 5			*Window bit dump
+ RS F ? 6			*Form bit dump
+ RS F ? 7			VT style autoprint off (whole line printing)
+ RS F ? 8			VT style autoprint on (whole line printing)
+ RS F ? :			Print Screen. All characters on the screen,
+				followed by sending a Control-F character 
+				to the host.
+ RS F ; <command>		*Data trap mode, debugging (use SET DEBUG ON)
+ RS F <				*Perform UART loopback, diagnostics
+ RS F > <char>			Fill screen with character, diagnostics
+ RS F A				Reset the terminal emulator
+ RS F B <nn><n>..<nn><n>	Set Windows (each is full width of screen
+				and each scrolls h/v independently)
+			<nn> number of lines in window (24 == full screen)
+			<n>=0/1 normal/compressed (compress=graphics fake-text
+				or 132 columns, user selectable, in Kermit)
+				Command ends on 24 lines or on <00><n>.
+				Screen is auto centered. Cursor to screen home.
+ RS F C <nn>			Scroll left <nn> columns (if Horiz scroll is
+				enabled)
+ RS F D <nn>			Scroll right <nn> columns (ditto)
+ RS F E				Erase screen, cursor to screen home, window
+				settings are preserved.
+ RS F F				Erase unprotected characters from the cursor
+				position to the end of the window.
+ RS F G				Screen home, go to upper left corner of screen.
+				Landing on a protected character yields a
+				cursor right operation.
+ RS F H				Insert line, text moves down in window
+ RS F I				Delete line, text moves up in window. If the
+				cursor is on a protected character a cursor
+				right command is executed.
+ RS F J				Select normal spacing (80 column mode)
+ RS F K				Select compressed spacing (132 column mode)
+ RS F L				Protect on, applies to chars until Protect off,
+ RS F M				Protect off
+ RS F N <nnn><n><n>		Change attributes in current window
+			<nnn> number of chars to change, starting at cursor
+			<n> attributes to set
+			    bit 3 dim
+			    bit 2 reverse video
+			    bit 1 underscore
+			    bit 0 blink
+			<n> attributes to reset, as above
+			Both set and reset means toggle. 
+ RS F O				Read horizontal scroll offset
+				Report is RS o : <nn>	where <nn> is window
+				horizontal scroll value (columns)
+ RS F P <nn><nn>		Write screen attributes
+			<nn> absolute screen column for cursor
+			<nn> absolute screen row for cursor
+ RS F Q <n>			Set cursor type
+			<n>	cursor type
+			 0	disable/hide, and save current
+			 1	blinking 
+			 2	reverse video block (PC cursors always blink)
+			 3	blinking reverse video block
+			 4	underscore
+			 5	display cursor with saved attributes
+ RS F R <char><dd>..<dd>	*Define character, 12 or 10 <dd> items, 
+				 10x12 cell for D463, 8x10 for D470.
+ RS F S <nn>			Select Character Set
+	       <nn>	character set
+		00	keyboard language
+		01	US ASCII
+		02	UK ASCII (sharp sign # relaced by Pound Sterling)
+		03	NRC French
+		04	NRC German
+		05	NRC Swedish/Finnish
+		06	NRC Spanish
+		07	NRC Danish/Norwegian
+		08	NRC Swiss
+		09	NRC Kata Kana (G0)	not supported in Kermit
+		0E	DG International
+		0F	Kata Kana (G1)		not supported in Kermit
+		11	Line Drawing
+		13	DG Special Graphics (CP437 GR)
+		14	DEC Multinational
+		15	DEC Special Graphics (line drawing)
+		1D	Low PC Term (CP437 GL)
+		1E	High PC Term (CP437 GR)
+		1F	Latin1 (ISO 8859-1)
+		20 et seq  soft fonts		not supported in Kermit
+
+ RS F T <n>			*Set scroll rate
+			<n>
+			0	disable smooth scroll
+			1	enable smooth scroll at 5 rows/sec
+			2	enable smooth scroll at 10 rows/sec
+ RS F U <n>			Select 7/8 bit operation
+				<n>, 0 = 7-bits, 1 = 8-bits in and out
+ RS F V				Protect enable, permit protect on/off to work
+ RS F W				Protect disable
+ RS F X <nn><nn>		Set margins
+			<nn>, first is left margin, second is right margin
+			both in the range of 0 to 206, inclusive. Screen
+			may be scrolled to make both margins visible (left
+			margin dominates). Cursor moves to left margin.
+ RS F Y <nn><nn><nn>		Set alternate margins, relative to current
+			<nn> row to place cursor on, 0..24, wrt window top.
+			<nn> column of new left margin, wrt permanent left.
+			<nn> column of new right margin, wrt new left.
+			255 value means do not change
+				Disables horizontal scrolling
+ RS F Z				Restore normal margins, removes alt margins,
+				reenables horizontal scrolling
+ RS F ]				Horizontal scroll disable
+ RS F \				Delete line between margins (push up)
+ RS F [				Insert line between margins (push up)
+ RS F ^				Horizontal scroll enable (default)
+ RS F _ <nn><nn>		Show columns (align window l/r to show text)
+			<nn> left most col to display, 0..206
+			<nn> right most col to display, 0..206
+			Screen may be scrolled to make both margins visible 
+			(left margin dominates).
+
+ RS F `				Print Pass Through on (not transparent print)
+ RS F a				Print Pass Through off
+ RS F b				Read screen address (cursor position)
+				Report is RS o 8 <nn><nn>   for col,row
+ RS F c <n><n><n><n>		*Set color map, D470. Use Kermit command
+				Set Terminal Color.
+ RS F d				Read characters remining
+				Report is RS o 9 <high><low> (binary)
+				Always zero remaining in Kermit
+ RS F e <n><n>			Reserve character (no action in Kermit, none
+				is needed.)
+ RS F f <n>			Set keyboard language
+			<n>
+			0	set language to default (National)
+			1	set language to GL=ASCII, GR=DG International
+			2	set language to GL=ASCII, GR=Latin1 ISO 8859.1
+
+ RS F h				*Push
+ RS F i				*Pop
+ RS F k <mode><key><length><string> *Host programmable function keys
+ RS F m 0			*Read cursor contents, diagnostics
+ RS F m 4			*Character loopback, diagnostics
+ RS F m 5			*Hot key switch, dual emulation
+ RS F m 6			*Read bit contents, diagnostics
+ RS F r <n><pos><time>		*Set clock time
+ RS F q <nn><nn>		*Deallocate character sets
+ RS F s <n>			*Save/restore screen contents
+				<n> 0=save, 1=restore
+ RS F t				Report screen size
+				Reports RS o <nn><nn><nn><nn><status>
+				rows, columns(207), rows in window, columns in 
+				window (right-left margins+1), status=70h
+ RS F v	<r1><c1><r2><c2>	Read window contents
+				Reports chars in window from row1, col1
+				to row2, col2, without attributes
+ RS F w				Read new model id
+			Reports RS o w <class><service><rev><name><reserved>
+			<class>	is 8		D460/D470 level
+			<service> is 01
+			<revision> is 00	firmware rev (Kermit = 0)
+			<name> is "D463	   "	(8 bytes)
+			       or "D470	   "	(for the D470 emulator)
+			<reserved> is "	   "	(4 bytes)
+
+ RS F x <n>			Printer pass back to host
+				Reports RS R x 0 (mode cannot be set, Kermit)
+ RS F z	<n>			Set 25th line mode
+			<n>
+			0	display status line
+			1	put msg on line, msg is <nn>text
+				following this cmd
+			2	*use as extra screen row
+			3	blanked
+ RS F { <nn><n>			Set model id <nn> and graphics ability <n>
+ RS F } <n><n>			Named save/restore cursor
+				<n> sets memory number, 0..15, for save
+				<n> 0=save to memory, 1=restore from memory
+				Saves/restores cursor location and shape.
+ RS F ~ <nn>			*Switch emulation mode, dual emulation
+
+ RS G 0 <nnn><nnn><nnn><nnn><nnn>  Arc (center x, center y, radius, start 
+				angle, stop angle). Angle is deg CCW from
+				+x axis. <nnn> are "location arguments."
+				Manual is in error on this item. DG screen
+				coordinates of 0..799 (x), 0..574 (y) D463
+				or 0..639 (x), 0..479 (y) D470.
+ RS G 1 <nnn><nnn><nnn><nnn><n>	Bar. Arguments are lower left x,y corner
+				width, height, and <n> for foreground (1)
+				or background (0) filling color.
+ RS G 8 <loc_list><null>	Line drawing <loc_list> is list of x,y pairs
+				using "location arguments".
+ RS G @				Cursor attributes. Report is
+				RS o , <crosshair> 0 <crosssize> <tracked>
+				where <crosshair> is 0 or 1 for off/on,
+				<crosssize> is 1 for D463 and 0 for D470,
+				<tracked> is 0, 2, 4 or 6 for tracked devices
+				of none, keyboard, mouse, both, respectively.
+ RS G A				Graphics cursor reset (no cursor, no tracking)
+ RS G B				Graphics cursor on
+ RS G C				Graphics cursor off
+ RS G H <n>			Graphics cursor track
+				<n> bit field,	0 for nothing
+						2 for keyboard arrow keys,
+						4 for mouse, default nothing
+ RS G I <n>			*D470, set graphics crosshair (cursor) color.
+				 Not implemented because Kermit uses XOR with
+				 existing screen dots.
+ RS G : <loc><null>		Polygon fill (non-intersecting polygon)
+				<loc> is up to 255 x,y pairs of sequential
+				vertices, in location argument format.
+ RS G p 1 <offset><pat><null>	Set pattern for line drawings. Kermit supports
+				only a 16 bit pattern, and no offset editing.
+ RS G ? |			Read cursor location. Reports
+				RS o | <space><xxxxx><space><yyyyy><CR>
+				D463 Manual is in error and says RS O | etc.
+ RS G > | <nnn><nnn>		Set cursor location, graphics crosshair.
+
+ RS H				Scroll up (in window). Window text moves up
+				one line, blank line is inserted at bottom.
+				Cursor remains fixed on screen unless it is
+				on a protected character, then a cursor right
+				is executed.
+ RS I				Scroll down (in window). Window text moves
+				down one line, blank line is inserted at top,
+				cursor remains fixed on the screen.
+ RS J				Insert character. Insert a space at the curror,
+				push right, lose excess. First protected 
+				character is temporary right margin.
+ RS K				Delete character at cursor position, pull
+				left. First protected character is temporary
+				right margin.
+
+ RS L <loc_list><null>		Line drawing. Same as RS G 8 above.
+
+ RS N				Shift out (GLeft pointed to G1)
+
+ RS O				Shift in (GLeft pointed to G0, default)
+
+ RS P @ <n>			*Unix mode
+				<n>, 0 = enter, 1 = exit Unix mode
+ RS R @ <nn>			*Set row length
+ RS R A 0 <nn><n>		*Set split screen mode, dual emulation
+ RS R A 1 <nn>			*Set first row to display, dual emulation
+ RS R B <type><ff><cs><graph>	*Set Device Options
+ RS R C <ss><rr>		*Field attributes
+			<ss>=<nn> set, <rr>=<nn> reset
+			bit 4	blank (invisible)
+			bit 3	dim
+			bit 2	reverse video
+			bit 1	underscore
+			bit 0	blink
+			toggle if both set and reset
+ RS R D <ss><rr>		*Page Attributes
+			<ss>=<nn> set, <rr>=<nn> reset
+			bit 3	dim
+			bit 2	reverse video
+			bit 1	underscore
+			bit 0	blink
+			toggle if both set and reset
+ RS R E <n>			Double high/wide characters (as char blank)
+			<n>
+			 0	normal row
+			 1	double wide
+			 2	double high top
+			 3	double high bottom
+			 4	double high top/double wide
+			 5	double high bottom/double wide
+			(The D470 does not support RS R commands)
+--------------------
+D470 ANSI-Mode Additions
+
+ Control Seq	Hex		Description of Action
+ Control-G	07h		Bell
+ Control-H	08h		Backspace
+ Control-J	0Ah		Newline, can scroll window if Roll Mode is on,
+				else cursor wraps to upper left corner (Home).
+				Landing on a protected character yields a
+				cursor right operation.
+ Control-L	0Ch		Form Feed, treated as New Line
+ Control-M	0Dh		Carriage return. Go to left margin. If that
+				character is protected then a cursor right
+				is performed.
+ Control-N	0Eh		Shift out
+ Control-O	0Fh		Shift in
+ Control-Q	11h		XOFF flow control
+ Control-S	13h		XON flow control
+ Control-[	1Bh		Escape char
+ SS2		8eh		Single shift 2
+ SS3		8fh		Single shift 3
+ DCS		90h		Device control sequence introducer
+ CSI		9bh		Control sequence introducer
+ ST		9ch		String (DCS) terminator
+
+ ESC c					Reset to initial state
+ ESC D					Index (can scroll screen upward)
+ ESC E					Next Line (LF)
+ ESC M					Reverse index (can scroll down)
+ ESC N					SS2
+ ESC P					DCS
+ ESC O					SS3
+ ESC V					Start protected area
+ ESC W					End protected area
+ ESC \					ST
+ ESC Pg Pset				Select character set
+			Pg is  ( ) * +	for G0..G3
+	RS F S		Pset
+	equiv		<space>0 .. <space>?  DRCB 1..16
+			!0 .. !5	DRCB 17..22
+			(all mapped to one set at the moment)
+
+	00		0		keyboard language
+	06		1		Spanish
+	07		2		Danish/Norwegian
+	08		3		Swiss
+	0e		4		DGI
+	10		5		WP/math/Greek
+	11		6		Line Drawing
+	100 (soft)	7		*Mosaics
+	02		A		UK
+	01		B		US
+	05		H		Swedish/Finnish
+	0f		I		*Katakana G1
+	09		J		*Katakana G0
+	04		K		German
+	03		L		French
+
+ CSI Pc @				Insert Pc spaces under cursor
+ CSI Pc <space> @			Scroll left Pc columns
+ CSI Pc A				Cursor up Pc rows
+ CSI Pc <space> A			Scroll right Pc columns
+ CSI Pc B				Cursor down Pc rows
+ CSI Pc C				Cursor forward Pc columns
+ CSI Pc D				Cursor backward Pc columns
+ CSI row; col H				Cursor to row, column
+ CSI Pc J				Erase in display (Pc = 0,1,2)
+ CSI Pc K				Erase in line (Pc = 0,1,2)
+ CSI Pc L				Insert Pc lines under cursor
+ CSI Pc M				Delete Pc lines under cursor
+ CSI Pc P				Delete Pc chars under cursor
+ CSI Pc S				Scroll up Pc rows
+ CSI Pc T				Scroll down Pc rows
+ CSI row; col f				Cursor to row, column
+ CSI Pc; Pc;.. h			Set mode
+		Pc	mode
+		1	guarded area transfer (for printing)
+		6	erasure
+		<0	roll
+		<1	blink
+		<2	horizontal scroll
+		<3	DG ANSI mode
+		<4	forms mode
+		<5	margins mode
+ CSI Pc i				Media copy (Pc= 0, <0, 4, 5)
+ CSI mode; mode;... l			Reset mode (see Set mode above)
+ CSI Pc; Pc;... m			Set graphic rendition
+	Pc		action
+	0		all visual attributes off
+	2		dim on
+	4		underscore on
+	5		blink on
+	7		reverse video on
+	30 .. 37	bold foreground color (1=red, 2=green, 4=blue)
+	38,39		ignored (reserved, default foreground color)
+	40 .. 47	background color (always dim)
+	48,49		ignored (reserved, default background color)
+	>0 .. >7	dim foreground color
+	=0 .. =7	background color (always dim)
+
+ CSI Pc n				Device status report
+					Reports ESC [ 0 n  meaning ready
+ CSI loc; width; height; color p	Draw bar
+ CSI loc; radius; start; end <space> p	Draw arc
+ CSI count; onvalue; offvalue q		Change attributes
+ CSI <space> q				Read graphics cursor
+ CSI <space> r				Read cursor attributes
+ CSI Pc; set; num s			Read/Reserve characters
+					Reports 2000 chars available
+ CSI color <space> s			*Graphics cursor color
+ CSI Pc t				Read offset (Pc=0)/Show columns(Pc=1)
+ CSI x; y <space> t			Write graphics cursor (to x,y)
+ CSI row; col u				Screen position (RS F P style)
+ CSI <space> u				Cursor (graphics) off
+ CSI Pc; Pv; Pc; Pv;... v		Set parameters
+     what	Pc		Pv
+     defaults	0			*select defaults for below
+     kbd lang	1		0	keyboard nationality char set in use
+				1	DGI (default
+     7/8 bit	2		0	7-bit
+				1	8-bit
+     cursor type 3		0	not displayed
+				1	blinking underscore
+				2	reverse video block
+				3	blinking reverse video block
+     *scroll rate 4		0	jump
+				1	smooth, 5 bit rows/sec
+				2	smooth, 10 bit rows/sec
+
+ CSI <space> v				Cursor (graphics) on
+ CSI Pc; Pseries w			Set margins
+		Pc = 0, exit alt temp margins
+		Pc = 1, set absolute margins at left; right
+		Pc = 2, set temp alt margins at row; left; right
+
+ CSI <space> w				Cursor reset
+ CSI x					Read terminal configuration
+ CSI Pc <space> x			Cursor track
+ CSI n1; n2;...n16 y			Set print colors
+ CSI n1; n2; n3; n4 <space> z		Set color map
+ CSI <space> |				*Push
+ CSI <space> }				*Pop
+
+
+ DCS A <char><string of dd> ST		Define character
+ DCS B <string of loc> ST		Draw line
+ DCS C <offset><pattern> ST		Set Pattern (for line drawing)
+ DCS D <string of nn n> ST		Set Windows
+ DCS E <string of loc> ST		Draw polygon
+ DCS F ST				Report failures
+				Report is DCS F ST  meaning no failures
+
+ DG Key name	    Kermit Verb	   D470 Data General ANSI mode
+				 prefix	 second character
+ F1..F15	    dgF1..dgF15	   ESC [ 01 z .. ESC [ 14 z   ESC [ 00 z
+ C1..C4		    dgC1..dgC4	   ESC [ 20 z .. ESC [ 23 z
+ Uparrow	    uparr	   ESC [ A
+ Rightarrow	    rtarr	   ESC [ C
+ Leftarrow	    lfarr	   ESC [ D
+ Downarrow	    dnarr	   ESC [ B
+
+I.3. WYSE-50 TERMINAL EMULATION
+
+CONTROL
+SEQUENCE    HEX   DESCRIPTION OF ACTION
+
+Control-E   05h   returns answerback string (see SET TERM ANSWERBACK)
+Control-G   07h   sounds bell
+Control-H   08h   cursor to left one column
+Control-I   09h   cursor to right one tab stop
+Control-J   0ah   cursor down one row (can scroll the screen)
+Control-K   0bh   cursor up one row
+Control-L   0ch   cursor right one column
+Control-M   0dh   cursor to left margin
+Control-N   0eh   unlocks keyboard, ignored
+Control-O   0fh   locks keyboard, ignored
+Control-R   12h   turns on controller printing
+Control-T   14h   turns off controller and transparent printing
+Control-X   18h   turns on transparent printing (Wyse-60)
+Control-Z   1ah   clears all unprotected cells to spaces
+Control-[   1bh   Escape, escape sequence introducer
+Control-^   1eh   cursor to home (upper left corner)
+Control-_   1fh   cursor to left margin and next row down
+
+Other Control codes are ignored.
+
+WYSE ESCAPE SEQUENCE  DESCRIPTION OF ACTION (* = Not Supported)
+
+ESC <space>	       report terminal ident, send 3 bytes "50<c/r>"
+ESC ! attrib	       writes all unprotected cells with attribute
+		       code attrib (Blank attribute is ignored)
+      attrib		action
+	 0		normal video
+	 1	       *blank
+	 2		blink
+	 3	       *blank
+	 4		reverse video
+	 8		underscore
+	40h		dim
+			(attrib is a byte with these bits as components,
+			 using a bias of ASCII "0", 30h)
+ESC "		      *unlocks keyboard, ignored
+ESC #		      *locks keyboard, ignored
+ESC &		       turns on protected mode, autoscroll to off
+ESC '		       turns off protected mode, autoscroll to on
+ESC (		       turns off write protect mode
+ESC )		       turns on write protect mode
+ESC *		       clears screen to nulls (Kermit uses spaces),
+		       protected mode to off
+ESC +		       clears screen to spaces, protected mode off
+ESC ,		       clears screen to protected spaces, protect
+		       mode is off. (Kermit clears with unprotected
+		       spaces)
+ESC - nrc	       cursor to text segment n and row, col
+		       (Kermit supports only text segment 0)
+		       (r and c are a binary value plus 20h)
+ESC . code	       clear all unprotected cells which have char
+		       codes of "code". "code" is expressed in hex.
+ESC /		       sends to host the text segment and row, col
+		       in same format as ESC - nrc command
+ESC 0		       clear all tab stops
+ESC 1		       set tab stop at cursor position
+ESC 2		       clear tab stop at cursor position
+ESC 4		      *sends to host all unprotected cells from start
+		       of row 
+ESC 5		      *sends to host all unprotected cells from start
+		       of text
+ESC 6		      *sends to host all cells from start of row 
+ESC 7		      *sends to host all cells from start of text
+ESC 8		       write start of message char (STX, 02h)
+ESC 9		       write end of message char (ETX, 03h)
+ESC :		       clear all unprotected cells to nulls (Kermit
+		       clears with spaces)
+ESC ;		       clear all unprotected cells to spaces
+ESC = rc	       cursor to row, col (for 80 columns only)
+		       (r and c are a binary value plus 20h)
+ESC ?		       sends to host the cursor address in the form
+			       rc CR  (for 80 columns only)
+ESC @		      *sends all unprotected cells from start of 
+		       text to the auxillary port, terminates lines 
+		       with CR LF NULL
+ESC A n attrib	       sets video attribute for a message field or
+		       for entire display (n = 0). Kermit supports
+		       only the entire display.
+ESC B		      *enter block mode
+ESC C		      *exit block mode to conversational mode
+ESC D x		      *change between half and full duplex
+ESC E		       insert row of spaces, bottom moves down
+ESC F text CR	      *enter message into message field
+ESC G attrib	       set video attribute for future operations
+
+ESC H x		       enter "graphics" char at cursor, x = 0..?
+		       for selected CP437 line drawing symbols.
+	x	symbol			x	symbol
+	0	top tee			8	center plus
+	1	lower left corner	9	left center tee
+	2	top left corner		:	horizontal bar
+	3	top right corner	;	light crosshatch
+	4	left center tee		<	double horz bar
+	5	lower right corner	=	bottom center tee
+	6	vertical bar		>	double vertical bar
+	7	dark crosshatch		?	medium crosshatch
+	STX	start translating as above until ESC H ETX
+	ETX	end translating as above
+ESC I		       cursor left to previous tab stop
+ESC J		      *activate alternate text segment
+ESC K		      *activate alternate text segment
+ESC L		      *send all chars unformatted to aux port
+ESC M		       send to host the char code at the cursor
+ESC N		       turns on no-scroll mode
+ESC O		       turns off no-scroll mode
+ESC P		       send all chars to auxillary port
+ESC Q		       insert a character, right part moves right
+ESC R		       delete a row, bottom moves up
+ESC S		      *sends a message unprotected
+ESC T		       erases all cells from cursor to end of row
+ESC U		      *turns on monitor mode (use SET DEBUG ON)
+ESC V		       sets cursor column to protected
+ESC W		       delete a character, right side moves left
+ESC X		      *turns off monitor mode
+ESC Y		       erase all cells from cursor to end of screen
+		       replacing them with spaces
+ESC ]		      *activates text segment 0
+ESC ` n		       sets screen feature n
+	       n       feature
+	       0       cursor off
+	       1       cursor on
+	       2       steady block (PC cursor always blinks)
+	       3       blinking line
+	       4       steady line
+	       5       blinking block
+	       A       normal protect char   (Kermit interprets these
+	       6       reverse protect char   as meaning protect all
+	       7       dim protect char	      future characters)
+	       8      *screen display off
+	       9      *screen display on
+	       :       80 column screen
+	       ;       132 column screen
+	       <,=,>,?, and @ are scroll rates (unsupported)
+
+ESC a rr R ccc C       move cursor to row and column (ASCII decimal)
+ESC b		       sends to host the cursor address in same form
+		       as ESC a above
+ESC d #		       turn on transparent printing
+ESC i		       cursor right to next tab stop
+ESC j		       cursor up one row and begins scrolling at
+		       top row (Kermit can't make any sense of the
+		       latter part of this and stops cursor at top)
+ESC k		      *turn on local edit mode
+ESC l		      *turn on duplex edit mode
+ESC p		       sends all chars unformatted to auxillary port
+ESC q		       turns on insert mode
+ESC r		       turns off insert mode
+ESC s		      *sends a message
+ESC t		       erase from cusor to end of row, fill with
+		       nulls (Kermit always erases with spaces)
+ESC u		       turn off monitor mode
+ESC x n HSR	      *change screen format (split screen)
+ESC y		       erase from curosr to end of screen, fill with
+		       nulls (Kermit always erases with spaces)
+ESC z n text CR	      *enter msg into function key labels or into
+		       function key codes
+ESC z DEL	      *turns off shifted key label line
+ESC {		       cursor to home (upper left corner)
+ESC }		      *activates text segment 1
+
+
+Wyse Key name	   Kermit Verb	  Wyse-50 code
+F1..F16		   wyF1..wyF16	  SOH <c> CR  where SOH is 01h and <c> is
+				       @,A,B,C,D, E,F,G,H,I, J,K,L,M,N, O
+shift F1..F16	   wySF1..wySF16  as above but <c> is
+				       `,a,b,c,d, e,f,g,h,i, j,k,l,m,n, o
+
+Uparrow		   uparr	  Control-K
+Rightarrow	   rtarr	  Control-L
+Leftarrow	   lfarr	  Control-H
+Downarrow	   dnarr	  Control-J
+
+The following Wyse escape sequences are recognized but ignored:
+
+ESC "   unlocks keyboard
+ESC #   locks keyboard
+ESC 4   sends all unprotected chars from start of row
+	to the host computer
+ESC 5   sends all unprotected chars from start-of-text
+        to the host computer
+ESC 6   sends all chars from start of row to host computer
+ESC 7   sends all chars from start-of-text to host computer
+ESC @   sends all unprotected chars from start-of-text to
+	the auxillary port. Each row is terminated with CR LF NULL
+ESC B   places the terminal in block mode
+ESC D   selects half or full duplex modes
+ESC F   enters a message in the host message field
+ESC J   activates the alternate text segment
+ESC K   same as ESC J (who knows what "activates" means?)
+ESC L   sends all chars unformatted to the auxillary port
+ESC P   sends all chars to auxillary port regardless of mode
+        settings (whatever that means)
+ESC U   turns on monitor mode
+ESC X   turns off monitor mode
+ESC ]   activates text segment 0
+ESC k   turns on the local edit submode
+ESC l   turns on the duplex edit submode
+ESC p   sends all chars unformatted to the auxillary port, attribute
+        codes are sent as spaces. Row-end seq not sent. Same as ESC L
+ESC s   sends a message
+ESC u   turns on monitor mode, same as ESC X
+ESC x   changes screen display format (screen splitting)
+ESC z   enters a message into the selected function key
+        label field or programs user-defined function key
+ESC }   activates text segment 1
+
+WYSE GRAPHICS CHARACTERS
+
+When ESC H single or locking shifts are in effect, the following ASCII
+characters map to the following graphic (line/box-drawing) characters.  These
+are available in PC Code Page 437, as well as in most other commonly used code
+pages including CP850, etc.
+
+	  Maps to
+  ASCII	  PC char  
+  0  48	    194	    Middle box top
+  1  49	    192	    Lower left box corner
+  2  50	    218	    Upper left box corner
+  3  51	    191	    Upper right box corner
+  4  52	    195	    Left middle box side
+  5  53	    217	    Lower right box corner
+  6  54	    179	    Center box bar vertical
+  7  55	    178	    Fill character heavy
+  8  56	    197	    Box intersection
+  9  57	    180	    Right middle box side
+  :  58	    196	    Center box bar horizontal
+  ;  59	    177	    Fill character medium
+  <  60	    205	    Center box bar horizontal double
+  =  61	    193	    Middle box bottom
+  >  62	    186	    Center box vertical double
+  ?  63	    176	    Fill character light
+
+(End of KERMIT.UPD / MSKERM.UPD)

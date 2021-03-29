@@ -1,0 +1,124 @@
+; File SUPRV32B.SCR -- minor modification of Christine's HAYES.SCR.
+; To be used with MS-DOS Kermit 3.11 or later.
+; 
+; Stored in Kermit Distribution as MSMSUPRA.SCR; rename to SUPRA SCR if
+; necessary so the DIAL macro can find it.  Place this file in your current
+; directory or in any directory in your DOS PATH, and then set the DOS
+; environment variable, MODEM, to be SUPRA.  Give the following command at the
+; DOS prompt before starting Kermit, or add it to your AUTOEXEC.BAT file:
+;
+;   SET MODEM=SUPRA
+; An MS-DOS Kermit script program for dialing a SupraFAXmodem V.32bis modem
+; and compatibles.  Will probably work with the non-fax and V.32 versions of
+; this modem, but this has not been tested.  The Supra, like most V.32/V.32bis
+; modems, is Hayes-compatible up to the point that one starts dealing with
+; buffering, error-correction, and compression modes.
+; 
+; The modem setup specified below provides for "error correction call
+; progress" reporting.  This may be useful in making other session decisions,
+; e.g., max packet sizes/windows, and should be displayed to the user.  Also,
+; modem is set up for RTS/CTS, buffering, local flow control, etc. and Kermit
+; is placed into the corresponding modes.  One should not attempt to use one
+; of these things without an adequate shielded cable.  See also the speed
+; discussion below.
+;
+; Lines containing *** may require local editing.
+; Expects variable %\1 to contain the phone number; this is done
+; by the DIAL macro defined in MSKERMIT.INI.
+;
+; Uses ATD (modem's default dialing method) to dial the number.  Force tone
+; dialing by including T as first character of phone number, or pulse dialing
+; by including P as first character.
+;
+; Sets SUCCESS flag if dialing succeeds, sets FAILURE flag 
+; if it fails.
+;
+;  Author: John C. Klensin, August 1992 (modified from HAYES.SCR by
+;     Christine M. Gianone (July 1991).  Requires MS-DOS Kermit 3.11 or later.
+;
+; The normal DTE <-> DCE speed of this modem is 57.6 Kbps, regardless of the
+; line or character speed.  Set that number here, regardless of what the
+; DIALUPS file says.  However, this may exceed the speed at which may MSDOS
+; computers can deal with characters and should be reduced if necessary.
+;
+echo  Using SupraFaxModem V.32bis\13  ; Comforting in multimodem environment.
+set speed 57600			      ;****
+;
+set flow rts                          ; Nothing else works at these speeds
+				      ; and modem is initialized to it.
+def errfail echo \%1,hangup,goto fail ; Macro to handle failures.
+
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE
+set input echo off              ; Don't echo the modem test
+output AT&F2W1\13               ; Send AT, use word result codes. &F2 is
+                                ; special init for MSDOS. Report ECC progress.
+input 2 OK                      ; Modem should say "OK"
+if fail errfail {Turn on or connect your modem!}
+clear				; Clear input buffer
+;
+if not equ \%1 = goto dialnow   ; This provides for initialization only.
+echo Modem initialization completed, no number to dial
+end 0
+:dialnow
+set count 5                     ; Set up dialing retry counter
+set input echo on               ; From now on, show what happens
+echo Dialing \%1, wait...
+pause 1
+goto dial                       ; 1st time, skip Redialing message
+:REDIAL
+set alarm 30
+pause 30			; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+:DIAL
+output ATD\%1\13                ; Dial the number (ATDT or ATDP)
+:GETMSG
+set alarm 60			; Detect keyboard interruptions.
+input 40 \10                    ; Wait for the linefeeds...
+input 20 \10			; that surround response message.
+if success goto gotmsg		; Got a message.
+if alarm errfail {No response from modem.} ; No response in 60 secs.
+hangup				; User interrupted from keyboard,
+if count goto redial		; so try again right away.
+
+:GOTMSG
+reinput 0 CONNECT               ; Got message, was it CONNECT?
+if success goto speed           ; DTE-DCE rate.  Successful, continue
+reinput 0 ERROR			; No, check for command error.
+if success errfail {Modem command error.}
+reinput 0 CARRIER		; Connection rate (DCE-DCE)
+if success goto getmsg		; no action
+reinput 0 PROTOCOL		; Error correction type (NONE/LAPM/ALT)
+if success goto getmsg		; no action (=/V.42/MNP)
+reinput COMPRESSION		; Compression type (CLASS 5/V.42BIS/NONE)
+if success goto getmsg		; no action (=MNP5/V.42bis/)
+reinput 0 RING			; Ring signal detected.  Not a Hayes
+if success goto getmsg		; Look for something useful.
+reinput 0 NO CARRIER		; NO CARRIER?
+if success goto busy		; Treat like BUSY.
+reinput 0 BUSY                  ; BUSY?
+if success goto busy 		; Go wait a bit, then dial again.
+errfail {No dialtone or no answer.  Try again later.}
+
+:BUSY
+if < \v(count) 2 goto quit	; Don't wait 60 seconds if tries used up.
+Echo Busy or No Carrier, will dial again in 30 seconds...
+echo Press any key to cancel...
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+; The following block is retained for compatibility for HAYES.SCR.  Since
+; this modem buffers (always retains the same DCE<->DTE speed), the computer
+; should not speed-match and the next section is a no-op.
+:SPEED                          ; Connected!
+echo \7                         ; Celebrate with a beep.
+define errfail			; Erase ERRFAIL definition
+end 0				; Finished, return success code.
+
+:FAIL				; Failed, return failure code.
+define errfail			; Erase ERRFAIL definition
+end 1

@@ -1,0 +1,42 @@
+MS-DOS KERMIT DEC KEYBOARD SETUPS FOR THE IBM PC, PS/2, AND COMPATIBLES
+
+The IBM PC version of MS-DOS Kermit comes with a default mapping of VT terminal
+functions to IBM keys, as documented in "Using MS-DOS Kermit.  These mappings
+are in effect during terminal emulation, not at the MS-Kermit> command prompt,
+and not outside of Kermit.
+
+Kermit's default mappings do not include the DEC LK201 (VT200, VT300) keyboard
+function (F) keys or editing keys (Insert Here, Remove, Select, etc), so you
+will not be able to use host-resident applications that expect you to press
+these keys unless you execute Kermit SET KEY commands to make these assigments.
+
+Kermit's repertoire of "keyboard verbs" includes verbs for all DEC keyboard
+keys: F-keys (Function keys), Editing keys, Arrow keys, and so on.  The file
+VT300.INI contains SET KEY commands that set up both types of IBM keyboard
+(88-key and 101-key) to resemble the DEC keyboard as closely as possible.  The
+layout for the 101 "Extended" (PS/2) keyboard is very similar to the DEC
+keyboard, except for the F-keys.  DEC F keys go up to 20, but the IBM-101 only
+has 12 F keys.  The IBM-88 keyboard is harder to lay out because it lacks an
+editing keypad, and has only 10 F keys.
+
+The settings for the numeric keypad work whether you have Num Lock On or Off.
+The top rank of the numeric keypad cannot normally be used for the DEC Gold
+and PF keys because the Num Lock key, which does not normally generate a scan
+code when you press it, occupies the position of the DEC Gold (PF1) key.
+Therefore the IBM F1-F4 keys are used for the DEC PF1-PF4 keys.
+
+To use Num Lock as the PF1 (Gold) key, load either the GOLD.COM or WPGGOLD.COM
+TSR before starting Kermit; these are supplied on your Kermit diskette - read
+the accompanying DOC files for further info.
+
+To put the DEC keyboard settings into effect, issue the command TAKE VT300.INI
+at the MS-Kermit> prompt (supplying a full pathname if necessary, e.g.  TAKE
+C:\KERMIT\KEYBOARD\VT300.INI), or put this command into your MSCUSTOM.INI file
+to make it take effect automatically whenever you start Kermit.  To restore
+Kermit's default key settings, issue the command SET KEY CLEAR.
+
+The DEC Compose Key function is accomplished by Alt-c, keyboard verb \Kcompose.
+
+See VT300.INI for the actual key mappings.  Modify to suite your preferences.
+
+(End of VT300.DOC)

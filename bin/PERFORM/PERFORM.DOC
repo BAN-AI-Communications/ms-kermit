@@ -1,0 +1,387 @@
+THE TRUTH ABOUT KERMIT FILE TRANSFER PERFORMANCE
+
+  Frank da Cruz
+
+(From Kermit News #5, June 1993)
+
+In the early 1980s, the first generation of Kermit software used the basic
+Kermit protocol: stop-and-wait exchange of short packets.  The basic protocol
+is easily implemented and highly robust, and led to its rapid proliferation to
+hundreds of hardware and software platforms where it proved a success in
+transferring files under even the most difficult conditions.
+
+The new generation of Kermit software improves on the original robust
+qualities and dramatically boosts performance without sacrificing
+compatibility with the earlier generation.  Protocol capabilities are
+negotiated automatically so the newest, most advanced versions can still
+exchange files with the earliest or most minimal versions.
+
+Kermit's performance features include long packets, sliding windows,
+control-prefixing selection, locking shifts, and compression.  The first three
+have the potential for causing problems, and are not used unless you ask for
+them.  This article describes Kermit's performance features and tests them
+against other popular protocols.  The results might surprise you.
+
+Long Packets and Sliding Windows
+
+The maximum packet length in the basic Kermit protocol is 94, chosen to
+prevent data loss when the receiver has small input buffers or lacks an
+adequate method of flow control, and also to reduce vulnerability to noise.
+But since 1985, Kermit's long-packet extension has allowed packets up to 9024
+bytes in length to be used when conditions permit.
+
+Longer packets reduce the ratio of protocol overhead to actual data,
+increasing the potential file transfer efficiency (the ratio of file
+characters transferred per second to the actual connection speed) from 86%
+(for 94-byte packets) to 95% (with 2500-byte packets).  When conditions
+deteriorate on the connection, the packet length is automatically adjusted.
+
+Original, basic Kermit was a stop-and-wait protocol because it had to work on
+half-duplex as well as full-duplex connections.  But connections through
+satellites or packet-switched networks can have delays that seriously impede
+the efficiency of a stop-and-wait packet protocol.  For example, suppose
+packets are 90 bytes = 900 bits long, and there is a one-second transmission
+delay.  For one packet and its response, the round-trip delay is 2 seconds.
+At 300 bits per second (bps), the 3 seconds required to transmit the packet
+plus the 2-second delay make 5 seconds, so throughput is 180 bps, 60%
+efficiency.  At 9600 bps, it takes only 1/10 second to transmit the same
+packet, but the delay is still 2 seconds.  Throughput is only 428 bps, 4.5%
+efficiency.  When connections have delays, efficiency can be improved by
+lengthening the packets, but only if the connection is clean.  On a noisy
+connection, longer packets are more likely to be damaged in transmission and
+take longer to retransmit.
+
+On full-duplex connections, the new generation of Kermit software (IBM
+mainframe Kermit excluded, which always has a half-duplex connection) can
+transmit packets in a steady stream, processing the acknowledgements later as
+they arrive, thus eliminating the effects of transmission delays, and also
+eliminating the overhead of the acknowledgements themselves, since they are
+"on the wire" at the same time as the data packets and therefore don't take up
+any extra transmission time.  This technique is called sliding windows,
+because multiple packets are kept in a buffer (window) that "slides" forward
+whenever the oldest packet in the window is acknowledged.
+
+Using 94-byte packets without sliding windows on a connection that has a
+1-second delay results (according to actual measurements) in an efficiency of
+about 8%.  Raising the packet length to 1500 on the same connection increases
+the efficiency to 63%.  Using sliding windows on the same connection raises
+the efficiency to 82-90%, depending on the packet length.
+
+   ------------------------------------------------------------------------
+   Optimum performance can be achieved on any given connection by choosing
+   the right combination of packet length and window size.
+   ------------------------------------------------------------------------
+
+To see a dramatic speed improvement using MS-DOS Kermit 3.13 and/or C-Kermit
+5A, simply give these commands to each Kermit before file transfer:
+
+  SET WINDOW 3
+  SET RECEIVE PACKET-LENGTH 1000
+
+Adjust as necessary.  Longer delays require larger windows; noisier
+connections (or devices with small input buffers) need shorter packets.
+MS-DOS Kermit 3.13 and most versions of C-Kermit 5A allow the theoretical
+maximum sizes, 31 and 9024 respectively, sufficient to overcome any reasonable
+delay (for example, between the earth and the moon).
+
+Compression
+
+To reduce transmission overhead, the Kermit protocol uses a simple, but often
+surprisingly effective, compression technique: repeated byte values are
+represented by a count+byte combination.  This technique is easy to program
+and inexpensive in memory and CPU cycles, and is therefore implemented in most
+Kermit software, including MS-DOS Kermit, C-Kermit, and IBM mainframe Kermit,
+and is used automatically when available.
+
+Analysis of large volumes of both textual and binary data shows an average
+compression of 15-20%.  Dramatic savings are achieved in certain types of
+files, including tabular text (or any other type of text with lots of repeated
+characters) and executable programs containing large amounts of pre-zeroed
+data.
+
+Prefixing
+
+To achieve its ability to push data through even the most restrictive types of
+connections--for example, to mainframes that are sensitive to certain control
+characters, or on 7-bit connections, or on very noisy ones (one user said
+recently, "Kermit will send data over a communication channel that is only
+slightly better than a pair of tin cans connected with a wet string")--Kermit
+formats its packets as lines of printable text.  This is done by encoding each
+control character as a sequence of two printable characters and, on 7-bit
+connections only, encoding 8-bit characters as a sequence of two printable
+7-bit bytes.
+
+On some connections it is safe to transmit certain control characters "bare,"
+without prefixing or encoding.  "Unprefixing" of control characters can speed
+up the transfer of binary files, particularly precompressed files, which tend
+to contain a lot of bytes in the control range.  MS-DOS Kermit 3.13 and
+C-Kermit 5A(189) give you the ability to specify which control characters are
+to be prefixed and which are not.  In the benchmarks on pages 7 and -SPEEDY,
+only three control characters are prefixed:
+
+  SET CONTROL UNPREFIXED ALL
+  SET CONTROL PREFIXED 0 1 129
+
+This technique can be used even if the Kermit program on the other end doesn't
+know anything about it, since well-designed Kermit software will, indeed,
+accept bare control characters literally.  The three exceptions above are NUL
+(0), which is used internally by C-Kermit for string termination, and SOH (1)
+and SOH+parity (129), Kermit's normal packet-start indicator.  It takes some
+experimentation to find the maximum safe set.  That's why Kermit prefixes all
+control characters by default: first make it work, then make it fast.
+
+On 8-bit connections, Kermit transfers 8-bit data with no additional overhead.
+On 7-bit connections, which are quite common--these are the connections that
+use even, odd, mark, or space parity, often without the user's
+knowledge--8-bit data is encoded using a single-shift technique, a prefix
+character for each byte whose 8th bit is 1, similar to holding down the
+
+   ------------------------------------------------------------------------
+   The Kermit protocol implementations found in many of the popular
+   commercial and shareware PC communication software packages are minimal
+   and perfunctory, usually lacking some or all of the performance
+   features...
+   ------------------------------------------------------------------------
+
+Shift key on your keyboard for each 8-bit character.  This allows Kermit to
+work where most other protocols fail. The amount of prefixing ranges from 0%
+up to 100%, depending on the type of file.
+
+Locking Shifts
+
+To avoid the high overhead of transferring 8-bit text, particulary Cyrillic,
+Hebrew, or Kanji, on 7-bit connections, a new "locking-shift" feature works
+like the Caps Lock key on your PC:  a special shift prefix applies to a entire
+run of 8-bit characters, no matter how long, rather than to a single
+character.  Locking shifts are used in combination with single shifts to
+achieve the most compact encoding.
+
+Locking shifts are supported by MS-DOS Kermit 3.13, C-Kermit 5A, and IBM
+Mainframe Kermit 4.2.4, and are negotiated automatically when parity is in use
+(including when parity is detected automatically).  They reduce the 8th-bit
+prefixing penalty anywhere from 0% to 100%, depending on the groupings of the
+8-bit characters within the file.
+
+So Why the Bad Reputation?
+
+The Kermit protocol implementations found in many of the popular commercial
+and shareware PC communication software packages are minimal and perfunctory,
+usually lacking some or all of the performance features just described.  Many
+of these same packages also include XMODEM, YMODEM, or ZMODEM protocol, which
+(when they work at all) usually perform better than the basic short-packet,
+stop-and-wait, prefix-everything Kermit protocol.  Using a limited Kermit
+implementation is like filling your bathtub from a dripping faucet instead of
+turning the water on full blast.  It is easy to see why users of such packages
+might conclude that Kermit file transfers are slow.  Nothing could be further
+from truth; turn the page and see for yourself.
+
+TRUE-LIFE BENCHMARKS
+
+Table 1 illustrates the performance of the Kermit protocol implementations
+found in different PC software packages.  These measurements were made on a
+direct 19200-bps serial connection, downloading a typical ASCII text file (the
+VM/CMS Kermit-370 manual), 135087 bytes in length, from a Sun SPARCserver-10
+with C-Kermit 5A(189) to the hard disk of an IBM PS/2 Model 70.
+
+Table 1:  Kermit Implementations Compared
+------------------------------------------------------------------------------
+              Window Packet Time Speed
+PC Software    Size  Length secs  cps  Effic. Remarks
+------------------------------------------------------------------------------
+ Telix           1     94   131   1052   55%  Long packets and s/w not avail
+ MTEZ            1     94   119   1158   60%  Long packets and s/w not avail
+ Smartcom III    1     94   113   1220   64%  Long packets and s/w not avail
+ PROCOMM PLUS   14   1000    77   1790   93%  Window size not selectable
+ Zstem 340       2   1000    74   1863   97%  Maximum window size 2
+ MS-DOS Kermit   3   1000    72   1915   99%  Full control-character prefixing
+ MS-DOS Kermit   3   1000    69   1999  104%  Only 0, 1, and 129 prefixed
+------------------------------------------------------------------------------
+
+The results speak for themselves.
+
+    If you thought Kermit file transfer was slow, you were probably not
+    using real Kermit software!
+
+The UNIX-resident copy of the file, like all UNIX text files, uses only
+linefeed (LF) for line termination.  During text-mode transfer, each LF
+becomes carriage return and linefeed (CRLF).  There are 2814 lines in the
+file, so the actual data size during (and after) transfer is 137901.  Since
+the connection runs at 1920 characters per second (10 bits per character), a
+100%-efficiency transfer should take 137901 / 1920 = 71.8 seconds.  The
+following PC communications software was used:
+
+  MS-DOS Kermit 3.13     Columbia University, New York, NY, USA
+  MTEZ 1.16              MagicSoft, Inc., Lombard, IL, USA
+  PROCOMM PLUS 2.0       Datastorm Technologies, Inc., Columbia, MO, USA
+  Smartcom III 1.0A      Hayes Microcomputer Products, Inc, Norcross, GA, US
+  Telix 3.21             deltaComm Development, Cary, NC, USA
+  Zstem 340 1.0.4        KEA Systems Ltd., Burnaby, BC, Canada
+
+Kermit and X-Y-ZMODEM
+
+XMODEM, YMODEM, and ZMODEM are the file tranfer protocols most commonly
+compared with Kermit, and which are found in numerous shareware and commercial
+communication software packages.  XMODEM and YMODEM are stop-and-wait
+protocols; XMODEM uses short blocks (128 data bytes), YMODEM uses longer ones
+(1024 data bytes).  ZMODEM is a streaming protocol.
+
+The tables on page 8 compare XMODEM, YMODEM, ZMODEM, and Kermit transfers
+between the PC and UNIX.  The file transfer software on the UNIX system is sx
+(XMODEM) / sb (YMODEM) / sz (ZMODEM) 3.24 (June 1993) and C-Kermit 5A(189).
+On the PC, X-, Y- and ZMODEM transfers were done with Telix and PROCOMM PLUS
+(which gave exactly the same results).  For fairness, four types of files are
+transferred:
+
+  ASCII Text:    IKCKER.DOC 137901 bytes  Our original ASCII text file
+  UNIX Binary:   uuencode    24576 bytes  A Sun SPARC binary executable program
+  PC Binary:     KERMIT.EXE 197928 bytes  An MS-DOS binary executable program
+  Precompressed: KERMIT.ZIP 238584 bytes  A compressed ZIP archive
+
+Tests were performed on four types of connections and in each trial, Kermit
+transfers used a window size of 5 and a packet length of 5000, and control
+prefixing was disabled except for NUL (0), Ctrl-A (1), and 129.  As the tables
+show, Kermit outperforms the competition every time.
+
+Table 2 shows the figures for transferring all four files with each of the
+four protocols on same direct connection used for Table 1.  In this and the
+following tables, the secs column shows the elapsed time of transfer in
+seconds, the cps column shows actual file characters transferred per second,
+and the eff column shows the percent efficiency (file characters per second
+divided by the connection speed).
+
+Table 2:  X- Y- and ZMODEM vs Kermit on a 19200-bps Direct Connection
+------------------------------------------------------------------------------
+              XMODEM          YMODEM          ZMODEM           KERMIT
+File Type     secs  cps  eff  secs  cps  eff  secs  cps  eff   secs  cps  eff 
+------------------------------------------------------------------------------
+ASCII Text      89 1549  81%    76 1814  95%    73 1889  98%     69 1999 104%
+UNIX Binary     15 1638  85%    13 1890  98%    13 1890  98%      9 2648 138%
+PC Binary      127 1558  81%   109 1816  95%   107 1850  96%    100 1979 103%
+Precompressed  153 1559  81%   133 1794  93%   130 1835  96%    129 1849  96%
+-------------------------------------------------------------------------------
+
+Table 3 shows the results for a local-call dialup connection using Telebit
+T3000 modems, V.32bis modulation (14400 bps), V.42 error correction, V.42bis
+compression, RTS/CTS hardware flow control, and an interface speed of 57600
+bps.  The efficiencies in this table are based on the modem's 14400-bps
+connection speed, and therefore also reflect the modem's compression methods.
+
+Table 3:  X- Y- and ZMODEM vs Kermit with High-Speed Modems
+------------------------------------------------------------------------------
+              XMODEM          YMODEM          ZMODEM           KERMIT
+File Type     secs  cps  eff  secs  cps  eff  secs  cps  eff   secs  cps  eff 
+------------------------------------------------------------------------------
+ASCII Text     221  624 43%     79 1746 121%    42 3283 228%     39 3535 246%
+UNIX Binary     32  768 53%     13 1890 131%    15 1638 114%      3 8192 569%
+PC Binary      346  572 40%    129 1534 106%    83 2385 166%     80 2474 172%
+Precompressed  500  477 33%    208 1147  79%   149 1601 111%    148 1612 112%
+------------------------------------------------------------------------------
+
+So far we've looked only at connections with no delays.  Table 4 (also see
+cover, left group) shows the results for a V.32 9600-bps cross-country dialup
+connection from the same PC to a PC/486-50 running UNIX System V R4, with the
+same C-Kermit, sx, sb, and sz software as on the Sun.  The round-trip delay is
+a fraction of a second.  No error correction or compression is done by the
+modems, but the connection is clean and no errors occurred.
+
+Table 4:  X- Y- and ZMODEM vs Kermit with Delays at 9600 bps
+------------------------------------------------------------------------------
+              XMODEM          YMODEM          ZMODEM           KERMIT
+File Type     secs  cps  eff  secs  cps  eff  secs  cps  eff   secs  cps  eff 
+------------------------------------------------------------------------------
+ASCII Text     422  327  33%   253  545  57%   217  635  66%    151  913  95%
+UNIX Binary     73  337  35%    41  599  62%    32  768  80%      8 3072 320%
+PC Binary      536  369  38%   319  620  65%   271  730  76%    207  956  99%
+Precompressed  710  336  37%   363  657  68%   314  759  79%    284  840  87%
+------------------------------------------------------------------------------
+
+But if we always had clean connections, why would we need error-correcting
+file-transfer protocols?  Table 5 (and middle group, cover) shows the results
+for the same cross-country connection, same settings, but with short bursts of
+noise injected every two seconds, which cause errors and retransmissions in
+all four protocols.
+
+Table 5:  X- Y- and ZMODEM vs Kermit with Delays and Noise at 9600 bps
+------------------------------------------------------------------------------
+              XMODEM          YMODEM          ZMODEM           KERMIT
+File Type     secs  cps  eff  secs  cps  eff  secs  cps  eff   secs  cps  eff 
+------------------------------------------------------------------------------
+ASCII Text    3346   41   4%  fail    0   0%   438  315  33%    206  669  70%
+UNIX Binary    573   43   4%    58  424  44%   144  171  18%      9 2736 284%
+PC Binary     5154   42   4%  fail    0   0%   566  350  36%    281  706  74%
+Precompressed 5917   40   4%  fail    0   0%   694  344  36%    385  621  65%
+------------------------------------------------------------------------------
+
+What about 7-Bit Connections?  No Contest!
+
+The foregoing benchmarks were conducted in environments where XMODEM, YMODEM,
+and ZMODEM can work, namely 8-bit transparent connections that are not
+sensitive to any control characters.  Now let's look a different, but very
+common, situation.  Table 6 (and right group, cover) shows the results of
+downloading the same files from an IBM Mainframe running VM/CMS and Kermit-370
+4.2.5 to the PS/2 over a 19200-bps serial connection through an IBM 7171
+protocol converter, which uses even parity and Xon/Xoff flow control.
+Kermit's window size is 1 because the mainframe can operate only in half
+duplex, and the packet length is 1920, the largest allowed by the 7171.  All
+control characters are prefixed.
+
+Table 6:  File Transfer on a 7-Bit Connection
+------------------------------------------------------------------------------
+              XMODEM          YMODEM          ZMODEM           KERMIT
+File Type     secs  cps  eff  secs  cps  eff  secs  cps  eff   secs  cps  eff 
+------------------------------------------------------------------------------
+ASCII Text      -     0   0%    -     0   0%    -     0   0%     81 1702  88%
+UNIX Binary     -     0   0%    -     0   0%    -     0   0%      9 2730 142%
+PC Binary       -     0   0%    -     0   0%    -     0   0%    162 1221  63%
+Precompressed   -     0   0%    -     0   0%    -     0   0%    243  981  51%
+------------------------------------------------------------------------------
+
+The table shows Kermit file transfer to be infinitely more efficient than
+X-Y-Z-MODEM transfer with IBM mainframes, because X-Y-Z-MODEM implementations
+do not work with IBM mainframe operating systems such as VM/CMS, MVS/TSO, or
+CICS, whereas Kermit works with all of them.  Of course, 7-bit connections are
+not peculiar to IBM mainframes.  They are also used by other types of
+mainframes and front ends as well as many types of networks and devices,
+including some X.25-based public data networks and certain terminal servers.
+You can use Kermit to transfer files on these connections, but not X-Y-Z-MODEM
+protocols.
+
+Locking Shifts
+
+Although Kermit, unlike X-Y-Z-MODEM, can transfer 8-bit data over 7-bit
+connections, there is often a performance penalty.  This penalty is
+particularly unfair to people whose written languages are encoded primarily in
+8-bit characters, as are Russian, Hebrew, and Japanese.  Russian text encoded
+in any of the commonly used 8-bit Cyrillic character sets typically consists
+of about 80%  8-bit characters and Japanese Kanji text often consists of
+nearly 100% 8-bit characters.
+
+Table 7 shows the results of attempting to upload typical Russian and Japanese
+8-bit text files over a 19200-bps 7-bit serial connection to an IBM mainframe
+using X-Y-Z-MODEM (it can't be done), Kermit with only single shifts (SS), and
+Kermit with locking shifts (LS).  The Kermit window size is 1 and the packet
+length is 1920.  In these cases, locking shifts improve the speed of transfer
+30-40%.
+
+Table 7:  Effect of Locking Shifts
+-------------------------------------------------------------------------------
+                         X-Y-Z-MODEM       KERMIT (SS)       KERMIT (LS)
+File Type      Size      secs  cps  eff    secs  cps  eff    secs  cps  eff
+-------------------------------------------------------------------------------
+Russian Text   52046       -     0   0%      55  946  49%      39 1334  69%
+Japanese Text  29706       -     0   0%      34  873  45%      20 1485  77%
+-------------------------------------------------------------------------------
+
+Conclusion
+
+Kermit protocol works in practically every communication and computing
+environment.  You don't have to be a data communications expert to transfer a
+file with Kermit software.  Its first priority is getting your data through
+safe and sound, and its second is efficiency.  Kermit's conservative protocol
+defaults reflect these priorities:   First make it work, then make it fast.
+
+But as the tests show, today's Kermit software, when given several simple
+commands to enable its efficiency features, outperforms X-, Y-, and ZMODEM
+protocol transfers every time.  And real Kermit software also outperforms the
+Kermit protocol implementations found in commercial and shareware
+communications programs.  Skeptical?  Run your own tests!

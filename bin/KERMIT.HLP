@@ -1,0 +1,1428 @@
+				MS-DOS KERMIT
+
+	FOR THE IBM PC FAMILY, COMPATIBLES, AND OTHER MS-DOS COMPUTERS
+
+			 Version 3.14, January 1995
+
+Last update: Thu Jan 12 13:39:45 1995
+
+This file summarizes the commands and features of MS-DOS Kermit 3.14.  For
+detailed information, consult "Using MS-DOS Kermit", second edition, by
+Christine M. Gianone, published by Digital Press / Butterworth-Heinemann,
+Woburn, MA, 1992, ISBN 1-55558-082-3.  To order, call (USA, toll free)
+1-800-366-2665, or 1-212-854-3703.
+
+A German-language edition, "MS-DOS Kermit -- das universelle
+Kommunikationsprogramm", is published by Verlag Heinz Heise GmbH & Co KG,
+Hannover, Germany, translated by Gisbert W. Selke, ISBN 3-88229-006-4.
+Verlag Heinz Heise GmbH & Co. KG, Helstorfer Strasse 7, D-3000 Hannover.
+Tel. +49 (05 11) 53 52-0, Fax. +49 (05 11) 53 53-1 29.
+
+A French-language edition, Christine M. Gianone, "Kermit MS-DOS Mode
+d'Emploi", is published by Heinz Schiefer & Cie., Versailles (1993),
+translated by Jean Dutertre.  ISBN 2-901143-20-2.
+Heinz Schiefer & Cie., 45 rue Henri de Regnier, F-78000 Versailles, France.
+Tel. +33 13 021 55 05, Fax. +33 13 902 3971.
+
+MS-DOS Kermit users are requested to purchase one of these books.  They take
+you step-by-step through every phase of setup, use, and automation of MS-DOS
+Kermit, they should answer all your questions, and sales of these books is
+the primary source of funding for the Kermit development effort.
+
+  TCP/IP Users: Please read NETWORKS\SETUP.DOC for TCP/IP network setup.
+
+Internet Users: Consult our Web home page http://www.columbia/edu/kermit/.
+
+TERMS AND CONDITIONS
+
+  Copyright (C) 1982, 1995, Trustees of Columbia University in the City of New
+  York.  The MS-DOS Kermit software may not be, in whole or in part, licensed
+  or sold for profit as a software product itself, nor may it be included in
+  or distributed with commercial products or otherwise distributed by
+  commercial concerns to their clients or customers without written permission
+  of the Office of Kermit Development and Distribution, Columbia University.
+  This copyright notice must not be removed, altered, or obscured.
+
+MS-DOS Kermit is a product of Kermit Distribution, Columbia University
+Academic Information Systems.  The principal author of the program is
+Professor Joe R. Doupnik of Utah State University, with help from other
+volunteer programmers all over the world.
+
+Kermit software is furnished without warranty of any kind.  Neither Columbia
+University, nor the individual authors, nor Digital Press, nor any institution
+or individual that has contributed to the development and documentation
+warrant the software in any way.
+
+CONTACT INFORMATION
+
+Technical support: +1 212 854-5126, or use the e-mail addresses below.
+Please do not ask for technical support unless you have consulted the manual,
+"Using MS-DOS Kermit", as well as the files KERMIT.BWR and KERMIT.UPD from
+the Kermit diskette.
+
+Kermit programs are available for hundreds of different kinds of computers on
+a variety of magnetic media.  For a catalog, write to:
+
+  Kermit Distribution, Dept INFO
+  Columbia University Academic Information Systems
+  612 West 115th Street
+  New York, NY	10025  USA
+
+Or call +1 212 854-3703, or Fax +1 212 662-6442 or +1 212 663-8202,
+or send e-mail to kermit@columbia.edu (Internet).
+
+UPDATES
+
+MS-DOS Kermit 3.11 was released September, 1991, and is fully described in
+"Using MS-DOS Kermit", second edition.  MS-DOS Kermit 3.12 through 3.14 have
+some new features not described in the book, but which are listed in this
+file, and described fully in the file KERMIT.UPD (MSKERM.UPD).
+
+PROGRAM INSTALLATION
+
+See the READ.ME file for installation instructions.
+
+Read the KERMIT.BWR (MSKERM.BWR) file for problem-solving hints as well as
+technical details about internal modems and nonstandard serial ports, Windows,
+OS/2, DesqView, memory management, and many other topics.  Read the file
+NETWORKS\SETUP.DOC for details about network setup and installation.
+
+APPLYING PATCHES TO MS-DOS KERMIT
+
+Sometimes errors are discovered in MS-DOS Kermit programs after they are
+released.  Rather than issue new releases to correct these problems, we patch
+them at runtime.  The patches are contained in a small text file called:
+
+  MSRxxx.PCH  Patch file for full-featured IBM PC version
+  MSRMxxx.PCH for "medium" IBM PC version
+  MSRLxxx.PCH for "lite" IBM PC version
+
+where xxx is the MS-DOS Kermit version number, e.g. MSR314.PCH, MSRM314.PCH.
+
+The patch file includes checking information -- the Kermit version and
+internal checksum must agree -- plus patches that Kermit applies to itself
+when it starts up.  The MSRxxx.PCH file should go in the same directory as
+your MSKERMIT.INI file.
+
+Kermit reads the patch file and makes changes to the copy of itself which is
+currently running in memory.  The executable Kermit program file on your disk
+or file server is not modified.  Thus Kermit can be stored as read-only on a
+file server and shared by everyone.
+
+CAUTION: Patches should be applied only to an executable version of MS-DOS
+Kermit that was obtained from Columbia University or from the diskette in the
+book "Using MS-DOS Kermit".
+
+SUMMARY OF MS-DOS KERMIT COMMANDS
+
+The commands listed are for the IBM PC, PS/2, and compatibles.	Other versions
+of MS-DOS Kermit (NEC PC9801, DEC Rainbow, Victor 9000, Zenith Z100, etc) may
+lack certain commands and features described here, primarily those having to
+do with networking, terminal emulation, and character-set translation.
+
+Kermit commands consist of a sequence of "words" (verbs, nouns, numbers,
+filenames) separated by spaces and terminated by carriage return (Enter).
+Command description use this notation:
+
+  <parameter>	- Replace this with an actual number, or filename, etc.
+  <number>	- Replace with an actual decimal number
+  <filename>	- A file specification, which may include disk & directory
+  <hh:mm:ss>	- Time of day in 24-hour notation, less than 12 hours from now
+  [<parameter>] - An optional field, which may be omitted
+  {A,B,C}	- Choose one of the items listed
+  [{A,B,C}]	- Choose zero or one of the items listed
+  = <value>	- Shows default value for a field
+
+The following characters perform special functions in MS-DOS Kermit commands:
+
+  Space	    Separates command words ("fields").
+  TAB	    (Ctrl-I) Like space
+  ESC	    (Ctrl-[) Completes a keyword if possible.
+  Enter	    (Ctrl-M, Carriage Return) Enters a command.
+  Formfeed  (Ctrl-L) Like Enter, but clears the screen first.
+  Linefeed  (Ctrl-J) Like Enter.
+  Backspace (Ctrl-H, Del) Deletes rightmost character from the command.
+  Ctrl-W    Deletes rightmost word from the command.
+  Ctrl-U    Deletes the entire command.
+  Ctrl-C    Cancels the current command, even if you have already entered it.
+  ?	    (Question Mark) Requests a menu for the current command field.
+  ;	    (Semicolon) Introduces a trailing command (in command files only)
+  \	    (Backslash) Introduces a "backslash code".
+  ,	    (Comma) Separates commands in a macro definition.
+  { }	    (Braces) used for grouping characters or words together.
+
+Backslash codes:
+
+  \123	   (up to 3 decimal digits) A decimal number or character value
+  \d123	   (up to 3 decimal digits) Same as 123
+  \o123	   (up to 3 octal digits) An octal (base 8) number or char value
+  \x123	   (2 hexadecimal digits) A hexadecimal (base 16) number or character
+  \{ }	   For grouping, e.g. \{12}6 = Ctrl-L 6, not ASCII 126 = tilde (~)
+  \; 	   Include a semicolon in a TAKE-file command or macro definition.
+  \%	   Introduce a Kermit variable, \%1, \%2, ..., \%a, \%b, ... \%z
+  \K	   (or \k) Introduce a Kermit connect-mode verb like \Kexit
+  {\Kxxx}  A user-defined macro called xxx assigned to a key
+  \B	   (or \b) Send a BREAK signal, 275 milliseconds (OUTPUT command only)
+  \L	   (or \l) send a Long BREAK, 1.5 seconds (OUTPUT only)
+  \255	   Shorthand for CRLF or LFCR (INPUT command only)
+  \v(name) A built-in variable like \v(date)
+  \fname() A built-in function like \fsubstring()
+  \m(name) A user-defined named variable
+  \$(name) A DOS environment variable
+
+* PROGRAM MANAGEMENT COMMANDS
+
+EXIT or QUIT
+  Exit from MS-DOS Kermit.  Close all logs and files.  Leave serial port DTR
+  on.  Close network connections.  Execute ON_EXIT macro if defined.
+
+DEFINE ON_EXIT <command, command, ...>
+  Define a macro to be executed automatically when Kermit EXITs.
+
+SET EXIT WARNING {ON, OFF} = OFF
+  If you try to EXIT from Kermit while a connection (serial or network)
+  appears to be active, Kermit will warn you and give you a chance to
+  change your mind if SET EXIT WARNING ON.
+
+STAY
+  On the MS-DOS Kermit command-line only, makes MS-DOS Kermit issue its prompt
+  after executing other commands on the command line, rather than EXITing as
+  it normally does when given command-line arguments.
+
+PATCH [ <path> ]
+  Apply patches (corrections) to the running memory image from the appropriate
+  MSRxxx.PCH file.  Optional <path> specifies the disk and/or directory for
+  the patch file.
+
+TAKE <filename>
+  Execute Kermit commands from the specified file instead of the keyboard.
+
+PUSH
+  Go to the DOS prompt.	 Return to Kermit prompt by typing the DOS EXIT
+  command.  Preserves connections, settings, etc.
+
+RUN <DOS-command> [ <arguments> ]
+  Run a DOS program or execute a DOS command, e.g. RUN EDIT AUTOEXEC.BAT.
+
+ECHO [ <text> ]
+  Display the <text> on the screen, automatically supplying carriage return
+  and linefeed at the end.  The <text> can contain backslash codes, variables,
+  etc.  Leading and trailing spaces are removed unless the <text> is
+  surrounded by { curly braces }.
+
+SET PROMPT [ <text> ]
+  Change MS-DOS Kermit's interactive command prompt to the specified text,
+  which can contain backslash codes, variables, etc.  Curly braces can be used
+  as in the ECHO command.  If no <text>, restore default prompt.  <text> is
+  evaluated each time the prompt is printed, e.g.  SET PROMPT [\v(dir)]
+  MS-Kermit> always shows your current directory.
+
+COMMENT <text>
+  For adding full-line comments to a TAKE file.
+
+<command> ; text
+  Commands in TAKE files can have trailing comments preceded by semicolon (;).
+  Semicolon must be preceded by whitespace or else be first character on line.
+
+<text>-
+<text>
+  Commands in TAKE files or macro definitions can be continued with hyphens,
+  but not in a trailing comment.
+
+* DOS ACCESS COMMANDS
+
+CD [<path>]
+  Change Directory.  Like DOS CD, but a disk drive letter can be included. 
+
+CLS
+  Clear the screen.
+
+DELETE <filespec>
+  Delete specified file(s).
+
+DIRECTORY [<filespec>]
+  Like DOS DIR command.
+
+RUN <command>
+  RUN the given DOS command or program.
+
+TYPE <filename>
+  Like DOS TYPE command.
+
+SPACE [<disk-letter>]
+  Show free space on current or specified disk.
+
+SHOW MEMORY
+  Show free memory.
+
+Others, such as MORE, COPY, RENAME, etc, are defined as macros in MSKERMIT.INI.
+
+* COMMANDS FOR GETTING INFORMATION
+
+HELP
+  Display a brief help message.
+
+INTRO
+  A brief introduction to MS-DOS Kermit.
+
+SHOW <category>
+  Display current settings, definitions, statistics selectively
+  (type SHOW ? for a list of categories).
+
+VERSION
+  Display Kermit's version number.
+
+Alt-h (during CONNECT only) popup help screen about special keys active
+  during CONNECT mode.
+
+* COMMANDS FOR SETTING COMMUNICATION PARAMETERS
+
+SET COM1 <address> [ <irq> ]
+  Specify the hardware address of COM1, which must be an NSC 8250, 16450,
+  16550A, or compatible UART, and, optionally, that its interrupt request
+  (IRQ) number is <irq>.  Also SET COM2, ..., COM4.  Give this command BEFORE
+  the corresponding SET PORT command.  See KERMIT.BWR.
+
+TEST {COM1, COM2, COM3, COM4}
+  Tests if the given COM port is present and usable.
+
+SET PORT {COM1, COM2, COM3, COM4} = COM1
+  Select a communication device (SET PORT ? for list of available devices, see
+  below for local area nets).  You can also say SET PORT 1, etc.  Port must be
+  real 8250 or 16450 or 16550A(FN) UART, or device that perfectly emulates
+  them.  If not, Kermit will use BIOS rather than direct hardware control.
+
+SET PORT {BIOS1, BIOS2, BIOS3, BIOS4}
+  Use BIOS-level driver for COM1, COM2, COM3, or COM4, etc, rather than
+  Kermit's own built-in hardware driver.  Allows Kermit to be used with BIOS
+  itself, BIOS Int 14H interceptors (on LANs, for example), nonstandard
+  devices, etc.  This works with numerous network packages and drivers.
+
+SET PORT FOSSIL {1, 2, 3, ... 99}
+  Use a Fossil driver on the given port, rather than Kermit's built-in COM
+  port driver or the PC BIOS.  A fossil driver must be installed.
+
+SET PORT <other> - See section on Local Area Networks.
+
+SET SPEED <number>
+  Communications port line speed: 1200, 2400, 9600, etc.  SET SPEED ? for list.
+  75/1200 is "split speed" (75 out, 1200 in).  Applies to currently selected
+  serial port (COM1-COM4), or to EBIOS connections.  Ignored for other SET
+  PORT options.
+
+SET MODEM [ text ]
+  Equivalent to DEFINE _MODEM text.  Defines your modem type; text must agree
+  with the name of a dialing script, e.g. "set modem hayes" for HAYES.SCR.
+
+SET CARRIER {ON, OFF} specifies treatment of Carrier Detect signal:
+  OFF = ignore it.
+  ON  = require it at all times except during DIAL macro execution.
+
+SET PARITY {EVEN, ODD, MARK, SPACE, NONE} = NONE
+  Character parity to use during communication.
+
+SET DISPLAY {7, 8} = 7
+  Synonym for SET TERMINAL BYTESIZE {7, 8}
+
+SET STOP-BITS {1, 2}
+  This command lets users follow the instructions given by dialup services
+  to "set your stop bits to 1" (or, rarely, "2").
+
+SET DUPLEX {FULL, HALF} = FULL
+  Select full or half duplex communication.
+  FULL = remote echo.  HALF = local echo plus RTS/CTS hardware handshake.
+
+SET HANDSHAKE {NONE, XON, CR, LF, CODE <ascii-value>} = NONE
+  Half-duplex line turnaround character (XON is most common) for file-transfer
+  packets.
+
+SET FLOW-CONTROL {XON/XOFF, RTS/CTS, NONE} = XON/XOFF
+  Select a full-duplex bidirectional flow-control method.
+  In addition XON/XOFF can be enabled in one direction only:
+  SET FLOW {INCOMING-XON/XOFF, OUTGOINGING-XON/XOFF}
+
+* COMMANDS FOR CONNECTING TO A REMOTE COMPUTER OR SERVICE
+
+DIAL <number>
+  Dial a modem.  See KERMIT.UPD.
+
+CONNECT
+  Make a terminal connection to a device or another computer on the currently
+  selected port using the current communication settings.  Use Alt-x to return
+  ("escape back") to the MS-Kermit> prompt or Ctrl-] (your escape char)
+  followed by C.  You can abbreviate CONNECT as C.
+
+HANGUP
+  Hang up a serial connection by lowering DTR until the next time the port is
+  accessed (by CONNECT, OUTPUT, INPUT, DIAL, PAUSE, or similar command), or
+  close current network connection.
+
+SET ESCAPE \nnn
+  Change the CONNECT-mode escape character to the character whose ASCII
+  value is nnn, e.g. SET ESCAPE \28 for Ctrl-Backslash.
+
+SET DEBUG SESSION
+  Turn off the terminal emulator, display received characters literally for
+  debugging: ^X = Ctrl-X, ~X = X with 8th bit on.
+
+SET DEBUG OFF
+  Turn off session debugging, restore normal terminal emulation.
+
+* COMMANDS FOR CONTROLLING TERMINAL EMULATION
+
+SET TERMINAL [ TYPE ] {VT320, VT220, VT102, VT100, VT52, HEATH-19, ANSI,
+    HONEYWELL, PT200, TEK4010, D470, D463, WYSE50, NONE} = VT320
+  Select type of terminal to emulate.
+
+SET ROLLBACK <number>
+  Number of text screens to be kept in the rollback buffer.  Each 24x80 screen
+  occupies about 4K; bigger screens need more space.  Also see SET TERMINAL
+  EXPANDED-MEMORY.
+
+SET TERMINAL ANSWERBACK { ON, OFF, MESSAGE [ <text> ] }
+  Whether Kermit should respond with string "MS-DOS-KERMIT nnn_ttt" if, during
+  terminal emulation, it receives Ctrl-E (ENQ) from host.  Default is OFF,
+  no reply.  As of version 3.14 nnn = Kermit version number, ttt = terminal
+  type, e.g. "MS-DOS-KERMIT 314_VT320", terminated by a carriage return;
+  <text>, if given, appends up to 30 bytes of additional text to the standard
+  message, with a leading underscore added, before the carriage return.
+
+SET TERMINAL APC {ON, OFF, UNCHECKED}
+  Enable, disable, or fully open up the Application Program Command feature of
+  the VT220/320 emulator, which the host send commands to MS-DOS Kermit
+  embedded in escape sequences. Default is OFF, meaning all such commands are
+  ignored, ON means allow execution of nominally "safe" commands, UNCHECKED
+  means all commands are executed without first checking for safety.
+
+SET TERMINAL ARROW-KEYS {APPLICATION, CURSOR}
+  Put arrow keys in specified mode.
+
+SET TERMINAL BELL {AUDIBLE, VISUAL, NONE} = AUDIBLE.
+  What to do with arriving BEL (beep, Ctrl-G) characters.
+
+SET TERMINAL BYTESIZE {7, 8} = 7
+  Use 7 for stripping off parity bit, e.g. with UNIX systems, during terminal
+  emulation.  Use 8 for 8-bit international character sets, and for properly
+  receiving 8-bit control characters, such as sent by VMS.
+
+SET TERMINAL CHARACTER-SET {LATIN1, DEC-MCS, GERMAN, FRENCH, etc} = LATIN1
+  Character set used by the host computer during terminal emulation.  Optional
+  trailing parameters G0, G1, G2, and G3 can be used to designate the character
+  set to the given Gn tables.  Example: SET TERM CHAR LATIN1 G1.  Type "set
+  ter char ?" for a complete list.
+
+SET TERMINAL CLEAR-SCREEN
+  Clear the terminal screen.
+
+SET TERMINAL CODE-PAGE CPnnn
+  Tells MS-DOS Kermit what code page is presently active on your PC.
+
+SET TERMINAL COLOR <number> [, <number> [, <number> ] ]
+  Set fore- and background color for text terminal emulation.  The numbers are
+  0 (normal foreground), 1 (high-intensity foreground), 10 (fast screen update
+  on IBM EGA), 3x (foreground color), 4x (background color), where x is the
+  sum of any of 1 (Red), 2 (Green), and 4 (Blue).  Number 20 (v3.14) says to
+  restore to these colors after a "reset visual attributes" command from the
+  host, otherwise current colors are kept.
+
+SET TERMINAL COMPRESSED-TEXT {GRAPHICS, TEXT-132}
+  Compressed text is how more characters are shown across the same screen.
+  Some video adapters support compressed text in regular text mode.  Others,
+  like the EGA and VGA, do not.	 Use the GRAPHICS option to display compressed
+  text on the EGA or VGA, or else use horizontal scrolling (see \Kverbs).
+
+SET TERMINAL CONTROLS {7-BIT, 8-BIT}
+  Tell VT220/320 emulator whether to send 7-bit or 8-bit control sequences when
+  DEC function, arrow, editing, or keypad keys are pressed.
+
+SET TERMINAL CURSOR-STYLE {BLOCK, UNDERLINE} = UNDERLINE
+  Cursor style for terminal emulation.
+
+SET TERMINAL DIRECTION {LEFT-TO-RIGHT, RIGHT-TO-LEFT}
+  Direction of screen writing during terminal emulation.
+
+SET TERMINAL DISPLAY {7, 8}
+  Synonym for SET TERMINAL BYTESIZE.
+
+SET TERMINAL EXPANDED-MEMORY {ON, OFF} = OFF
+  Whether to use expanded memory for retention of graphics screens and for
+  text terminal-emulation rollback screens.  See KERMIT.UPD.
+
+SET TERMINAL GRAPHICS <name>
+  Specify the type of graphics adapter in your PC: CGA, EGA, VGA, others (SET
+  TERM GRAPH ? for complete list).  MS-DOS Kermit automatically tries to
+  figure out what kind of adapter you have.  Use this command if it guesses
+  wrong.  Applies to graphics emulation only.
+
+SET TERMINAL GRAPHICS CHARACTER-WRITING {OPAQUE, TRANSPARENT}
+  Whether text characters written on graphics screens should let graphics
+  show through.
+
+SET TERMINAL GRAPHICS COLOR <number> [, <number> [, <number> ] ]
+  Fore- and background colors for graphics screens.  Numbers same as for
+  SET TERMINAL COLOR.
+
+SET TERMINAL GRAPHICS CURSOR {ON, OFF} = ON
+  Tell whether there should be a text cursor during graphics terminal
+  emulation.
+
+SET TERMINAL HORIZONTAL-SCROLL {AUTOMATIC, MANUAL}
+  When Kermit's TERMINAL WIDTH is wider than the physical screen, you can view
+  characters off the physical screen by horizontal scrolling, which can be
+  manual (you push keys) or automatic (Kermit scrolls the screen automatically
+  as characters arrive to keep the cursor on the screen).  MANUAL is the
+  default for VT terminal emulation, AUTOMATIC for DG terminal emulation.
+
+SET TERMINAL KEYCLICK {ON, OFF}
+  Turn keyclick sound effect on or off.
+
+SET TERMINAL KEYPAD {APPLICATION, NUMERIC}
+  Put the numeric keypad into the specified mode.
+
+SET TERMINAL MARGIN-BELL {ON, OFF}
+  Whether to ring the bell when the cursor nears the end of a screen line.
+
+SET TERMINAL NEWLINE {ON, OFF}
+  ON means to send both a carriage return and a linefeed when you press Enter.
+  OFF means send only carriage return.
+
+SET TERMINAL OUTPUT-SHIFT {NONE, AUTOMATIC, SI/SO, SS2, SS3, JIS7,
+    EUC-KANJI, DEC-KANJI, JIS7-KANJI} = NONE
+  Select the table-shifting commands surrounding a character sent to the host
+  when parity is other than NONE and the character has its 8th bit set.  NONE,
+  the default, says do nothing and thus the character's high bit is lost and
+  replaced by a parity bit.  SI/SO, SS2, and SS3 shift the character into G1,
+  G2, or G3, respectively, using ISO 2022 rules.  AUTO selects a method based
+  on the current GL value.  See KERMIT.UPD about Kanji.
+
+SET TERMINAL REPLAY
+  Synonym for REPLAY.
+
+SET TERMINAL RESET
+  Resets terminal emulator when CONNECT mode is next entered.
+
+SET TERMINAL ROLLBACK {ON, OFF} = OFF
+  ON = restore rolled-back screens to the end when new characters
+  arrive.  OFF =  display new characters at current cursor position.
+
+SET TERMINAL SCREEN-BACKGROUND {NORMAL, REVERSE}
+  REVERSE exchanges the fore- and background screen colors.
+
+SET TERMINAL TABSTOPS {AT <n>, CLEAR AT <n>, CLEAR ALL}
+  Sets or clears screen tab stops at the specified positions.  <n> can be a
+  single number, a list of numbers, or <position>:<interval> to set tabs
+  beginning at the specified <position>, every <interval> spaces, e.g.
+  SET TAB AT 1:10.  By default, tabs are every eight spaces.  If your
+  tabstops get messed up, restore them to normal with "set term tab at 1:8".
+
+SET TERMINAL TEK4010 {ENABLE, DISABLE}
+  Whether Kermit should automatically enter Tektronix graphics mode upon
+  receipt of special escape sequences from the host.  ENABLEd by default.
+
+SET TERMINAL TIMESLICE-RELEASE {ENABLE, DISABLE} = ENABLE
+  ENABLE lets Kermit release a cpu time slice to mulitasking systems DESQview,
+  Windows, OS/2, etc, when there is no activity.
+
+SET TERMINAL UNDERSCORE <fg-color> <bg-color>
+  Lets you select the fore- and background colors for underscore simulation
+  on color monitors.  Syntax same as SET TERM COLOR.
+
+SET TERMINAL UPSS {DEC-MCS, LATIN1}
+  Select which character set to designate as your VT220/VT320 User Preferred
+  Supplemental Set.
+
+SET TERMINAL VIDEO-WRITING {DIRECT, BIOS} = DEFAULT
+  Whether screen updates during emulation should be performed by going DIRECT
+  to the video adapter, or should proceed through the system's video BIOS.
+  DIRECT is faster.  Use BIOS if you you have trouble with DIRECT or you have
+  a BIOS-level speech device, etc.  Applies to text mode only.
+
+SET TERMINAL VIDEO-CHANGE {ENABLED, DISABLED, DOS-ONLY} = DOS-ONLY
+  Control whether Kermit changes video modes (80 / 132 columns).
+
+SET TERMINAL WIDTH {80, 132}
+  Put the video adapter into 80- or 132-column mode.  If Kermit can do this
+  itself, it will.  Otherwise it will try to run DOS batch program COLS80.BAT
+  or COLS132.BAT to do the job, which you must supply.  They should contain
+  whatever commands change the screen width on your PC, e.g. MODE or VMODE.
+
+SET TERMINAL WRAP {ON, OFF}
+  Whether to break overlong screen lines into multiple lines.
+
+* LOCAL AREA NETWORKS
+
+The SET PORT command tells Kermit which type of network connection you want to
+use, and in some cases also the network host you want to communicate with.
+
+SET PORT TCP/IP [ <Internet-name or Internet-address> [ <tcp-port-number> ] ]
+[ {NEW, RESUME} ]
+  Connect to an IP host using Kermit's built-in TCP/IP.  If the host is
+  omitted, the current TCP/IP session is continued; this lets you switch
+  to another type of connection and then back to your TCP/IP connection.
+  During a TCP/IP session, Kermit uses TELNET protocol to communicate with the
+  TELNET server on the remote host.  The default <tcp-port-number> is 23
+  (TELNET); you can optionally specify any other port except 25.
+
+SET PORT TCP/IP <digit>
+  Resumes given session, 1 through 6.
+
+SET PORT TCP/IP * [ <tcp-port-number> ]
+  Sets Kermit up as a TCP/IP server, awaiting a connection from a TCP client.
+  After giving this command, use the SERVER to make the Kermit server
+  available on the network, or CONNECT to have an interactive "chat" session.
+
+SET PORT BWTCP <ip-address>
+  Make a TCP/IP connection via Beame & Whiteside TCP/IP, which must be loaded
+  on your PC.  An IP address (not hostname) is required.
+
+SET PORT NETBIOS
+  Kermit awaits NETBIOS connections from other PCs on the net.  Also used with
+  AT&T StarLAN/StarGROUP.
+
+SET PORT NETBIOS <name>
+  Tell Kermit to connect to another PC on the NETBIOS network.	Also for
+  AT&T StarLAN/StarGroup.
+
+SET NETBIOS-NAME <name>
+  Tell Kermit to set your PC's Netbios node name to <name>.  Kermit appends
+  ".K" to the end of the name if you don't include it yourself.
+
+SET PORT NOVELL
+  For using Novell network asynchronous communication servers (NASI/NACS).
+
+SET PORT DECNET [<node> [<password>]]
+  For PATHWORKS LAT or CTERM connections.  Specify node to connect to, LAT
+  password if required.
+
+SET PORT SUPERLAT <nodename>
+  Meridian Technology SuperLAT network interface - similar to SET PORT DECNET.
+
+SET PORT UB-NET1
+  For Ungermann-Bass Net/One.
+
+SET PORT OPENNET [<node>]
+  For Intel OpenNET, similar to NETBIOS.
+
+SET PORT 3COM
+  For using 3COM BAPI asynchronous communication server, BRIDGE PCS or 3+OPEN
+  TCP versions.
+
+SET PORT EBIOS {1, 2, 3, 4} [ name-of-server-port ]
+  Use Extended BIOS for communication with EBIOS-based asynchronous
+  communication servers like IBM's LANACS.
+
+SET PORT TELAPI <Internet-address>
+  Connect to an Internet TCP/IP host through Novell LAN Workplace for DOS.
+
+SET PORT TES <hostname>
+  Connect to a VMS system that is running Netware/VMS.
+
+SET PORT {BIOS1, BIOS2, BIOS3, BIOS4}
+  For using any network that operates through a BIOS Int 14h interceptor.
+
+HANGUP
+  Close network connection, terminate network session.
+
+* CONNECT-MODE ESCAPE-LEVEL COMMANDS
+
+During terminal emulation, you may type Ctrl-] (hold down Ctrl and press the
+rightbracket key) followed by any of the following characters (on German
+keyboards, hold down Strg and press +):
+
+  ?   Help -- prints the available escape-level commands
+  0   (the digit zero) Transmit a NUL (ASCII 0)
+  A   Send TELNET Are You There
+  B   (also Alt-B) Transmit a BREAK signal 
+  C   (also Alt-X) Return to Kermit prompt level, keep connection open 
+  F   (also Ctrl-End) File the current text screen in the screen dump file 
+  H   Hangup the phone or network connection
+  I   Send TELNET Interrupt Process
+  L   Transmit a Long Break (1.8 seconds)
+  M   Toggle the mode line, i.e. turn it off if it is on & vice versa
+  P   Push to DOS; get back to CONNECT by typing EXIT at the DOS prompt
+  Q   Temporarily quit logging the remote session
+  R   Resume logging the remote session
+  S   (also Alt-S) Show the status of the connection 
+  ^]  (or whatever you have set the escape character to be)
+      Typing the escape character twice sends one copy of it to the host
+
+* SET TRANSLATION INPUT COMMAND
+
+  SET TRANSLATION ON
+  SET TRANSLATION INPUT <code1> <code2>
+
+Specify that when a character that would normally be translated to <code1>
+arrives at the communication port during terminal emulation, it should be
+translated into <code2> before display on the screen.  Translations set up in
+this way take effect only after you give the command SET TRANSLATION INPUT ON.
+
+* SET KEY COMMAND
+
+  SET KEY <scancode> <value>
+
+Assign <value> to the key whose scan code is given.  When you press the key or
+key combination that corresponds to the scan code during terminal emulation,
+the <value> is translated according to SET TERM CHARACTER-SET and then
+transmitted out the communication port.  If you don't know the scan code, type
+SET KEY alone on a line, then press the desired key or key combination when
+prompted, then enter the definition.  The <value> can be a single character, a
+text string (which may contain backslash codes), or one or more Kermit verbs.
+
+* COMMONLY USED KERMIT KEYBOARD VERBS
+
+The default key assignment is in parentheses.
+
+  \Kexit	Exit from connect mode (Alt-x, Ctrl-]c)
+  \Kbreak	Send a BREAK signal (Alt-b, Ctrl-]b)
+  \Kcompose	Introduce a Compose-Key sequence
+  \Kdos		Push to DOS (Ctrl-]p)
+  \Kdump	Dump current screen to file (Ctrl-End on numeric keypad)
+  \Khangup	Hangup communication port connection (Ctrl-]h)
+  \Kignore	Ignore this key
+  \Klfone	Scroll left one column
+  \Klfpage	Scroll left 40 columns
+  \Klogoff	Stop session logging (Ctrl-]q)
+  \Klogon	Resume session logging (Ctrl-]r)
+  \Knethold	Enter (non-TCP/IP) network shell (Alt-z)
+  \Knextsession Toggle to next TCP/IP session, if any (Alt-n)
+  \Kmodeline	Toggle mode line off/on++ (keypad minus)
+  \Kprtscn	Print current screen (Print Screen)
+  \Kreset	Reset terminal emulator (Alt-=)
+  \Krtone	Scroll right one column
+  \Krtpage	Scroll right one 40 columns
+  \Ktermtype	Switch between text and graphics screens (Alt-minus)
+  \Kupscn	Roll back screen (PgUp)
+  \Kupone	Roll back screen one line (Ctrl-PgUp)
+  \Kdnscn	Roll screen forward (PgDn)
+  \Kdnone	Roll screen forward one line (Ctrl-PgDn)
+  \Knextsession Go to next TCP session
+  {\Kxxxx}	Execute macro named xxxx (xxxx can be any name)
+
+Use SET KEY to assign or reassign these verbs to the keys of your choice.
+Example: "SET KEY \315 \Kexit" puts \Kexit on the F1 key.
+
+  SET KEY CLEAR  Restore all Kermit's default key assignments.
+  SET KEY ON 	 Use BIOS to read keystrokes (scan codes).
+  SET KEY OFF	 Use DOS rather than BIOS to read keystrokes.
+  SET KEY LK	 Use external DEC LK250 keyboard driver (if loaded).
+
+* PRINTER CONTROL
+
+During terminal emulation, Kermit controls the printer according to escape
+sequences received from the host, including the following for VT102/220/320
+emulation:
+
+  ESC [ 5 i    Begin transparent print (send port characters to printer)
+  ESC [ 4 i    End transparent print
+  ESC [ ? 5 i  Begin autoprint (send screen lines to printer)
+  ESC [ ? 4 i  End autoprint
+
+Kermit also lets you use Ctrl-Print Screen to turn the printer on and off
+during terminal emulation.  The following command affects all these operations:
+
+SET PRINTER <filename, PRN, or NUL>
+  Sends Connect mode printer material to the indicated file instead of to the
+  standard DOS printer name PRN; this is a "print to disk" option.  SHOW LOG
+  displays the current filename (defaults to PRN).
+
+If you press Print Screen (no Ctrl), DOS gets the request itself, Kermit never
+sees it so the SET PRINTER command does not affect Print Screen.
+
+* COMMANDS FOR TRANSFERRING FILES
+
+Start a Kermit program on the remote computer, give it a "send", "receive",
+or "server" command, escape back to MS-DOS Kermit, and give it one of the
+following commands:
+
+SEND <filename> [<alternate-name>]
+  Send files to remote Kermit receiver or server.  Can abbreviate as S.
+
+PSEND <filename> <position> [ <as-name> ]
+  Sends a file starting at the given byte position.
+
+RESEND <filename> [<alternate-name>]
+  Resumes an interrupted binary-mode transfer from the point of interruption.
+
+RECEIVE [<filename>]
+  Wait for a file to arrive from the other Kermit program, which must
+  be given a SEND command.  Can abbreviate as R.
+
+GET <remote-filename>
+  Ask a Kermit server to send the specified file(s).  Use GET <Enter>
+  to be prompted for remote and local names separately.
+
+MAIL <filespec> <address>
+  Send the file as electronic mail to the address (if the remote Kermit
+  supports this feature).
+
+* GETTING INFORMATION ABOUT FILE TRANSFER
+
+STATISTICS
+  Display efficiency and other statistics about file transfers.
+
+SHOW PROTOCOL
+  Display file transfer protocol-related parameter settings.
+
+SHOW CONTROL
+  List file-transfer control-character prefixing.
+
+SHOW FILE
+  Display file-related parameter settings
+
+* COMMANDS FOR TALKING TO A SERVER
+
+BYE
+  Shut down a remote Kermit server and log out its job
+
+FINISH
+  Shut down a remote Kermit server, put it back at command level
+
+GET <remote-filename>
+  Ask a Kermit server to send the specified file(s)
+
+SEND <filename> [<alternate-name>]
+  Send files to remote Kermit receiver or server
+
+REMOTE ASSIGN <variable> <value>
+  Tells the remote server to assign the given value to the given variable.
+
+REMOTE CD [<directory> [<password>]]
+  Tell remote server to change to named directory.
+
+REMOTE DELETE <filespec>
+  Tell remote server to delete the specified files.
+
+REMOTE DIRECTORY [<filespec>]
+  Tell remote server to send directory listing for specified files.
+
+REMOTE HELP
+  Ask the server to list the services it provides
+
+REMOTE HOST command
+  Command for remote host in its own command language
+
+REMOTE KERMIT command
+  Send a command to remote Kermit server in its own command language
+
+REMOTE LOGIN user
+  Login to a remote Kermit server, separate prompts for password, etc.
+
+REMOTE MESSAGE text
+  Send a one-line message to the remote Kermit server
+
+REMOTE PRINT <filespec> [ <options> ]
+  Send the file to a remote server and ask the server to print it with the
+  specified options, if any.
+
+REMOTE QUERY {KERMIT, SYSTEM, USER} <name>
+  Tells the remote server to send the value of given type of variable
+  of the given name.  MS-DOS Kermit displays it and also makes it available
+  in \v(query).
+
+REMOTE SET <parameter> <value>
+  Tell remote server to set the specified parameter to the specified value.
+
+REMOTE SPACE [directory]
+  Show disk space on remote host
+
+REMOTE TYPE filespec
+  Display remote file(s)
+
+REMOTE WHO
+  Display users logged on remote system
+
+* COMMANDS FOR ACTING AS A SERVER
+
+DISABLE <parameter>
+  Disable various capabilities of the server (DISABLE ? for list)
+
+ENABLE <parameter>
+  Enable various capabilities of the server (ENABLE ? for list)
+
+SET SERVER TIMEOUT <num>
+  How often the server should send NAK packets while waiting for a command,
+  0 = never (default).
+
+SET SERVER LOGIN <name> <password>
+  Set up a name and password which must be sent to the server (by REMOTE
+  LOGIN) before it will accept any other commands.
+
+SHOW SERVER
+  Examine server-related parameters.
+
+SERVER [{<seconds>, <hh:mm:ss>}]
+  Act as a Kermit server, optionally for or until the given time.  Default time
+  is forever (until BYE or FINISH received, or interrupted with Ctrl-C).
+
+The MS-DOS Kermit server honors the following requests:
+
+              REMOTE ASSIGN     REMOTE QUERY
+  SEND	      REMOTE CWD	REMOTE PRINT
+  GET	      REMOTE DELETE	REMOTE MESSAGE
+  FINISH      REMOTE DIRECTORY	REMOTE SPACE
+  BYE	      REMOTE HOST	REMOTE TYPE
+  LOGOUT      REMOTE KERMIT	REMOTE SET
+
+* INTERRUPTION COMMANDS WHILE A FILE TRANSFER IS IN PROGRESS
+
+  X or Ctrl-X: Stop sending the current file and go on to the next one, if any.
+  Z or Ctrl-Z: Stop sending this file, and don't send any further files.
+  E or Ctrl-E: Send Error packet to the remote Kermit.
+  C or Ctrl-C: Return to Kermit command level immediately.
+  Q or Ctrl-Q: Send a Ctrl-Q (Xon).
+  Enter key:   Try to wake up a stuck file transfer.
+
+* CHANGING FILE TRANSFER PARAMETERS
+
+SET ATTRIBUTES {ON, OFF} = ON
+  Enable/Disable processing of file attribute packets.
+
+SET ATTRIBUTES {DATE, LENGTH, TYPE, CHARACTER-SET} {ON, OFF} = ON
+  Enable/Disable processing of specific file attributes.
+
+SET BLOCK-CHECK {1, 2, 3} = 1
+  Level of error checking, 1 by default, 3 is strongest.
+
+SET BLOCK-CHECK BLANK-FREE-TWO
+  Like SET BLOCK-CHECK 2, but formats block check characters to never
+  include blanks.
+
+SET CONTROL-CHARACTER UNPREFIXED {<code>..., ALL}
+  Says you think it is safe to include the control character represented by
+  <code> without prefixing in packets that Kermit sends.  The <code> is the
+  numeric ASCII code for a control character.  See KERMIT.UPD.
+
+SET CONTROL-CHARACTER PREFIXED {<code>..., ALL}
+  Says that the given control character(s) must be prefixed in outbound Kermit
+  packets.  By default, all control characters are prefixed.
+
+SET REPEAT {COUNTS {ON, OFF}, PREFIX <character>}
+  Turns repeat-count prefixing (run-length encoding) on and off, and
+  lets you select the repeat-count prefix.
+
+SET DEBUG PACKETS
+  Display packets on screen during file transfer.
+
+SET DEBUG OFF
+  Turn off display of packets.
+
+SET DESTINATION {DISK, PRINTER, SCREEN} = DISK
+  Direct incoming files to the specified device.
+
+SET FILE DISPLAY {SERIAL, REGULAR, QUIET} = REGULAR
+  Format of Kermit's file transfer display.  Use SERIAL for hardcopy terminals,
+  Braille devices, speaking devices, etc.  QUIET means no display at all (used
+  automatically in remote mode).  Synonym: SET DISPLAY.
+
+SET EOF {CTRL-Z, NOCTRL-Z} = NOCTRL-Z
+  Whether Ctrl-Z marks the end of a PC DOS text file.
+
+SET FILE TYPE {TEXT, BINARY} = TEXT
+  TEXT implies record format conversion and character set translation.	Use
+  BINARY to send or receive files with no conversaion at all.
+
+SET FILE COLLISION {DISCARD, OVERWRITE, RENAME, ...}
+  What to do when a file arrives that has the same name as an existing file:
+    APPEND    = Append to existing file
+    RENAME    = Automatically give the arriving file a unique name (default).
+    OVERWRITE = Overwrite the existing file with the new file.
+    DISCARD   = Reject any file that has the same name as an existing file.
+    UPDATE    = Reject incoming file if it is not newer than existing file.
+
+SET {SEND, RECEIVE} PATHNAMES {ON, OFF}
+  Whether to remove/ignore (OFF) or include/obey (ON) pathnames on
+  outgoing/incoming files.  SEND is OFF and RECEIVE is ON by default.
+
+SET FILE CHARACTER-SET {CP437, CP850, CP852, CP860, CP861, CP862, CP863,
+			 CP865, CP866, SHIFT-JIS}
+  Tell Kermit which IBM PC code page to use when sending or receiving a text
+  file.	 Default is your current PC code page as DOS reports it to Kermit (but
+  watch out, DOS tends not to report code pages correctly).  Kermit translates
+  between the current file character set and the transfer character set.
+  SHIFT-JIS is Code Page 932 for Japanese Kanji.
+
+SET TRANSFER CHARACTER-SET {TRANSPARENT, LATIN1, LATIN2, CYRILLIC,
+			     HEBREW, JAPANESE-EUC}
+  Tell Kermit the character set used in Kermit packets.  TRANSPARENT, the
+  default, means no translation.  LATINx is ISO Latin Alphabet x.  CYRILLIC is
+  ISO 8859-5 Latin/Cyrillic, and can be used only with file character-set
+  CP866.  HEBREW is ISO 8859-8 Latin/Hebrew.  JAPANESE-EUC is for Japanese
+  Kanji and can be used only with FILE CHARACTER-SET SHIFT-JIS.  Synonym: SET
+  XFER CHARACTER-SET.
+
+SET TRANSFER LOCKING-SHIFT {OFF, ON, FORCED} = ON
+  If PARITY is not NONE, Kermit automatically uses a locking-shift technique
+  for transferring 8-bit more efficiently over the 7-bit connection if other
+  Kermit agrees.  To turn off this feature, use OFF.  To force the use of this
+  feature even when parity is NONE, use FORCED.  Synonym: SET XFER ...
+
+SET TRANSFER TRANSLATION {READABLE, INVERTIBLE} = READABLE
+  The default is READABLE, which optimizes character-set conversion for
+  "readability", rather than invertibility.  INVERTIBLE gives a unique
+  translation for each character between the FILE CHARACTER-SET and the
+  TRANSFER CHARACTER-SET.  Synonym: SET XFER ...
+
+SET UNKNOWN-CHARACTER-SET {DISCARD, KEEP} = KEEP
+  What to do when a file arrives that has an unknown character set.
+
+SET FILE WARNING {ON, OFF, NO-SUPERSEDE} = ON
+  Obsolete synomym for SET FILE COLLISION.
+
+SET INCOMPLETE {KEEP, DISCARD} = KEEP
+  What to do with a file that does not arrive completely.
+
+SET RETRY <number> = 5
+  How many times to retransmit a particular packet before giving up.
+
+SET TIMER {ON, OFF} = ON
+  Enable/Disable timeouts and retransmissions during file transfer.
+
+SET WINDOW <num> = 1
+  Number of sliding window packet slots.  Improves transmission efficiency.
+
+SET SEND (or RECEIVE) <parameter> <value>
+  START-OF-PACKET <num> = 1  packet begin character, normally Ctrl-A
+  END-OF-PACKET <num> = 13   packet end character, normally carriage return
+  PACKET-LENGTH <num> = 94   packet length; 9024 max; > 94 for "long packets"
+  PAUSE <num> = 0	     Interpacket pause, milliseconds
+  TIMEOUT <num> = 5	     Timeout interval waiting for a packet, seconds
+  PADDING <num> = 0	     How many padding characters before each packet
+  PADCHAR <num> = 0	     Padding character to use
+  DOUBLE-CHAR <num>	     Double packet character <char> when sending.
+  IGNORE-CHAR <num>	     Discard <char> from packets when receiving.
+
+Use SHOW FILE, SHOW PROTOCOL to examine current file transfer settings.
+
+* COMMANDS FOR FILE TRANSFER WITHOUT ERROR CHECKING
+
+Kermit can also transfer files or other information with remote computers,
+services, or devices that do not support the Kermit file transfer protocol.
+These methods provide no error detection or correction.	 No character-set
+translation here.  Use with caution.
+
+TRANSMIT <filename>
+  Send a text file to the host as if you were typing it at the keyboard a line
+  at a time.  Waits for linefeed (\10) to echo before sending next line.  Uses
+  all current communication settings (parity, flow, etc).  CRLF is sent as CR
+  only unless SET TRANSMIT LINE-FEEDS ON.  Empty lines are sent as pairs of
+  CRs (or CRLFS) unless SET TRANSMIT FILL is used.
+
+SET TRANSMIT <parameter> <value>
+  Various parameters used to control TRANSMIT command.
+  FILL-EMPTY-LINE {NONE, SPACE, <char>}
+  LINE-FEEDS-SENT {ON, OFF}
+  PAUSE <number> - pause <number> milliseconds after sending each line.
+  PROMPT <char> - character to wait for before sending next line (= \10)
+
+LOG SESSION <filename>
+  Capture a remote file, which you must TYPE, into the named file
+  (SESSION.LOG by default).  Use \Klogoff and \Klogon keyboard verbs to
+  stop and restart logging (Ctrl-]q, Ctrl-]r).
+
+CLOSE SESSION
+  Stop capturing and close the session log file.
+
+* COMMANDS FOR RECORDING THINGS
+
+LOG TRANSACTION [<filename>] = TRANSACT.LOG
+  Log file transfer names, times, etc, in given file.
+
+LOG SESSION [<filename>] = SESSION.LOG
+  Record terminal session in given file.
+  Use REPLAY <filespec> to view the log.
+
+LOG PACKETS [<filename>] = PACKET.LOG
+  Record file transfer packets in given file.
+
+WRITE {FILE, PACKET, SESSION, TRANSACTION, SCREEN} [<text>]
+  Write the text to the specified log file or to the screen.  Text may contain
+  backslash codes, variables, etc.  Kermit does not supply line terminators
+  so include \13\10 at the end of the text if you want the text to end in CRLF.
+
+CLOSE {PACKET, SESSION, TRANSACTION, READ, WRITE, ALL}
+  Close specified log file and stop logging.
+
+SHOW LOG
+  Display names and status of log files.
+
+Ctrl-]f (while in Connect mode)
+  Dump current text screen into a file (even if graphics screen is showing).
+
+Ctrl-End (on numeric keypad, while in Connect mode)
+  Dump the current screen (text or graphics) into a file.
+
+SET DUMP <name>
+  Specify name of screen dump file for text screens (KERMIT.SCN by default).
+  Graphics screens are saved to TEKPLTnn.TIF.
+
+* MACROS
+
+DEFINE <macro-or-variable-name> [<text>]
+  Defines a macro or variable called "<name>" to have the given value. If
+  <text> omitted, undefines the named macro or variable.  When defining
+  command macros, <text> should be a list of MS-DOS Kermit commands, separated
+  by commas.  The definition is copied literally (backslash codes not
+  interpreted).
+
+[DO] <macro-name> [<parameter1> [<parameter2> [<parameter3> [...]]]]
+  Executes the macro called "<name>", and assigns the parameters, if any, to
+  the variables \%1, \%2, \%3, etc, and sets the variable ARGC to the number of
+  parameters plus one (1 = no parameters, 2 = 1 parameter, etc).  The variable
+  \%0 is assigned the name of the macro.  These variables are available only
+  within the macro.
+
+ASSIGN <macro-or-variable-name> [<text>]
+  Like DEFINE, copies the current value of <text> into the macro or variable,
+  but (unlike DEFINE) all variables in the <text> are evaluated first.
+
+SHOW MACRO [<name>]
+  Shows the definition of the specified macro or variable.
+
+IF DEFINED <name> <command>
+  Executes the <command> if the macro or variable name is defined.
+
+IF = ARGC <num> <command>
+  Executes <command> if ARGC is equal to <num> (numeric constant or variable)
+
+IF < ARGC <num> <command>
+  Executes <command> if ARGC is less than <num>
+
+IF > ARGC <num> <command>
+  Executes <command> if ARGC greater than <num>
+
+IF NOT > ARGC <num> <command>
+  Executes <command> if ARGC less than or equal to <num>
+
+IF =, <, >
+  Can also be used with any numeric variables or constants, not just ARGC,
+  including the other predefined numeric variables, VERSION, COUNT, and
+  ERRORLEVEL, the built-in numeric variables like \v(ndate), \v(status), etc,
+  or any other variable (\%1, \%a) that has a numeric value.  Use IF EQUAL to
+  compare character strings (see below).
+
+* VARIABLES
+
+\%0 is the name of the currently executing macro (if any).  \%1 thru \%9 are
+its parameters (arguments), created when the macro is invoked and destroyed
+when it terminates.  If a macro invokes another macro, a new set of arguments
+is created and the old set is preserved.
+
+\%a through \%z are global variables that can be modified or accessed in any
+context.  Created by DEFINE, ASSIGN, ASK, ASKQ, READ, GETC.
+
+The following commands can be used for arithmetic on variables that have
+numeric values:
+
+INCREMENT <variable-name> [ <number> ]
+  Adds <number>, if given, to the value of the named variable.	If no <number>
+  is given, adds 1.
+
+DECREMENT <variable-name> [ <number> ]
+  Subtracts <number>, if given, to the value of the named variable.  If no
+  <number> is given, subtracts 1.
+
+Macro definitions can be used as variables too.	 DEFINE or ASSIGN the macro in
+the normal way, but refer to it using \m(name), for example:
+
+  define phone-number 7654321
+  if not defined phone-number echo Phone number is is not defined!
+  echo The phone number is \m(phone-number).
+  dial \m(phone-number)
+
+\$(xxx) is a DOS environment variable, e.g. \$(COMSPEC).
+
+\v(xxx) is a built-in variable, where xxx is its name:
+  \v(argc)              Argument count to current macro
+  \v(carrier)           SET CARRIER setting
+  \v(charset)		Code Page currently active, such as CP437
+  \v(cmdfile)           Name of currently executing command file, if any
+  \v(console)           ANSI if ANSI.SYS loaded, else NONE
+  \v(count)             Current SET COUNT value
+  \v(cmdlevel)          Command level (for macros & TAKE files)
+  \v(cps)               Characters per second, most recent file transfer
+  \v(date)              Current date
+  \v(inidir)            Full pathname of MSKERMIT.INI's directory
+  \v(ndate)             Current date, numeric format
+  \v(directory)         Current directory
+  \v(dosversion)        Numeric DOS version, e.g. 500 for 5.00
+  \v(errorlevel)        ERRORLEVEL value
+  \v(inpath)		Drive:\path\ resulting from last IF INPATH command
+  \v(input)             INPUT buffer
+  \v(keyboard)          Keyboard type, e.g. 88, 101
+  \v(line)              Synonym for \v(port)
+  \v(monitor)           Monitor type - COLOR, MONO
+  \v(parity)            Current SET PARITY setting
+  \v(platform)          IBM-PC (or other)
+  \v(port)              Current SET PORT setting
+  \v(program)           MS-DOS_KERMIT
+  \v(prompt)            Current SET PROMPT setting
+  \v(query)		Result of last REMOTE QUERY command, if not a file
+  \v(session)           Current TCP/IP session number (1 through 6)
+  \v(tcpip_status)      Status of current TCP/IP session
+  \v(space)             Free space on current disk, bytes
+  \v(speed)             Current SET SPEED setting
+  \v(startup)           Disk:\Directory\ from which Kermit was started
+  \v(status)            Status of most recent command, 0 = success
+  \v(sysid)		System identification in Kermit packets (U8)
+  \v(system)            MS-DOS
+  \v(terminal)          Current SET TERMINAL TYPE setting
+  \v(time)              Current time
+  \v(ntime)             Current time, numeric (seconds since midnight)
+  \v(version)           MS-DOS Kermit numeric version number, e.g. 314
+
+\fname(...) is a built-in function:
+  \Fcharacter(number)   Character whose numeric value is given
+  \Fcode(character)     Numeric code for the character
+  \Fcontents(variable)  Contents of variable or macro
+  \Fdate(filename)      Creation date of given file
+  \Fdefinition(macro)   Definition of given macro
+  \Ffiles(filespec)     Number of files that match the filespec
+  \Findex(s1,s2,pos)    Position of string s1 in s2 starting at given position
+  \Flength(string)      Length of given string
+  \Fliteral(string)     String, literally, unevaluated
+  \Flower(string)       String with uppercase letters lowercased
+  \Flpad(string,len,char) String left padded to given length with char
+  \Fmaximum(n1,n2)      Maximum of two numbers
+  \Fminimum(n1,n2)      Minimum of two numbers
+  \Fnextfile()          Next file from \Ffiles() list
+  \Frepeat(string,num)  num repetitions of string
+  \Freverse(string)     String, reversed left to right
+  \Fright(string,num)   Rightmost num characters of string
+  \Frpad(string,len,char) String right-padded to given length with char
+  \Fsize(file)          Size (bytes) of given file
+  \Fsubstr(string,pos,length) Substring of string, start position, length
+  \Fupper(string)       String with lowercase letters uppercased
+
+* SCRIPT COMMANDS
+
+These commands are used (in conjunction with other Kermit commands) for
+carrying out an automated dialog with a remote computer.
+
+APC <text>
+  Like OUTPUT (see below) but sends the text enclosed in an APC escape
+  sequence.  See KERMIT.UPD.
+
+ASK <variable> <prompt>
+  Print the <prompt> on the screen, assign what user types to the <variable>.
+
+ASKQ <variable> <prompt>
+  Like ASK, but do not echo what user types.
+
+CHECK {TCP/IP, NETWORKS, GRAPHICS, TERMINALS}
+  Tests if conditional-build items are present.
+
+GETC <variable> <prompt>
+  Like ASK, but gets a single character.
+
+GETOK <prompt>
+  Like ASK, but asks a Yes or No question.  Succeeds if answer is Yes,
+  fails if answer is No, otherwise reprompts.
+
+OUTPUT <string>
+  Send the <string> out the communications port.  May include backslash
+  codes, variables, etc, plus the special items \B to send a BREAK and
+  \L to send a Long BREAK.
+
+SET OUTPUT PACING <msec>
+  How many milliseconds (thousands of a second) to pause between each
+  character in the OUTPUT string.
+
+INPUT [<timeout>] <string>
+  Wait up to <timeout> secs for <string> to arrive at communications port.
+  If it arrives within interval, set SUCCESS, otherwise FAILURE.  String may
+  contain backslash codes.
+
+SET INPUT CASE {IGNORE, OBSERVE} = IGNORE
+  Whether alphabet case should matter in searching for INPUT string.
+
+SET INPUT DEFAULT-TIMEOUT <secs> = 1
+  Timeout interval to use if none given in INPUT command.
+
+SET INPUT ECHO {ON, OFF} = ON
+  Whether to display characters read by INPUT command on the screen.
+
+SET INPUT TIMEOUT-ACTION {PROCEED, QUIT} = PROCEED
+  PROCEED means set SUCCESS or FAILURE and go on to next statement in macro
+  definition or TAKE file.  QUIT means to quit from current macro or TAKE
+  file immediately upon failure.
+
+IF SUCCESS <command>
+  Execute the <command> if the preceding command succeeded.
+
+IF FAILURE <command>
+  Execute the <command> if the preceding command failed.
+
+PAUSE <secs>
+  Do nothing for specified number of seconds, or until any character is typed
+  at the keyboard.  Communications i/o is active.
+
+MPAUSE <msecs>
+  Like PAUSE, but number is milliseconds rather than seconds.
+
+SLEEP <secs>
+  Like PAUSE, but does not sample the communications channel.
+
+WAIT [<timeout>] [CD] [CTS] [DSR] [RI]
+  Wait <timeout> (seconds or until time hh:mm:ss) for specified modem signals.
+
+CLEAR [ {INPUT-BUFFER, DEVICE-BUFFER, BOTH} ] = BOTH
+  CLEAR INPUT clears the INPUT/REINPUT command buffer (characters that have
+  already been read by Kermit's INPUT command).	 CLEAR DEVICE clears the
+  communication device buffer (characters that have not yet been read by
+  by Kermit), CLEAR BOTH clears both buffers.
+
+STOP
+  Return immediately from current macro or TAKE file to top level.
+
+STOP [ <number> ] [ <text> ]
+  Return immdediately to top level, using the <number>, if specified, as the
+  SUCCESS / FAILURE code, and setting the value of \v(status) to that number.
+  If the <number> omitted, the SUCCESS / FAILURE status of the previous
+  command is retained and \v(status) is not changed.  If the optional <text>
+  is given, it is printed.
+
+END
+  Return from current macro or TAKE file to the macro or TAKE file which
+  invoked it, or if none, to the MS-Kermit> prompt.  Synonym: POP.
+
+END [ number ] [ text ]
+  Return from current macro or TAKE file to the macro or TAKE file which
+  invoked it, or if none, to top level.  Otherwise, identical to STOP.
+  Synonym: POP.
+
+GOTO <label>
+  Instead of executing the next statement in the current macro definition or
+  TAKE-file, go to the specified label and begin executing there.  The label
+  is a word begining with a colon (:) in the left margin in a macro definition
+  or TAKE file.  If not found, Kermit "POPs" one level and looks there, and so
+  on through all active macros and command files.
+
+FORWARD <label>
+  Like GOTO, but searches only forward for the label.
+
+:LOOP
+  The previous line shows a label called "loop".  GOTO LOOP would find it.
+
+REINPUT <timeout> <string>
+  Like INPUT, but instead of waiting for <string> to arrive at communications
+  port, REINPUT rescans the text that has already arrived.  If <timeout> is
+  greater than zero, it also waits for additional characters from comm port.
+
+SET COUNT <number>
+  Sets the loop counter to <number>.
+
+IF COUNT <command>
+  Subtract one from COUNT.  If result > 0, execute <command>.  Use with GOTO
+  to construct counted loops.
+
+SET ALARM <time>
+  Set an alarm <time> seconds from now, or at time hh:mm:ss.
+
+IF ALARM <command>
+  If the alarm time has passed, execute the <command>.
+
+SET ERRORLEVEL <number>
+  Set errorlevel to be returned to DOS by Kermit upon exit.
+
+IF ERRORLEVEL <number> <command>
+  If the ERRORLEVEL value is greater than or equal to the <number>,
+  execute the <command>.
+
+IF EXIST <filename> <command>
+  If the named file exists, execute the <command>.
+
+IF DIRECTORY <string> <command>
+  Execute the <command> if <string> is the name of an existing directory
+
+IF INPATH <filename> <command>
+  If the named file can be found in your DOS PATH, or in the current
+  directory, execute the <commmand> and set \v(inpath).
+
+IF EQUAL <word1> <word2> <command>
+  Execute <command> if the two words are the same.  The words may be text or
+  variables.  Use { braces } for grouping.  Case is treated according to SET
+  INPUT CASE.
+
+IF LGT <word1> <word2> <command>
+IF LLT <word1> <word2> <command>
+  Execute <command> if <word1> is lexically greater than (LGT) or lexically
+  less than (LLT) <word2>.  Otherwise, like IF EQUAL.
+
+IF NEWER <file1> <file2> <command>
+  Execute <command> if <file1> is newer than <file2>.
+
+IF NUMERIC <string> <command>
+  Execute <command> if <string> contains only digits.
+
+OPEN {READ, WRITE, APPEND} <filename>
+  Open a DOS file in the given mode.
+
+READ <variable-name>
+  Read a line from the current OPEN READ file into the given variable,
+  discarding line terminators.	Sets FAILURE flag at end of file.
+
+WRITE FILE <text>
+  Write the text into the current OPEN WRITE or OPEN APPEND file; <text> can
+  contain any mixture of ordinary characters, backslash codes, variable names.
+
+CLOSE {READ, WRITE}
+  Close the current READ or WRITE (including APPEND) file.
+
+SET TAKE {ERROR, ECHO} {ON, OFF}
+SET MACRO ERROR {ON, OFF}  
+  Separate control of echoing and error handling in macros and TAKE files.
+  ECHO ON means to echo commands as they are read from the file or macro
+  definition.  ERROR ON means to exit from the command file or macro
+  definition if an error occurs; ERROR OFF means don't exit, continue
+  processing (e.g. let errors be handled by IF FAILURE / IF SUCCESS).
+
+* MACROS DEFINED IN MSKERMIT.INI
+
+STATUS               Prints SUCCESS or FAILURE status of previous command
+FATAL [ message ]    Terminates macro or TAKE file with failure status
+ERRSTP [ message ]   Like FATAL, but also hangs up communication connection
+
+MORE filename        Runs DOS MORE command on given file
+COPY file1 file2     Runs DOS COPY command
+CHCP [ number ]      Runs DOS CHCP command (show or change code page)
+EDIT [ filename ]    Runs your preferred editor on the given file
+RENAME file1 file2   Runs DOS REN command
+PWD                  Print Working (current) Directory
+
+LOOKUP name          Looks up the given name in your dialing directory
+DIAL [ number ]      Dials your modem
+REDIAL               Redials most recent DIAL number
+ATHANGUP             Hangs up Hayeslike modem using +++ and ATH0
+
+CYRILLIC             Sets up for Cyrillic terminal emulation and file transfer
+HEBREW               Sets up for Hebrew terminal emulation and file transfer
+ROMAN                Sets up for (West European) Roman characters
+EASTERN              Sets up for East European Roman characters
+
+HFONT                Loads Hebrew font (cp862)
+CFONT                Loads Cyrillic font (cp866)
+EFONT                Loads East European Roman font (cp852)
+MFONT                Loads West European Roman font (cp 850)
+AFONT                Loads default font (cp437)
+IFONT                Loads Icelandic font (cp861)
+SCRAWL               Well, you'll see...  :-)
+Note... CHCP does not work with these fonts.
+
+VMS                  Set typical communications paramaters for VMS
+UNIX                 Set typical communications paramaters for UNIX
+IBM                  Set paramaters for IBM mainframe linemode connections
+FULLSCREEN           Parameters for IBM mainframe fullscreen connections
+BBS                  Set parameters for accessing a BBS
+TELNET               For making TCP/IP connections with Kermit's own TCP/IP
+TELAPI               For making TCP/IP connections via Novell LWP TELAPI
+
+CAPTURE filename     Capture next CONNECT session into given file
+TEXT                 Text-mode file transfers (= SET FILE TYPE TEXT)
+BINARY               Binary-mode file transfers (= SET FILE TYPE BINARY)
+NOISY                Set file transfer parameters for noisy connection
+NORMAL               Set file transfer parameters for normal connection
+CLEAN                Set file transfer parameters for very clean connection
+FAST                 Faster than CLEAN, assumes a very transparent channel
+ROBUST               Like NORMAL, assumes a non-transparent channel
+
+(End of MS-DOS Kermit 3.14 Help File)

@@ -1,0 +1,42 @@
+WPGGOLD FOR DOS (PREVIOUSLY WPCGOLD).
+
+COPYRIGHT 1992-1994, NOVELL INC., OREM, UTAH,  ALL RIGHTS RESERVED
+
+COPYING AND MODIFICATION IS PERMITTED, AS LONG AS THE ORIGINAL COPYRIGHT
+  MESSAGE IS PRESERVED AND MODIFICATIONS ARE CLEARLY MARKED.  USE THIS
+  PROGRAM AT YOUR OWN RISK.  NO LIABILITY IS ACCEPTED BY NOVELL INC.
+
+This TSR causes real (unique) NumLock scan code to be returned to DOS instead
+of toggling the NumLock state.  It is not perfect, but it works.  As seen
+from MS-DOS Kermit, the scan code is \325.  This differs from the GOLD.COM
+program, which replicates the F1 key scan code, \315.  Thus with WPGGOLD.COM
+you can use your F1 and Num Lock keys for different things.
+
+WPGGOLD.COM should be placed into a directory with the other programs, such
+as Kermit, with which it is to be used.
+
+This program must be (re)loaded onto the DOS machine after each reboot before
+it can be used.  This can be accomplished by executing the following command
+from the DOS prompt and/or adding it to your AUTOEXEC.BAT file:
+
+    WPGGOLD LOAD
+
+This loading should never be done from a program or a secondary DOS session
+created on top of a running program.  Loading this TSR consumes about 800
+bytes of conventional memory which is never returned to the DOS session.
+
+When first loaded, the interception of the NumLock key will be disabled.
+After it is loaded, the TSR's NumLock interception and reporting may be
+enabled at any time with the following command:
+
+    WPGGOLD ENABLE
+
+and disabled at any time with the following command:
+
+    WPGGOLD DISABLE
+
+These commands are automatically executed by the vmswp313.ini Kermit 3.13
+keymapping script if WPGGOLD.COM is on the executable environment path, has
+been loaded, and "set terminal apc unchecked" has been performed.
+
+(End of WPGGOLD.DOC)

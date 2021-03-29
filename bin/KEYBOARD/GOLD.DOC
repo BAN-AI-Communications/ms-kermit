@@ -1,0 +1,154 @@
+             GOLD - Simulate GOLD Key with NUM LOCK - Version 2.4
+
+                             Bob Eager, June 1992
+
+Overview
+-------- 
+GOLD.COM (MSUGOLD.COM) is a simple TSR (Terminate and Stay Resident) program
+intended to make it easier to use MS-DOS Kermit as an emulator for DEC VT100
+and higher model VT series terminals on a PC with an enhanced keyboard (the
+one with separate numeric pad and cursor keys).
+
+What GOLD does is make the NUM LOCK key transmit the code for some other
+key (normally the F1 key; this is usually mapped by Kermit to the VTnnn
+GOLD key).  This makes it possible (by using the SET KEY command of
+Kermit) to make the keypad look almost exactly the same as a VTnnn
+keypad (the long + key is the only exception; that is two keys on the
+real terminal). 
+
+Using GOLD
+----------
+To use GOLD, simply place the GOLD.COM file into a directory on the
+normal program path, then type the command:
+
+  GOLD
+
+This activates the program, and NUM LOCK will cease to work as Num Lock and
+will instead operate the same as the F1 key (or whatever else has been
+configured).  This may not always be convenient, so it is possible to turn off
+the effect by typing:
+
+  GOLD OFF
+
+and later to turn it on again by typing:
+
+  GOLD ON
+
+The current GOLD state may be displayed by typing:
+
+  GOLD
+
+(after the first call, this is the only effect if the command is used without
+parameters).  The program can be set to an initial OFF state by calling it the
+first time with the OFF parameter if required.  Later calls operate with the
+initially installed copy of the program, which cannot be unloaded (it is,
+however, very small; only 528 or 592 bytes of memory are required, depending
+on the operating mode (see below)).
+
+It is possible to get the original Num Lock function without turning GOLD
+OFF.  This is useful if you are inside an application and realise Num Lock has
+been left ON accidentally, and GOLD is also ON.  The key combination Shift and
+Num Lock will toggle the Num Lock state each time it is used (just as Num Lock
+does on its own when GOLD is OFF).
+
+It is also possible to turn GOLD on and off without calling it as a command.
+The key combination Alt and Num Lock will turn GOLD off if it is on, and on if
+it is off.  Note that Alt and Num Lock normally operates exactly as a normal
+Num Lock, so no functionality is lost when GOLD is loaded.
+
+If you are using DOS 5, GOLD may be loaded using the LOADHIGH command; this
+saves space if upper memory space is available.
+
+Compatibility
+-------------
+Some machines may not contain BIOS support for this program; in such cases,
+GOLD automatically uses an alternate operating mode (direct interception of
+keyboard interrupts) which will work on true compatible machines.  However,
+this method uses slightly more memory (544 bytes against 480 bytes) and
+requires a high degree of machine compatibility.
+
+Problems have been reported where GOLD appears to have no effect, even if each
+of the particular modes is forced.  In many cases this appears to be due to a
+version of the KEYB (or KEYBxx) command used for reconfiguring non-US
+keyboards; it steals the keyboard interrupt vector and fails to honour the
+keyboard intercept request from GOLD.  The solution is generally to use an
+earlier version of the KEYB program (or one of the country specific versions
+such as KEYBUK) or to use a KEYB program from a PC-DOS system; these appear
+not to have the problem.
+
+
+Configuration
+-------------
+The program uses the INT 2FH multiplex interrupt to install itself; it uses a
+multiplex ID of 0DCH.  This may be changed if it clashes with other TSR
+programs.  The key to which NUM LOCK is mapped may also be changed, and it may
+also be transmitted as if SHIFT, CTRL or ALT is held down at the same time.
+It is also possible to force GOLD to use a particular operating mode (BIOS
+keyboard intercept, or direct keyboard interrupt intercept).
+
+Alteration of the above items is obvious on examination of the program source
+code.  If you do not have MASM, it is easy to patch the program since the
+relevant values are stored in easy to find places - offsets 102H, 103H, 104H
+and 105H.
+
+GOLD has been tested on PC-DOS 3.0, 3.1, 3.3, 5.0, MS-DOS 3.2, 3.3 and 5.0,
+and in the DOS mode sessions of IBM OS/2 versions 1.2, 1.3 and 2.0.  Tests
+were performed on an IBM PC/XT compatible (PC-DOS and MS-DOS all versions), an
+IBM PC/XT (PC-DOS version 3.3) and an IBM PS/2 Model 80-111 (PC-DOS versions
+3.3 and 5.0, and OS/2).
+
+Files included
+--------------
+This package should consist of the following files.  Please distribute
+all of these files if you pass the package on. 
+
+GOLD.COM   - Executable program for GOLD
+GOLD.DOC   - Documentation (this file)
+GOLD.ASM   - MASM source code
+GOLD.BAT   - Batch file to build GOLD
+GOLD.INI   - Kermit TAKE file to define keyboard for DEC terminal
+
+NOTE: In the Kermit Distribution area, all these filenames are prefixed by
+the letters MSU, e.g. MSUGOLD.COM, to keep them together with other MS-DOS
+Kermit files.
+
+Acknowledgement
+---------------
+Thanks to all those, all over the world, who have contacted me with
+suggestions for improvements to GOLD.  There are too many to mention
+individually, and many people made the same or similar suggestions.
+
+Contact
+-------
+Please send any comments or suggestions to me, Bob Eager:
+
+rde@ukc.ac.uk (USENET) (preferred over ibmpcug)
+rde@ibmpcug.co.uk (USENET)
+100016,2770   (CompuServe)
++44 227 764000 ext 7589 (Telephone)
+
+Update history
+--------------
+
+2.4 - fixed problem where PAUSE was being recognised as if NUM LOCK
+      had been pressed. This was because PAUSE generates a six byte
+      data sequence containing, as its third byte, the scan code used
+      by NUM LOCK
+
+2.3 - added facility to include CTRL, ALT or SHIFT with replacement key code
+
+2.2 - added some additional safety code to the installation check
+
+2.1 - changed default multiplex ID value to 09FH to fix problems with
+      some versions of KEYB
+
+2.0 - added SHIFT and NUM LOCK facility to provide original NUM LOCK capability
+    - added ALT and NUM LOCK facility to change GOLD status directly
+    - fixed interrupt intercept incompatibility with some clone BIOSes
+    - fixed non-detection of BIOS intercept support in some cases
+    - added code to use direct keyboard interrupt handler if BIOS
+      interrupt intercept facility not available
+
+1.0 - initial program version
+
+(End of GOLD.DOC / MSUGOLD.DOC)

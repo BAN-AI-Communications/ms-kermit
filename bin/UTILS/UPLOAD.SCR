@@ -1,0 +1,129 @@
+; UPLOAD.SCR, discussed in Kermit News #6.
+;
+; A script for uploading text files from MS-Kermit to C-Kermit.
+; Designed for use in conjunction with a Screen Reader.
+; Alan Cantor - updated for MS-Kermit 3.14 - 2 December 1994
+;
+define UPLOAD take upload.scr
+set key \3862 {\kUpload}      ; Shift-Ctrl-Alt-U
+
+set mode-line off             ; For a less complex screen
+set input echo off            ; Detect INPUTs silently 
+set display serial            ; Quieter file transfers
+set terminal margin-bell on   ; Ding near right margin
+
+; MACROS
+
+define file-name   c:\myfiles\message.txt ; Default file
+define cancel-key  output \3              ; Ctrl-C
+define break-key   output \26             ; Ctrl-Z
+define bell        echo \7                ; Ctrl-G
+define blankline   echo \13               ; Ctrl-M
+
+define force-exit echo {Forced exit from Remote Kermit.},-
+ cancel-key, pause 1,-
+ cancel-key, pause 1,-
+ break-key, pause 1
+
+define yes-no :LOOP,-
+ getc key {\%1 Y or N: },-
+ if equal \m(key) y \%2,-
+ if equal \m(key) n \%3,-
+ goto loop
+
+:CHECK-CARRIER-DETECT
+ wait 0 \CD
+ if success forward VERIFY-NAME
+ stop 1 {No connection. Dial number first.}
+
+:VERIFY-NAME
+ cls
+ yes-no {Send "\m(file-name)"?} {for FILE-EXISTS} {for GET-NAME}
+
+:GET-NAME                                ; Prompt for file name
+ ask file-name {File to upload: }
+ if not defined file-name goto GET-NAME  ; If file-name = CR
+
+; File exists?
+:FILE-EXISTS
+ if exist \m(file-name) forward START-KERMIT
+ cls
+ bell
+ echo {"\m(file-name)" does not exist!}
+ blankline
+ echo {Perhaps it's in another subdirectory,}
+ echo {or on a different disk drive.}
+ blankline
+ goto GET-NAME
+
+:START-KERMIT                             ; Start remote Kermit
+ cls
+ echo {Starting C-Kermit...}
+ blankline
+ output kermit -Y\13                      ; Use -Y switch
+ input 10 C-Kermit                        ; Look for C-Kermit prompt
+ if failure forward KERMIT-PROBLEM
+ output receive\13                        ; Begin upload, Step 1
+ pause 1
+
+:SEND-FILE
+ if success echo {Starting upload...}
+ blankline
+ output \13                               ; Trick to speed start of transfer
+ send \m(file-name)                       ; Begin upload, Step 2
+ if failure forward KERMIT-PROBLEM
+ if success echo {"\m(file-name)" has been uploaded!}
+
+:EXIT-KERMIT                              ; Exit remote Kermit
+ echo {Exiting Remote Kermit...}
+ pause 2
+ output quit\13                           ; "quit" C-Kermit             
+ input 5 >                                ; Look for Unix prompt
+ if failure force-exit
+
+:CONNECT-NOW                             ; Issue CONNECT command
+ output \13
+ connect                                 ; Finally, begin terminal emulation!
+ STOP
+
+; Script Ends Here!
+
+; Problem scripts follow:
+
+:LOGIN-PROBLEM                            ; Disconnect if prompt doesn't come
+ bell
+ echo {There appears to be a problem logging on.}
+ blankline
+ echo {Disconnecting. Try again!}
+ blankline
+ output \13
+ output logout\13                         ; Log off just in case
+ hangup
+END
+
+:KERMIT-PROBLEM                           ; File transfer problem
+ force-exit
+ blankline
+ echo {Something unexpected happened during the file transfer.}
+ echo {The file "\m(file-name)" was not uploaded!}
+ blankline
+ echo {Possible reasons:}
+ blankline
+ echo {You pressed a key that stopped the file transfer,}
+ echo {your disk quota was exceeded,}
+ echo {the connection was broken, or perhaps}
+ echo {it's just another computer mystery!}
+ blankline
+ yes-no {Retry upload?} {goto START-KERMIT} {forward LOGOFF}
+END
+
+:LOGOFF                                   ; Logoff
+ yes-no {Log off now?} {end} {stop}
+ blankline
+ force-exit
+ output logout\13
+ blankline
+ echo {Logged off.}
+ blankline
+END
+

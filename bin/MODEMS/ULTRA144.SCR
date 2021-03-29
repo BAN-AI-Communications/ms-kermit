@@ -1,0 +1,207 @@
+; FILE ULTRA144.SCR (MSMULTRA.SCR)
+;
+; An MS-DOS Kermit script program for dialing the Hayes ULTRA 144 modem, to be
+; used with MS-DOS Kermit 3.12 or later.  The modem is set up for compression,
+; error correction, all types of fallback, RTS/CTS flow control, fixed
+; interface speed of 38400, which is the highest support by this modem.
+;
+; Authors: Christine M. Gianone, Frank da Cruz; Columbia U, June 1993
+;
+def errfail echo \%1, hangup, goto fail ; Macro to handle failures.
+if < VERSION 312 errfail {MS-DOS Kermit 3.12 or later required.}
+if eq "\v(system)" "UNIX" if = \v(local) 0 stop 1 You must SET LINE first
+
+define chkerr if fail stop 1 \%1
+define chkok input 3 OK, if fail stop 1 \%1
+
+define max_speed 38400		; Maximum interface speed
+
+; Macro to try to get attention of modem's command processor
+; at the given speed, or if no speed given, at the current speed.
+; Q0 = Enable result codes, V1 = display result codes as words.
+;
+define atok -
+ if def \%1 set speed \%1, -
+ echo Trying \%1..., -
+ output ATQ0V1\13, -
+ input 3 OK, -
+ if success goto gotok
+
+set input echo on		; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore		; Use caseless string comparisons
+
+set parity none			; Avoid parity foulups
+set flow none			; Avoid flow control deadlocks
+hangup				; Begin by dropping DTR
+pause 1				; for one second
+
+echo Configuring Hayes ULTRA 144 on \v(line).
+
+atok			; Try to connect at current speed, whatever it is.
+atok 9600	 	; Try to connect at 9600.
+atok 19200		; 19200...
+atok 2400		; 2400...
+atok 38400		; Highest speed permitted.
+stop 1 Can't get modem's attention
+
+:GOTOK
+;
+; Now change interface speed to the maximum
+;
+echo Locking interface speed at \m(max_speed)...
+output ATS87=28\13
+chkok {Can't set modem's speed to \m(max_speed)}
+set speed \m(max_speed)
+
+; Try 3 times to get OK response to AT command at new speed.
+;
+set count 3
+:LOOP
+pause
+output AT\13
+input 3 OK
+if success goto ok
+if count goto loop
+Stop 1 Can't communicate with modem at \m(max_speed)
+
+:OK
+;
+; Initialize the modem.
+;
+; &D2    Hangup if DTR drops, so Kermit's HANGUP command will work
+; E1     Commands are to be echoed
+; W1     Enable dialing progress messages
+; X4     Enable full range of result codes
+; S95=46 Enables reporting of error control, compression, and protocol
+;
+output AT &D2 E1 W1 X4 S95=46\13
+chkok {Can't initialize modem}
+
+; S37=11 Begin modulation negotiations at V.32bis = 14400 bps
+; N1     Negotiate highest common modulation
+;
+echo Enabling modulation negotiation...
+output AT S37=11 N1\13		; Start modulation speed negotiation at 14400
+chkok {Can't enable modulation speed negotiation}
+
+; Enable hardware flow control
+;
+echo Enabling hardware flow control...
+output AT &K1 &K3\13		; Enable RTS/CTS hardware flow control
+chkok {Can't enable RTS/CTS}	; On modem
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts		; And in Kermit too, but only now
+
+; Specify treatment of BREAK signal
+;
+echo Configuring modem to ignore BREAK...
+output AT S82=128\13		; Make modem pass BREAK transparently
+chkok {Can't become transparent to BREAK}
+
+; Enable error correction and compression
+;
+; &Q5       Enable error correction
+; S36=7     LAPM (V.42) => MNP => ASB (automatic speed buffering)
+; S38=1     When DTR from PC goes off, hang up after 1 second
+; S46=2     Enable compression
+; S48=7     EC and compression negotiation enabled
+;
+echo Enabling error correction and data compression...
+output AT &Q5 S36=7 S38=1 S46=2 S48=7\13
+chkok {Can't enable compression and EC}
+
+if def \%1 if not equal "\%1" "=" goto BEGIN
+;
+; User only wanted to initialize the modem.
+; Display configuration.
+;
+echo Hayes ULTRA 144 initialized OK:
+output AT&V\13
+input 10 OK
+echo
+echo Product code:
+output ATI0\13
+input 4 OK
+end 0
+
+:BEGIN
+;
+; User wants to dial.
+;
+clear				; Clear INPUT buffer.
+set count 5                     ; Dialing retry counter, 5 tries allowed.
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+pause 1
+goto dial                       ; 1st time, skip pause and Redialing message
+
+:REDIAL
+set alarm 30
+pause 30			; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number.
+set alarm 90			; (For detecting keyboard interruptions.)
+if > VERSION 312 clear input	; Clear echo from INPUT buffer.
+if < VERSION 313 clear
+input 30 \10                    ; Wait for the linefeeds...
+
+:GETMSG
+input 60 \10			; ...that surround the response message.
+if success goto gotmsg		; Got a message.
+if alarm errfail {No response from modem.} ; No response in 90 seconds.
+hangup				; User interrupted from keyboard,
+output \13			; cancel dialing by sending carriage return,
+goto again			; and go try again right away.
+
+:GOTMSG
+reinput 1 CONNECT               ; Got a message, was it CONNECT?
+if success goto done            ; If so, we're done.
+reinput 1 BUSY			; Line is busy.
+if success goto busy		; Go wait a while and then dial again.
+reinput 1 ERROR			; Command syntax error.
+if success errfail {Dialing command error}
+reinput 1 NO ANSWER		; No answer
+if success errfail {No answer, please try again later}
+reinput 1 NO CARRIER		; Phone didn't answer or no carrier.
+if success goto nocarrier
+reinput 1 NO DIALTONE		; No dialtone when phone taken off hook.
+if success errfail {No dialtone - Is your modem connected to the phone line\63}
+reinput 1 RING			; Phone is ringing
+if success errfail {Somebody is calling this number}
+goto getmsg			; None of the above, get another message.
+
+:BUSY
+if < \v(count) 2 goto quit	; Don't wait 30 seconds if tries are used up.
+echo Line is busy, will dial again in 30 seconds.
+echo Press any key to cancel...
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+define errfail			; Erase local macro definitions...
+define max_speed
+end 0				; Finished, return success code.
+
+:NOCARRIER
+echo
+echo Connection failed, S86 contains the reason code:
+echo
+output ATS86\63\13
+input 2 \10
+input 2 \10
+
+:FAIL				; Dialing failed, no beep.
+define errfail			; Erase local macro definitions...
+define max_speed
+end 1				; Return failure code.
+
+; End of ULTRA144.SCR

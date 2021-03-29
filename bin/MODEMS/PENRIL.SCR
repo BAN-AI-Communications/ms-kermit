@@ -1,0 +1,146 @@
+; File PENRIL.SCR -- minor modification of Christine's HAYES.SCR.
+; To be used with MS-DOS Kermit 3.11 or later.
+;
+; Stored in Kermit Distribution as MSMPENRIL.SCR; rename to PENRIL.SCR
+; if necessary so the DIAL macro can find it.  Place this file in your
+; current directory or in any directory in your DOS PATH, and then set the
+; DOS environment variable, MODEM, to be PENRIL.  Give the following command
+; at the DOS prompt before starting Kermit, or add it to your AUTOEXEC.BAT
+; file:
+;
+;   SET MODEM=PENRIL
+;
+; This MS-DOS Kermit script program is for dialing Penril Alliance V.32
+; modems and compatibles.  It will probably work with the V.32bis version of
+; this modem, but this has not been tested.  The Penril, like most V.32
+; modems, is Hayes-compatible up to the point that one starts dealing with
+; buffering, error-correction, and compression modes.  Expects variable %\1
+; to contain the phone number; this is done by the DIAL macro defined in
+; MSKERMIT.INI.  Items marked by "***" might need editing.
+;
+; Uses ATD (modem's default dialing method) to dial the number.
+; Force tone dialing by including T as first character of phone
+; number, or pulse dialing by including P as first character.
+;
+; Sets SUCCESS flag if dialing succeeds, sets FAILURE flag 
+; if it fails.
+;
+;  Author: John C. Klensin, August 1992
+;  Adapted from HAYES.SCR by Christine M. Gianone (July 1991).
+;  Requires MS-DOS Kermit 3.11 or later.
+;
+; The normal DTE <-> DCE speed of this modem is 38.4 Kbps, regardless of
+; the line or character speed.  Set that number here, regardless of what
+; the DIALUPS file says.  However, this may exceed the speed at which 
+; MSDOS computers can deal with characters and should be reduced if necessary.
+;
+echo Using Penril Alliance V.32 modem\13\10 ; comforting in multimodem environ
+set speed 38400			      ;****
+;
+set flow rts                          ; Nothing else works.
+def errfail echo \%1,hangup,goto fail ; Macro to handle failures.
+
+if < VERSION 310 errfail {MS-DOS Kermit 3.10 or later required.}
+
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE
+set input echo off              ; Don't echo the modem test/init
+output A			; Send AT, use word result codes.
+output T			; Initialization chars have to be dribbled
+output {\38}			; at this modem
+output F
+output \13			; at least through end of first command.
+input 2 OK                      ; Modem should say "OK"
+if fail errfail {Turn on or connect your modem!}
+pause				; Continue initializing
+output AT			; Very loud speaker, turn it down
+output L1
+output \13
+input 2 OK
+pause
+output AT
+output {\92}			; RTS/CTS, bidirectional
+output Q1
+output {\44}1			;  => \Q,1,1
+output \13
+input 2 OK
+if fail errfail {Unable to initialize modem}
+clear				; Clear input buffer
+;
+if not equ {\%1} {=} goto dialnow   ; This provides for initialization only
+echo Modem initialization complete, no number to dial
+end 0
+
+:DIALNOW
+set count 5                     ; Set up dialing retry counter
+set input echo on               ; From now on, show what happens
+echo Dialing \%1, wait...
+pause 1
+goto dial                       ; 1st time, skip Redialing message
+
+:REDIAL
+set alarm 30
+pause 30			; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number (ATDT or ATDP)
+input 10 \10			; ignore the immediate LF
+
+:GETMSG
+set alarm 130			; Detect keyboard interruptions.
+input 60 \10                    ; Wait for the linefeeds...
+input 40 \10			; that surround response message.
+if success goto gotmsg		; Got a message.
+if alarm errfail {No response from modem.} ; No response in a long time
+
+hangup				; User interrupted from keyboard,
+if count goto redial		; so try again right away
+goto fail			; die here if over count
+
+; Warning: At least in terms of what the test machine sees, the Penril
+; is a little arbitrary about how many line feeds appear between CONNECT NNN
+; and the protocol stuff.  So the logic below deals with it by time, rather
+; than really expecting the V42/MNP/BUFFER stuff to be executed.
+
+:GOTMSG
+reinput 0 CONNECT               ; Got message, was it CONNECT?
+if success goto cspeed          ; Yes, wait for BUFFER, MNP, or V.42
+reinput 0 ERROR			; No, check for command error.
+if success errfail {Modem command error.}
+reinput 0 NO CARRIER		; NO CARRIER?
+if success goto busy		; Treat like BUSY.
+reinput 0 BUSY                  ; BUSY?
+if success goto busy 		; Go wait a bit, then dial again.
+reinput 0 V42			; Protocol stuff (V.42/V.42bis)
+if success goto speed		; modem ready, set speed
+reinput 0 MNP			; MNP, ignore
+if success goto speed		; modem ready, set speed
+reinput 0 BUFFER		; remaining case in auto-reliable
+if success goto speed		; modem ready, set speed
+errfail {No dialtone or no answer.  Try again later.}
+
+:BUSY
+if < \v(count) 2 goto quit	; Don't wait 60 seconds if tries used up.
+Echo Busy or No Carrier, will dial again in 30 seconds...
+echo Press any key to cancel...
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+; The following block is retained for compatibility for HAYES.SCR.  Since
+; this modem buffers (always retains the same DCE<->DTE speed), the computer
+; should not speed-match and the next section is a no-op.
+:CSPEED
+pause 2				; wait for protocol announcement
+:SPEED                          ; Connected!
+echo \7                         ; Celebrate with a beep.
+define errfail			; Erase ERRFAIL definition
+end 0				; Finished, return success code.
+
+:FAIL				; Failed, return failure code.
+define errfail			; Erase ERRFAIL definition
+end 1

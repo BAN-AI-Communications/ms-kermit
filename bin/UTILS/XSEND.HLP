@@ -1,0 +1,43 @@
+XSEND (stored in the Kermit distribution as MSIXSE)
+
+Original author: Author: Mark S. Zinzow <Markz@UIUCVMD.BITNET>, 1988.
+Modified by Vace Kundakci & Frank da Cruz, Columbia University, 1989-91.
+See source code for detailed edit history.
+
+XSEND is a program to generate TAKE (command) files for MS-DOS Kermit and FTP
+for sending files and directories to a Kermit (or FTP) server over entire
+directory trees or disks.  This version uses relative directory names without
+explicit separators, so it can be used to send directory trees to UNIX as well
+as to MS-DOS.
+
+To send a directory tree from MS-DOS, change directory to the desired
+directory.  Then run XSEND redirecting the output with the DOS redirection
+symbol ">" (e.g.  "XSEND > takeme").  Before proceeding, look at the command
+file and make sure it's doing what you want.  Then establish a connection to
+the remote system with Kermit, CD to the directory in which you want to
+replicate the DOS files and subdirectories, start the remote Kermit program
+and put it in server mode.  Then escape back and TAKE the command file on the
+PC.
+
+Note that the PC sends all the files in all the directories in the same mode,
+text or binary.  MS-DOS Kermit has no way of switching file mode on a per-file
+basis.  This does no harm to PC-to-PC transfers, but poses dangers for
+PC-to-UNIX transfers.  When using an Xsend command file to transfer a mixture
+of text and binary files to UNIX, it is best to do the transfer in binary mode
+and then remove carriage returns from the text files later with the UNIX tr
+utility.
+
+Xsend accepts the following command-line arguments:
+
+    -k[path]: generate kermit commands (default)
+    -c[path]: generate copy commands
+    -m[path]: generate mkdir commands
+    -z[path]: generate del and rmdir commands
+    -l[path]: list full names
+    -g[path]: generate tftp get commands
+    -p[path]: generate tftp put commands
+    -h<name>: tftp to/from host
+    -f<name>: select files with name
+    -v: verbose (applies for -cklz)
+
+(End of XSEND.HLP)

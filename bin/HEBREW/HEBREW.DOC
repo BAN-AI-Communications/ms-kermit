@@ -1,0 +1,693 @@
+USING MS-DOS KERMIT TO DISPLAY, ENTER, AND TRANSFER HEBREW TEXT
+
+  Frank da Cruz
+  Academic Information Systems
+  Columbia University
+  E-Mail: fdc@columbia.edu
+  April-November, 1994
+
+Beginning with version 3.13 (July 1993), MS-DOS Kermit includes full support
+for Hebrew text, including Hebrew terminal emulation for mixing Hebrew and
+Roman characters when using host-based Hebrew software, and translation of
+Hebrew character sets during file transfer.  Version 3.14 includes a complete
+Hebrew package, including font and key mappings.
+
+This document assumes some familiarity with DOS and with MS-DOS Kermit.
+References are listed at the end.
+
+  This document explains how to use MS-DOS Kermit in Hebrew mode for
+  interacting with other computers.  It does not address questions
+  of Hebrew text processing within the PC environment itself.
+
+The Hebrew package described in this document has been verified to work on
+both English/American-model PCs and on Hebrew-model PCs, using host-based
+ALEPH 2.x and 3.x software, Hebrew Pico, Hebrew Pine, Hebrew World-Wide-Web,
+and VMS HEDT (based on TPU), both with and without Hebrew keyboard drivers
+and/or code pages loaded.
+
+WARNING: As of this writing, I have not been able to find a way to make the
+techniques described in this document work in a Microsoft Windows window.
+Even though Kermit itself works perfectly in a window, Windows does not allow
+the Hebrew font to be loaded.  Reportedly, Windows 3.1 ML (Multi-Lingual)
+supports Hebrew, but perhaps not in a way that can be used by Kermit (it wants
+to control screen-writing direction itself).  Thus, to use Kermit's Hebrew
+features, you must run Kermit in DOS or in a Windows fullscreen session, but
+not in a window.
+
+BACKGROUND: HEBREW CHARACTER SETS
+
+There are several coded character sets that contain the Hebrew alphabet.  Each
+of these sets uses a different encoding; they are all mutually incompatible.
+To interchange Hebrew text between two computers that use different encodings,
+conversions must be done.  Kermit software makes these conversions for you.
+The character sets are:
+
+ASCII - The American National Standard Code for Information Interchange.
+  This is a 7-bit character set, incorporating 128 characters, of which 95 are
+  "graphic" (printable) characters, and 17 are control characters such as
+  carriage return, linefeed, etc.  It contains no Hebrew, but it is the basis
+  for all the other character sets discussed here, unless noted otherwise.  It
+  includes uppercase and lowercase Roman letters A-Z, digits 0-9, space, and
+  various punctuation marks.
+
+ISO 8859-8 - The Latin/Hebrew Alphabet.
+  The international standard character set for Hebrew, adopted by the
+  International Organization for Standardization (ISO), of which Israel is a
+  member body.  It is an 8-bit character set, incorporating 256 characters, of
+  which 137 are graphic characters, 65 are control characters, and 22 are
+  undefined.  It includes ASCII, some additional punctuation, math, and
+  currency symbols, plus the 22 Hebrew letters and 5 final forms.
+
+IBM PC Code Page 862.
+  Similar to Latin/Hebrew, but including many additional characters (line and
+  box drawing, accented Roman letters, etc), and using different encoding.
+  Used only on PCs.
+
+IBM Mainframe Code Page 424.
+  An 8-bit mainframe code, totally incompatible with ASCII and everything
+  else, which contains approximately the same repertoire as Latin/Hebrew.
+
+DEC Hebrew (or "Hebrew-7").
+  A 7-bit character set, equivalent to ASCII, but with the lowercase Roman
+  letters replaced by Hebrew letters.  Used to trick 7-bit applications and
+  communication methods into handling Hebrew characters.
+
+ADDING HEBREW FEATURES TO KERMIT
+
+To use MS-DOS Kermit's Hebrew terminal emulation features, you must first have
+or load a Hebrew code page into your PC.  "Code page" is IBM's term for "font"
+or "character set".  Hebrew-model PCs come with the Hebrew code page already
+loaded; otherwise an EGA, VGA, or compatible video system that permits text
+fonts to be loaded is required, as well as DOS 3.30 or later.
+
+The Kermit diskette contains a public-domain Hebrew code page (and several
+others) and public-domain utilities for loading and displaying code pages,
+compiled and/or created by Professor Joseph (Yossi) Gil at the Technion, plus
+additional material created at Columbia University: the Hebrew setups and key
+mappings for Kermit, various character set tables, documentation, etc.
+
+Here is a brief synopsis of the files in the Kermit HEBREW directory:
+
+   HEBREW.DOC   - This file
+   HEBREW.INI   - Hebrew initialization file for Kermit
+   HEBREW.HLP   - Documentation for HEBREW.INI
+   CP862.TBL    - IBM PC Hebrew code page table
+   ISO88598.TBL - ISO 8859-8 Latin/Hebrew alphabet table
+   HEBREW-7.TBL - Hebrew-7 table   
+
+And these are in the Kermit PCFONTS directory:
+
+   LOADFONT.COM - Program for changing PC code page (font)
+   LOADFONT.HLP - Help text for LOADFONT
+   CHARSET.COM  - Program to display current code page (font)
+
+   CP437.F16    - USA code page
+   CP850.F16    - Multinational (i.e. Western Europe) code page
+   CP852.F16    - Eastern Europe code page
+   CP862.F16    - Hebrew code page
+   CP866.F16    - Cyrillic code page
+
+The CPxxx.F16 files are to be used with LOADFONT when your PC screen has 25
+lines (there are also .F08 files that can be used for larger screen lengths).
+For example, to load the Hebrew code page, type the following command at the
+DOS prompt:
+
+  C:\> cd c:\kermit\pcfonts
+       ^^^^^^^^^^^^^^^^^^^^
+  C:\> loadfont cp862.f16
+       ^^^^^^^^^^^^^^^^^^
+The CP862.TBL file will look right when you have CP862 loaded (for example,
+when you TYPE it, EDIT it, etc).  The other .TBL files are there for reference
+and practice.
+
+Even if you have a Hebrew code page or font already loaded, the HEBREW macro
+will load CP862.F16 anyway.  That's because there is no reliable way for
+Kermit to tell that the Hebrew code page is already active; for example, on
+Hebrew-model PCs that have a Hebrew "hardware" code page, CHCP reports "437"
+instead of "862".  No harm is done by loading CP862.F16 over your previous
+Hebrew code page, but it might look slightly different.  If LOADFONT should
+fail (e.g. on a Hebrew-model PC with Mono or CGA adapter that does not support
+loadable fonts), but there is already a Hebrew hardware code page, everything
+should still work correctly.
+
+USING KERMIT'S HEBREW FEATURES
+
+After you start Kermit, type the command:
+
+  HEBREW
+
+at the "MS-Kermit>" prompt.  "HEBREW" is a macro, defined in MSKERMIT.INI,
+that executes the HEBREW.INI file from the KERMIT\HEBREW directory.
+HEBREW.INI sets everything up for you automatically.  If you always want to
+have the Hebrew features available when you use Kermit, use a text editor to
+add the HEBREW command to your MSCUSTOM.INI file, and then you won't have to
+type this command at all.
+
+If you also want your numeric keypad to be loaded with VT100/200/300
+functions, then you should also TAKE the KERMIT\KEYBOARD\VT300.INI file.
+If, in addition, you want the Num Lock key to function as the DEC Gold key,
+you must run the GOLD.COM program -- see KEYBOARDS\GOLD.DOC.
+
+The HEBREW.INI file:
+
+  1. Activates ISO 8859-8 / CP862 character-set translations.
+  2. Adds commands to let you change code pages easily.
+  3. Loads the Hebrew code page.
+  4. Defines the key maps for Hebrew and English keyboard modes.
+  5. Sets up commands and hot keys for switching keyboard modes.
+  6. Sets up hot keys for switching screen-writing direction.
+
+The initial keyboard mode is English.
+
+The Hebrew font remains loaded after you exit from Kermit, unless you load
+another font yourself.
+
+After Kermit has executed the HEBREW.INI command file, the following new
+commands are available at at the "MS-Kermit>" prompt:
+
+  HKEYS   Enter Hebrew keyboard mode upon next CONNECT command.
+  EKEYS   Enter English keyboard mode upon next CONNECT command.
+  HFONT   Load the Hebrew font (done automatically when you TAKE HEBREW.INI)
+  EFONT   Load the US font (CP437)
+  MFONT   Load the Multinational (West European) font (CP850) 
+	
+And the following function keys are available during terminal emulation
+(CONNECT mode):
+
+  F5      "Hot key" to enter Hebrew keyboard mode immediately.
+  F6      Hot key to enter English keyboard mode immediately.
+  F7      Equivalent to DEC VT terminal's F7 key (for use with ALEPH software).
+  F9      Select right-to-left screen writing.
+  F10     Select left-to-right screen writing.
+
+USING MS-DOS KERMIT FOR HEBREW TERMINAL EMULATION
+
+The HEBREW.INI file sets Kermit up for an 8-bit connection to hosts and
+applications that use the 8-bit ISO Latin/Hebrew character set.  This is the
+the international standard Hebrew character set, and the one used by most
+host-based applications, such as the ALEPH Hebrew library software.  It is not
+the same as the PC Hebrew code page, so Kermit must translate between the two.
+
+There are at least two other possibilities, which you must consider if you
+access a Hebrew application through Kermit, but the characters look wrong:
+
+ . On 7-bit connections, "Hebrew-7" -- a 7-bit character set in which the
+   lowercase Roman letters are replaced by Hebrew letters -- is generally
+   used.  Hebrew-7 codes are different from Latin/Hebrew and also from CP862.
+   Hebrew-7 is commonly used in e-mail, in which it is difficult or impossible
+   to transmit 8-bit text.  To use Hebrew-7:
+
+     SET TERMINAL CHARACTER-SET HEBREW-7
+     SET TERMINAL BYTESIZE 7
+  
+ . It is possible that some Israeli BBSs use Code Page 862.  In this case,
+   tell Kermit not to translate.
+
+     SET TERMINAL CHARACTER-SET TRANSPARENT
+     SET TERMINAL BYTESIZE 8
+   
+ . For completeness, here are the commands to use ISO Latin/Hebrew:
+
+     SET TERMINAL CHARACTER-SET HEBREW-ISO
+     SET TERMINAL BYTESIZE 8
+
+Before accessing the host or service, you must also choose the appropriate type
+of terminal emulation, one of the following (use the highest model that works):
+
+  SET TERMINAL TYPE VT320  (this is the default)
+  SET TERMINAL TYPE VT220
+  SET TERMINAL TYPE VT102
+  SET TERMINAL TYPE VT100
+
+From this point, Hebrew-aware software on the remote host or service should be
+able to produce correctly formatted screens containing any mixture of English
+and Hebrew.
+
+ENTERING HEBREW CHARACTERS ON THE KEYBOARD
+
+MS-DOS Kermit acts like a Hebrew-model DEC VT terminal.  Like your PC, the VT
+terminal has the normal number of keys; it does not have extra keys for Hebrew.
+Thus, some keys are "shared" between Roman and Hebrew characters.  To send
+Hebrew letters the keyboard must be in "Hebrew mode", and to send lowercase
+Roman letters, the keyboard must be in "English mode".  The HEBREW.INI file
+supplies you with commands and hot keys to switch modes:
+
+                        Command    Hot-Key
+   Enter Hebrew mode:    HKEYS       F5
+   Enter English mode:   EKEYS       F6
+
+Use the commands (HKEYS, EKEYS) when at the "MS-Kermit>" prompt; use the hot
+keys (F5, F6) during terminal emulation.  MS-DOS Kermit also allows the host
+application to change your keyboard mode automatically by sending escape
+sequences (ALEPH does this); see Appendix I at the end of this file.
+
+When Hebrew key mappings are in effect and you press any key to which a Hebrew
+code is assigned during terminal emulation, Kermit automatically translates
+the PC Hebrew code into the appropriate code (HEBREW-ISO or HEBREW-7 or
+TRANSPARENT) for the remote application, according to your TERMINAL
+CHARACTER-SET.  In other words, you do NOT need different key mappings for
+different host Hebrew character sets.
+
+HEBREW FILE TRANSFER
+
+Hebrew text-file transfer is supported by MS-DOS Kermit, C-Kermit (UNIX, VMS,
+OS/2, Stratus VOS, etc), and IBM Mainframe Kermit (VM/CMS, MVS/TSO, CICS).
+
+When transferring Hebrew text files between MS-DOS Kermit and a remote
+computer or service, use the following commands to ensure that the Hebrew
+characters are translated correctly:
+
+On the PC:                         On the remote computer:
+
+ SET FILE CHARACTER-SET CP862       SET FILE CHARACTER-SET xxx
+ SET TRANSFER CHARACTER-SET HEBREW  SET TRANSFER CHARACTER-SET HEBREW
+
+xxx is the name of the Hebrew character-set on the remote host, such as
+HEBREW-ISO, HEBREW-7, or (only on IBM Mainframes) CP424.  Then send and
+receive text files in the normal way.
+
+PRINTING
+
+All files created on your PC's disk by Kermit will record Hebrew letters in
+the IBM PC Hebrew code page, CP862 (provided you have set up the appropriate
+translation).  If you have a printer that is capable of printing this
+character set, then all the normal printing facilities of DOS and of Kermit
+should work as expected:
+
+ . The DOS PRINT command.
+ . The Print Screen key in DOS or Kermit.
+ . etc etc.
+
+NOTE: If you have an IBM printer that is capable of code-page switching, then
+the Hebrew fonts supplied on the Hebrew disk will probably not print
+correctly.  In this case, you will need the real IBM Code Page 862, such as
+IBM's HEBEGA.CPI, prepared and loaded according to the instructions on pages
+126-129 of "Using MS-DOS Kermit".
+
+If you do NOT have a printer with a Hebrew font built in, then you must use
+higher-level software to do the printing.  Reportedly, for example, it is
+possible to import a plain-text CP862 file (such as Kermit would create when
+you save a screen) into Hebrew WordPerfect and then print it from there.
+
+ACCESSING THE ALEPH LIBRARY CATALOG APPLICATION
+
+The ALEPH system, in use throughout Israel and also at the Jewish Theological
+Seminary of America (JTSA), is designed for use by DEC VT terminals, such as
+those emulated by MS-DOS Kermit, and it uses the 8-bit ISO Latin/Hebrew
+alphabet.  The HEBREW.INI file sets everything up for you.
+
+If your PC is on a TCP/IP network and your MSCUSTOM.INI (MS-DOS Kermit
+customization file) is correctly set up for TCP/IP, you can telnet directly
+from your PC to an ALEPH host, e.g.:
+
+  MS-Kermit> telnet jtsa.edu
+             ^^^^^^^^^^^^^^^
+If your PC is not on the network, you can dial up with a modem.
+
+No matter which way you came in, you should now see the host banner and
+login prompt, e.g.:
+
+  **********************************************************************
+  *           The Jewish Theological Seminary of America               *
+  *                         VAX/VMS v.5-4                              *
+  **********************************************************************
+
+  Username: ALEPH
+            ^^^^^
+Respond to the "Username:" prompt by typing the word "aleph" and then press
+the Enter key.  You won't need a password.  Now you will see a greeting and
+menu like this:
+
+        Welcome to VAX/VMS version V5.4 on node THEO
+    Last interactive login on Tuesday, 8-FEB-1994 18:38
+    Last non-interactive login on Sunday,  4-JUL-1993 18:44
+
+			  Terminal selection  
+  Standard (non soft font) terminals: 
+   3.  VT102 (Latin only, unless accessed using Israeli ALEPH KERMIT)
+   11. VT220 protocol (VT220,VT320,VT340,VT420,V603, etc.
+	       Latin only, unless terminal has Hebrew chip installed)
+
+  Full Latin and SOFT FONT (Hebrew, Arabic, Cyrillic) standard terminals:
+   17. VT320 
+   18. VT420 
+
+  English/Hebrew and SOFT FONT (Arabic, Cyrillic) Israeli Hebrew chip
+  terminals:
+   27. VT320 
+   28. VT420 
+
+		   Select from menu : 11
+                                      ^^
+Choose 11 (VT220) from the terminal-type menu.  That's all there is to it.
+
+Now you should see an English menu on your screen with Hebrew writing near
+the top.  Here's a quick demo:
+
+1. In the menu screen, type "?/HEB" (uppercase, without the quotes) and then
+   press the Enter key to switch to Hebrew display mode.  The menu should
+   change to all Hebrew, and your keyboard should switch automatically into
+   Hebrew mode.
+
+2. Now type "?/ENG" to switch back to English.  Beware: Since the keyboard is
+   in Hebrew mode while you are typing this, the slash character (/) is now
+   mapped to lowercase "q", so to enter "?/ENG", you must type "?qENG".
+   Notice how these characters echo when you type them.  Now you should see a
+   help screen whose left side is English and whose right side is Hebrew.
+
+3. Now type "ENG" or "HEB" to select English or Hebrew screens.  The host
+   application automatically switches your keyboard to the appropriate mode.
+   If you select Hebrew, the Hebrew key mappings go into effect automatically;
+   if you select English, the English mappings are made automatically.
+
+4. In an English screen, search for (say) authors named Singer by typing:
+
+      AU/Singer
+
+   In a Hebrew screen type the Hebrew author-search command, Mem-Chet-slash
+   (njq) and the author's name in Hebrew, for example "zhbdr" (= Zade Yod Nun
+   Gimel Resh = Zinger):
+
+      njqzhbdr
+
+5. To capture a screen, hold down the Ctrl key and press the End key on the
+   numeric keypad.  This copies text on the screen to a file on your disk
+   called KERMIT.SCN.  If you do this more than once, it will keep adding new
+   screens to the end of the KERMIT.SCN file, separating each one by a
+   Formfeed.
+   
+To get back to the main menu at any time, press the PC's F7 key.
+
+To leave ALEPH, type the word "STOP" (without the quotes) and then press the
+Enter key.
+
+Some Hebrew library catalogs that use the ALEPH software are:
+
+  Central ALEPH Computer          Telnet RAM2.HUJI.AC.IL or 128.139.4.207
+  Bar-Ilan University             Telnet ALEPH.BIU.AC.IL or 132.70.9.36
+  Ben-Gurion University           Telnet BGULIB.BGU.AC.IL
+  Haifa University                Telnet LIB.HAIFA.AC.IL or 132.74.1.100
+  Hebrew University               Telnet ALEPH.HUJI.AC.IL or 128.139.4.207
+  Jewish Theological Seminary     Telnet JTSA.EDU
+  Technion                        Telnet LIB.TECHNION.AC.IL or 132.68.1.20
+  Tel Aviv University             Telnet TAUVAX.TAU.AC.IL or 132.66.32.6
+  Weizmann Institute of Science   Telnet WISLIB.WEIZMANN.AC.IL or 132.76.64.14
+
+In all cases, the username to use is ALEPH and no password is required,
+and in all cases you should choose "11" from the terminal-type menu.
+
+Also, please note that references to "Hebrew-University Kermit" are obsolete,
+as are the instructions for using it.  All the work done at Hebrew University
+was incorporated into MS-DOS Kermit 3.13, and upgraded to a higher level of
+functionality.  Please ignore the instructions about special MSKERMIT.INI
+files, VT102 emulation, Terminal Type 3, etc.
+
+USING KERMIT'S HEBREW FEATURES IN NON-HEBREW APPLICATIONS
+
+You can use Kermit's Hebrew features to create or view plain-text documents on
+a CUNIX or other host computer written in Hebrew (or Yiddish?) (or Ladino?)
+if you keep the following points in mind:
+
+ . Hebrew characters are restricted to the basic set of 22 letters and
+   5 final forms.
+
+ . Hebrew characters are stored and transmitted "left to right", even though
+   they should be displayed right to left.
+
+ . You can't mix Roman and Hebrew text in a plain-text file unless you are
+   willing to type the Hebrew letters in reverse order (or vice-versa,
+   depending on how the text is to be displayed).  That's because
+   non-Hebrew-aware software is not equipped to handle bidirectional text.
+
+If you are using Kermit to create or read Hebrew text on a computer that does
+not have Hebrew-aware software, you can tell Kermit to reverse its
+screen-writing direction to force characters to be written right-to-left:
+
+  SET TERMINAL DIRECTION RIGHT-TO-LEFT
+
+And, of course, you can also undo this effect:
+
+  SET TERMINAL DIRECTION LEFT-TO-RIGHT
+
+The HEBREW.INI file assigns these functions to F9 and F10, respectively, so
+you can conveniently switch direction during terminal emulation.
+
+If your connection to the host application is "8-bit clean", AND the
+application itself is also 8-bit clean, you can use the ISO 8859-8
+Latin/Hebrew Alphabet, which contains full upper and lowercase Roman, plus
+Hebrew, plus a variety of symbols.  Unfortunately, very few host applications
+are 8-bit clean (except on VMS -- such as ALEPH and HEDT).
+
+EXAMPLE: Creating a Hebrew text file with the VMS EVE (EDIT/TPU) editor:
+
+  1. Type "hebrew" at the MS-Kermit> prompt.
+  2. Log in to the VAX.
+  3. EDIT/TPU <filename>.
+  4. Push F5 to enter Hebrew keyboard mode.
+  5. Push F9 to select right-to-left screen writing.
+  6. Create/edit the file in the normal way.  All the English
+     will be displayed backwards, but the Hebrew will look right.
+
+IN THE 7-BIT ENVIRONMENT, you'll have to use the Hebrew-7 character set,
+in which lowercase Roman letters are replaced by Hebrew letters; thus
+only uppercase Roman letters are available.  For example, to send a Hebrew
+e-mail message with (English) Pine:
+
+  1. Access and log in to CUNIX (don't put Kermit into Hebrew mode yet).
+  2. Start Pine and select COMPOSE MESSAGE.
+  3. Fill out the To: and Subject: fields of the message using Roman letters.
+  4. Move to the message body using the down-arrow or Enter key.
+  5. Press the F5 key to enter Hebrew keyboard mode.
+  6. Use Alt-x to return to the MS-Kermit> prompt and enter the following
+     commands:
+     
+       hebrew
+       set terminal character-set hebrew-7
+       set terminal bytesize 7
+       connect
+
+     Remember: you can abbreviate Kermit commands and keywords (but not
+     filenames) to their minimum unique length.  So the above commands could
+     also be entered as:
+
+       hebrew
+       set ter ch hebrew-7
+       set ter by 7
+       c
+
+  7. Push F9 to select right-to-left screen writing.
+  8. Type Ctrl-L (hold down Ctrl and press the L key) to refresh the screen.
+  9. Enter Hebrew text into the message body, referring to the keyboard map.
+     If you must type numbers, enter the digits in reverse order.  If you must
+     type English text, enter the letters in UPPER CASE and in reverse order.
+ 10. To send the message, type Ctrl-X (hold down Ctrl, press X).
+ 11. To return to English mode, press F6 and F10, then Ctrl-L to refresh
+     the screen.
+ 12. Enter Q to quit from Pine.
+
+The person who receives your message must, of course, also be set up for the
+Hebrew-7 character set and right-to-left display.  Remember that when the
+keyboard is in Hebrew mode, all Roman letters must be entered in UPPER CASE.
+This includes (of course) Pine commands.
+
+OTHER HOST-BASED HEBREW APPLICATIONS   
+
+There is a version of the text editor EMACS, developed in Japan, called MULE
+(MUltiLingual EMACS), which is capable of handling Hebrew (as well as almost
+any other script in the world), fully accomodating mixed Hebrew and Roman (or
+other) scripts, and (reportedly) handling bidirectionality correctly.  It
+works best with X terminals, but might also work in Hebrew mode with PCs
+running Kermit.
+
+There is a Hebrew version of the UNIX VI text editor, called vi.iv, from
+the Technion in Haifa.
+
+Hebrew Pine and Pico are available from Hebrew University, horizon.huji.ac.il.
+
+HEDT is a product of DEC Israel.
+
+EPILOG
+
+Because Hebrew text is intrinsically bidirectional (since, for example,
+numbers are written left-to-right, and Roman or other types of left-to-right
+text are often mixed in), no "plain-text" standard for Hebrew has ever
+emerged.  Hebrew text can only be handled on a "higher" level, e.g. by
+applications such as the JTSA catalog, Hebrew WordPerfect, and so on.
+
+Unfortunately, but not surprisingly, these higher-level applications are
+incompatible with each other, using different character sets and different
+methods for indicating and controlling directionality, not to mention other
+rendering and representation issues (Macintosh vs PC, font selection and
+style, boldface, italic, etc etc).  Thus, widespread system- and application-
+independent interchange of Hebrew text has never been achieved.  Informants in
+Israel tell me, for example, that Hebrew simply is not used in e-mail;
+everybody gets by with English.
+
+The situation with Arabic is similar, but not identical.
+
+The situation with other non-Roman alphabetic scripts, such as Cyrillic and
+Greek, is far better.  These scripts can be handled very easily by a simple
+font change, and mixtures of Cyrillic and Roman or Greek and Roman letters in
+a plain text file poses no problems at all.  Similar comments apply to other
+left-to-right alphabetic scripts such as Armenian, Georgian, etc.
+
+In the future, there will be a universal coded character set, ISO 10646,
+capable of representing all of the world's scripts in a single coding system,
+including both modern and ancient scripts.  Presently, ISO 10646 includes only
+the basic Hebrew repertoire of 22 letters plus 5 final forms.  An extension to
+this standard, proposed by the Israel Institute for Standards, will add vowel
+points, cantillation marks, and possibly also unique Hebrew forms of
+punctuation as well as Yiddish digraphs.  ISO 10646 (and its precursor,
+Unicode, which is in most part a compatible subset of ISO 10646) will allow
+text to contain any mixture of scripts.  But massive changes in software,
+data, as well as in display, printing, and data entry devices will be
+required, so only time will tell if ISO 10646 will achieve widespread use.
+
+APPENDIX I - THE HEBREW KEY MAP
+
+(Note: Names of Hebrew letters are from the ISO 8859-8 Standard.)
+
+Hebrew Order             Roman Order              QWERTY Keyboard Order        
+
+  q = Slash                , = Taw 		    q = Slash 
+  w = Apostrophe           . = Terminal Zade        w = Apostrophe 
+  ' = Comma                ' = Comma                e = Qoph 
+  / = Period               / = Period               r = Resh 
+  t = Aleph                ; = Terminal Pe          t = Aleph 
+  c = Bet                  a = Shin                 y = Tet 
+  d = Gimel                b = Nun                  u = Waw 
+  s = Dalet                c = Bet                  i = Terminal Nun 
+  v = He                   d = Gimel                o = Terminal Mem 
+  u = Waw                  e = Qoph                 p = Pe 
+  z = Zain                 f = Kaph                 a = Shin 
+  j = Chet                 g = Ayin                 s = Dalet 
+  y = Tet                  h = Yod                  d = Gimel 
+  h = Yod                  i = Terminal Nun         f = Kaph 
+  l = Terminal Kaph        j = Chet                 g = Ayin 
+  f = Kaph                 k = Lamed                h = Yod 
+  k = Lamed                l = Terminal Kaph        j = Chet 
+  o = Terminal Mem         m = Zade                 k = Lamed 
+  n = Mem                  n = Mem                  l = Terminal Kaph 
+  i = Terminal Nun         o = Terminal Mem         ; = Terminal Pe 
+  b = Nun                  p = Pe                   ' = Comma 
+  x = Samech               q = Slash                z = Zain 
+  g = Ayin                 r = Resh                 x = Samech 
+  ; = Terminal Pe          s = Dalet                c = Bet 
+  p = Pe                   t = Aleph                v = He 
+  . = Terminal Zade        u = Waw                  b = Nun 
+  m = Zade                 v = He                   n = Mem 
+  e = Qoph                 w = Apostrophe           m = Zade 
+  r = Resh                 x = Samech               , = Taw 
+  a = Shin                 y = Tet                  . = Terminal Zade 
+  , = Taw                  z = Zain                 / = Period 
+
+If you have a PostScript printer, you can get a picture of the key map
+by printing the KEYMAP.PS file from the KERMIT\HEBREW directory.
+
+APPENDIX II - Technical Summary
+
+Hebrew terminal emulation and file transfer (version 3.13).  Commands:
+
+  SET TRANSFER CHARACTER-SET HEBREW
+  SET FILE CHARACTER-SET CP862
+  SET TERMINAL CHARACTER-SET { HEBREW-ISO, HEBREW-7 }
+  SET TERMINAL DIRECTION { RIGHT-TO-LEFT, LEFT-TO-RIGHT }
+  SET TERMINAL CODE-PAGE CP862
+
+Terminal direction is controlled in two different ways: (1) by host-generated
+escape sequences (automatic, see below) and (2) by the SET TERMINAL DIRECTION
+command.  When the writing direction is changed by escape sequences from the
+host, the cursor-positioning coordinate system is not changed.  For example,
+if Kermit was in left-to-right mode and the host send ESC [ ? 34 h, position
+(1,1) would still be in the upper left.  This is how a real Hebrew-model VT
+terminal works.  If, however, you command Kermit into RIGHT-TO-LEFT mode, the
+coordinate system flips right to left so the origin (1,1) is at the upper
+right corner, which is useful for viewing and composing some right to left
+text. The host can override the user setting, and the user can later override
+the host setting.
+
+Hebrew character sets:
+
+ . CP862 is the PC Hebrew code page, available from IBM as EGAHE.COM, or
+   perhaps as a hardware code page on Hebrew-model PCs.  Distributed on the
+   the Kermit diskette in a public-domain form as CP862.F16, to be used with
+   the (also public-domain) LOADFONT program.
+
+ . HEBREW-ISO is the 8-bit standard ISO 8859-8 Latin/Hebrew alphabet.
+
+ . HEBREW-7 is the 7-bit Hebrew "National Replacement Character Set" (NRC),
+   ASCII with the lowercase Roman letters replaced by Hebrew letters,
+   often used in e-mail.
+
+MS-DOS Kermit 3.13 supports:
+
+ . Automatic selection of writing direction by host escape sequence.
+ . ISO 2022-compliant terminal character-set designation and invocation.
+ . Hebrew keyboard mode.
+
+Hebrew-specific escape sequences recognized by the VT220 and 320 terminal
+emulators: 
+
+  ESC ) H		Designates right half of Latin/Hebrew to G1   
+  ESC * H		Designates right half of Latin/Hebrew to G2   
+  ESC + H		Designates right half of Latin/Hebrew to G3   
+  ESC ( % =		Designates 7-bit Hebrew NRC to G0-G3	      
+  ESC ) " 4		Designates DEC supplement Hebrew letters to G1
+  ESC * " 4		Designates DEC supplement Hebrew letters to G2
+  ESC + " 4		Designates DEC supplement Hebrew letters to G3
+  DCS 0 ! u " 4 ST	Assigns DEC supplement Hebrew as UPSS
+  DCS 0 ! u H ST	Assigns Latin/Hebrew as UPSS
+  CSI ? 34 h		Sets right-to-left screen-writing mode
+  CSI ? 34 l		Sets left-to-right screen-writing mode
+  CSI ? 35 h		Sets Hebrew keyboard mapping via Kermit macros
+  CSI ? 35 l		Sets Roman (North American) keyboard mapping, ditto
+  CSI ? 36 h		Hebrew encoding mode: 7-bit Hebrew-7 "National mode"
+  CSI ? 36 l		Hebrew encoding mode: 8-bit ISO Latin/Hebrew
+
+Hebrew keyboard mapping:
+
+ . CSI ? 35 h invokes the macro KEYBOARDS, which you must define to set up
+   your keyboard for entering Hebrew characters.  If this macro is not
+   defined, nothing happens.
+
+ . CSI ? 35 l invokes the macro KEYBOARDR, which you must define to set up
+   your keyboard for entering Roman (North American) characters.  If this
+   macro is not defined, nothing happens.
+
+     NOTE: do not define KEYBOARDS without also defining KEYBOARDR
+     to undo its effects!
+
+The various reports furnished by MS-DOS Kermit also include Hebrew-specific
+information, and the following host-initiated operations work in both left-
+to-right and right-to-left mode: Insert/Replace Mode, Autowrap, Backspace,
+Carriage Return, Linefeed, Formfeed, Vertical Tab, Horizontal Tab.
+
+The keyboard mapping sequences invoke the user-defined macros KEYBOARDS (h)
+and KEYBOARDR (l).  Users should define these macros to accomplish the desired
+keyboard mappings with SET KEY commands.  Sample mappings (those used with
+Hebrew WordPerfect, etc) are supplied in the HEBREW.INI file.
+
+In VT100 and VT102 mode, the following functions are supported:
+
+  ESC ) 1		Enter Hebrew mode
+  ESC ) B		Exit Hebrew mode
+
+FURTHER READING 
+
+1. Your MS-DOS manual, the sections on code pages.  For example, Microsoft 
+   MS-DOS Operating System Version 5.0 User's Guide and Reference (1992), 
+   Chapter 13 and the Appendix, "Keyboard Layouts and Code Pages". 
+
+2. Gianone, Christine M., "Using MS-DOS Kermit", Digital Press (1992), 
+   Chapter 13, "International Character Sets".  Also, for TCP/IP setup, 
+   Chapter 16, "Kermit on Local Area Networks". 
+
+3. The files KERMIT.UPD and HEBREW\HEBREW.HLP on the MS-DOS 3.13 diskette.
+
+4. The Hebrew character-set tables in the HEBREW directory, and the PC
+   font material in the PCFONTS directory.
+
+5. The Unicode Standard, Worldwide Character Encoding, Version 1.0, Volume 1, 
+   The Unicode Consortium.  Addison-Wesley (1991). 
+
+(End of HEBREW.DOC) 

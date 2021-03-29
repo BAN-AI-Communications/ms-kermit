@@ -1,0 +1,196 @@
+; File QBLAZER.SCR (MSMQBLAZ.SCR)
+;
+; An MS-DOS Kermit script program for dialing Telebit QBlazer modems.
+; Set up QBlazer for compression, error correction, all types of fallback,
+; RTS/CTS flow control, fixed interface speed of 38400.
+;
+; Requires MS-DOS Kermit 3.12 or later
+;
+; Authors: Christine M. Gianone, Frank da Cruz; Columbia U, June 1993
+; 
+def errfail echo \%1, hangup, goto fail ; Macro to handle failures.
+if < VERSION 312 errfail {MS-DOS Kermit 3.12 or later required.}
+if eq "\v(system)" "UNIX" if = \v(local) 0 stop 1 Please SET LINE first.
+
+define chkerr if fail stop 1 \%1
+define chkok input 3 OK, if fail stop 1 \%1
+
+define max_speed 38400	; Change these two if necessary
+define s51 6		; ...
+
+; Macro to try to get attention of modem's command processor
+; at the given speed, or if no speed given, at the current speed.
+;
+define atok -
+ if not def \%1 assign \%1 \v(speed), -
+ set speed \%1, -
+ echo Trying \%1..., -
+ output \B, -
+ output \17, -
+ output ATQ0\13, -
+ input 3 OK, -
+ if success goto gotok
+
+set input echo on		; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore		; Use caseless string comparisons
+
+set parity none		; Avoid parity foulups
+set flow none		; Avoid flow control deadlocks
+hangup			; Begin by dropping DTR
+pause 1			; for one second
+
+echo Configuring Telebit QBlazer on \v(line).
+
+if > \v(speed) \m(max_speed) set speed \m(max_speed)
+
+atok			; Try to connect at current speed, whatever it is.
+atok 9600	 	; Try to connect at 9600.
+atok 19200		; 19200...
+atok 2400		; etc...
+atok 38400		; Last resort because no autobaud at this speed(?)
+stop 1 Can't get modem's attention
+
+; QBlazer modem setup, should apply to all connections:
+;
+; X4           Result code selection, wait for dialtone, recognize busy signal.
+; &D2          Disconnect call and return to command mode if DTR drops;
+;                this allows HANGUP to work if cable properly wired.
+; S50=0        Automatic modulation speed determination.
+; S94=1        Allow connection at any speed and allow modulation fallback.
+; S58=2S68=255 Use RTS/CTS hardware flow control.
+; S60=0        Data format: 8 data bits, no parity.
+; S61=0S63=0   Pass BREAK through transparently.
+
+:GOTOK			; Got OK from modem
+
+;;output AT&F\13	; Restore factory settings (no, this changes speed!)
+;;chkok {Can't restore factory settings}
+
+output AT E1 Q0 V1 &D2 S59=15 X4\13  ; Set echo and response modes.
+chkok {Can't initialize modem}
+
+echo Locking interface speed at \m(max_speed)...
+output ATS51=\m(s51)\13
+chkok {Can't set modem's speed to \m(max_speed)}
+set speed \m(max_speed)
+
+; Try 3 times to get OK response to AT at new speed.
+;
+set count 3
+:LOOP
+pause
+output AT\13
+input 3 OK
+if success goto ok
+if count goto loop
+Stop 1 Can't communicate with modem at \m(max_speed)
+
+:OK
+echo Enabling hardware flow control...
+output AT S58=2 S68=255 &R3\13	; Tell modem to use RTS/CTS
+chkok {Can't enable RTS/CTS}
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts		; Tell Kermit to use RTS/CTS
+echo Enabling modulation negotiation...
+output AT S50=0 S94=1\13	; Enable modulation speed negotiation
+chkok {Can't enable modulation speed negotiation}
+echo Configuring modem to ignore BREAK...
+output AT S60=0 S61=0 S63=0\13	; Make modem ignore break
+chkok {Can't be transparent to BREAK}
+echo Enabling error correction and data compression...
+output AT S180=2 S181=1 S190=1\13 ; Enable error correction & compression
+chkok {Can't enable compression EC and fallback}
+
+if def \%1 if not equal "\%1" "=" goto BEGIN
+echo QBlazer initialized OK:
+output AT&V\13
+input 10 OK
+echo
+echo Firmware version:
+output ATI3\13
+input 4 OK
+end 0
+
+:BEGIN				; Now DIAL.
+clear				; Clear INPUT buffer.
+set count 5                     ; Dialing retry counter, 5 tries allowed.
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+pause 1
+goto dial                       ; 1st time, skip pause and Redialing message
+
+:REDIAL
+set alarm 30
+pause 30			; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number.
+set alarm 90			; (For detecting keyboard interruptions.)
+if > VERSION 312 clear input	; Clear echo from INPUT buffer.
+if < VERSION 313 clear
+pause 1				; Wait a sec
+input 30 \10                    ; Wait for the linefeeds...
+
+:GETMSG
+input 60 \10			; ...that surround the response message.
+if success goto gotmsg		; Got a message.
+if alarm errfail {No response from modem.} ; No response in 90 seconds.
+hangup				; User interrupted from keyboard,
+output \13			; cancel dialing by sending carriage return,
+goto again			; and go try again right away.
+
+:GOTMSG
+reinput 1 CONNECT               ; Got a message, was it CONNECT?
+if success goto done            ; If so, we're done.
+
+reinput 1 DIALING		; Modem says it's dialing...
+if fail goto g2
+if > VERSION 312 clear input	; Clear echo from INPUT buffer.
+if < VERSION 313 clear
+goto getmsg			; message again, then go get next message.
+
+:G2
+reinput 1 RRING			; Remote phone is ringing...
+if fail goto g3
+clear				; Clear INPUT buffer.
+goto getmsg			; Go wait for another message.
+
+:G3
+reinput 1 BUSY			; Line is busy.
+if success goto busy		; Go wait a while and then dial again.
+
+:G4
+reinput 1 ERROR			; Command syntax error.
+if success errfail {Dialing command error}
+reinput 1 NO CARRIER		; Phone didn't answer or no carrier.
+if success errfail {No answer or no carrier}
+reinput 1 NO DIALTONE		; No dialtone when phone taken off hook.
+if success errfail {No dialtone - Is your modem connected to the phone line\63}
+goto getmsg			; None of the above, get another message.
+
+:BUSY
+if < \v(count) 2 goto quit	; Don't wait 30 seconds if tries are used up.
+echo Line is busy, will dial again in 30 seconds.
+echo Press any key to cancel...
+output \13			; CR cancels dialing
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+define errfail			; Erase local macro definitions...
+end 0				; Finished, return success code.
+
+:FAIL				; Dialing failed, no beep.
+define errfail			; Erase local macro definitions...
+end 1				; Return failure code.
+
+; End of QBLAZER.SCR

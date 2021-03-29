@@ -1,0 +1,132 @@
+; FILE DATAPORT.SCR (MSMDATAP.SCR)
+; 
+; An MS-DOS Kermit script program for dialing the AT&T / Paradyne Dataport
+; 14400 modem, internal or external, to be used with MS-DOS Kermit 3.12 or
+; later.  The modem is set for V.32bis, compression, error correction, all
+; types of fallback, RTS/CTS flow control, fixed interface speed of 57600.
+; 
+; Rename this file to DATAPORT.SCR if necessary.
+;
+; To use: SET MODEM=DATAPORT (in DOS, before starting Kermit)
+; or:     DEFINE _MODEM DATAPORT (in Kermit, before dialing)
+; and:    Make sure Kermit executes the standard MSKERMIT.INI file.
+;
+; Authors: Christine M. Gianone, Frank da Cruz; Columbia U, September 1993
+; Revised Oct 94.
+;
+def errfail echo \%1, hangup, goto fail ; Macro to handle failures.
+if < VERSION 312 errfail {MS-DOS Kermit 3.12 or later required.}
+
+define chkerr if fail stop 1 \%1
+define chkok input 3 OK, if fail stop 1 \%1
+
+set input echo on		; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore		; Use caseless string comparisons
+
+set parity none			; Avoid parity foulups
+set flow none			; Avoid flow control deadlocks
+hangup				; Begin by dropping DTR
+
+; Speed.  Don't worry about modem, it autobauds up to 57600 bps.
+; NOTE: This modem doesn't seem to have a command for locking the
+; interface speed.  But it seems to do it anyway.
+;
+set speed 57600
+wait 5 dsr			; Time to recover from HANGUP...
+
+echo Configuring AT&T DataPort on \v(line).
+
+:INIT
+output ATQ0V1\13		; Enable word result codes
+chkok {Can't get modem's attention}
+; X6 = Verbose result codes, show modulation speed
+; &C1 = CD follows RS232
+; &D2 = DTR follows RS232
+; &Q0 = Asynchronous data mode, use AT command set
+; S84=0 = Normal ERROR response to bad commands
+output AAAT E1 X6 &C1 &D2 &Q0 S84=0\13
+chkok {Can't initialize modem}
+output AT \92Q3\13		; RTS/CTS hardware flow control
+chkok {Can't enable RTS/CTS}	; On modem
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts		; And in Kermit too, but only now
+pause 2				; This is needed for internal model
+output AT %B14400 S41=1 S78=0\13 ; Modulation = V.32bis with fallback
+chkok {Can't enable modulation fallback}
+output AT \92N7%C1\13		; Compression and EC enabled
+chkok {Can't enable compression and EC}
+output AT \92K5\13		; Make modem pass BREAK transparently
+chkok {Can't become transparent to BREAK}
+
+if def \%1 if not equal "\%1" "=" goto BEGIN
+echo Modem initialization complete, no number to dial
+end 0
+
+:BEGIN				; Now DIAL.
+clear				; Clear INPUT buffer.
+set count 5                     ; Dialing retry counter, 5 tries allowed.
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+pause 1
+goto dial                       ; 1st time, skip pause and Redialing message
+
+:REDIAL
+set alarm 30
+pause 30			; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number.
+set alarm 90			; (For detecting keyboard interruptions.)
+if > VERSION 312 clear input	; Clear echo from INPUT buffer.
+if < VERSION 313 clear
+input 30 \10                    ; Wait for the linefeeds...
+
+:GETMSG
+input 60 \10			; ...that surround the response message.
+if success goto gotmsg		; Got a message.
+if alarm errfail {No response from modem.} ; No response in 90 seconds.
+hangup				; User interrupted from keyboard,
+output \13			; cancel dialing by sending carriage return,
+goto again			; and go try again right away.
+
+:GOTMSG
+reinput 1 CONNECT               ; Got a message, was it CONNECT?
+if success goto done            ; If so, we're done.
+reinput 1 BUSY			; Line is busy.
+if success goto busy		; Go wait a while and then dial again.
+reinput 1 ERROR			; Command syntax error.
+if success errfail {Dialing command error}
+reinput 1 NO CARRIER		; Phone didn't answer or no carrier.
+if success errfail {No answer or no carrier}
+reinput 1 NO ANSWER		; No answer
+if success errfail {No answer - try again later}
+reinput 1 NO DIALTONE		; No dialtone when phone taken off hook.
+if success errfail {No dialtone - Is your modem connected to the phone line\63}
+goto getmsg			; None of the above, get another message.
+
+:BUSY
+if < \v(count) 2 goto quit	; Don't wait 30 seconds if tries are used up.
+Echo Line is busy, will dial again in 30 seconds.
+echo Press any key to cancel...
+output \13			; CR cancels dialing
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+define errfail			; Erase local macro definitions...
+end 0				; Finished, return success code.
+
+:FAIL				; Dialing failed, no beep.
+define errfail			; Erase local macro definitions...
+end 1				; Return failure code.
+
+; End of DATAPORT.SCR

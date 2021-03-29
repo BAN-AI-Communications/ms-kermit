@@ -1,0 +1,137 @@
+; FILE CONN144P.SCR (MSMC144P.SCR)
+; 
+; An MS-DOS Kermit script program for dialing the Digicom Connection 144+
+; (previously known as the Connection 96+; there is no functional difference)
+; 14400 modem, to be used with MS-DOS Kermit 3.12 or later.  The modem is set
+; for V.32bis, compression, error correction (if appropriate software loaded),
+; RTS/CTS flow control, fixed interface speed of 115200, 57600, or 38400.
+; NOTE: Compression is enabled only if DATA144B software is loaded in the 
+; modem.  Do not use %C1 to enable compression, because the modem will
+; malfunction if this command is given but DATA144B is not loaded (if it is
+; loaded, compression will be enabled automatically anyway).
+;
+; Rename this file to CONN144P.SCR if necessary.
+;
+; To use: SET MODEM=CONN144P (in DOS, before starting Kermit)
+; or:     DEFINE _MODEM CONN144P (in Kermit, before dialing)
+; and:    Make sure Kermit executes the standard MSKERMIT.INI file.
+;
+; Authors: Christine M. Gianone, Frank da Cruz; Columbia U, September 1993
+; Adapted from DATAPORT.SCR by Mike Long; January 1994
+;
+def errfail echo \%1, hangup, goto fail ; Macro to handle failures.
+if < VERSION 312 errfail {MS-DOS Kermit 3.12 or later required.}
+if eq "\v(system)" "UNIX" if = \v(local) 0 stop 1 You must SET LINE first
+
+define chkerr if fail stop 1 \%1
+define chkok input 3 OK, if fail stop 1 \%1
+
+set input echo on               ; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore           ; Use caseless string comparisons
+
+set parity none                 ; Avoid parity foulups
+set flow none                   ; Avoid flow control deadlocks
+hangup                          ; Begin by dropping DTR
+pause 1                         ; for one second
+
+; Speed.  Don't worry about modem, it autobauds up to 115200 bps.
+;
+set speed 57600                 ; If computer can be set to 57600 bps, use it.
+if fail set speed 38400         ; If not, use 38400.
+
+echo Configuring Digicom Connection 144+ on \v(line).\13\10
+
+:INIT
+output ATQ0V1\13                ; Enable word result codes
+chkok {Can't get modem's attention}
+; E1 = Echo commands
+; W0 = Don't show error correction & compression status
+; X4 = Verbose result codes, show modulation speed
+; &C1 = CD follows RS232
+; &D2 = DTR follows RS232
+output ATE1W1X4&C1&D2\13
+chkok {Can't initialize modem}
+output AT&K3\13                 ; RTS/CTS hardware flow control
+chkok {Can't enable RTS/CTS}    ; On modem
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts                ; And in Kermit too, but only now
+output AT\92N5\13               ; Auto-reliable V.42, and V.42bis enabled
+chkok {Can't enable compression or error correction}
+output AT&V\13                  ; Show modem configuration
+chkok {Can't display configuration}
+echo Firmware version:\13\10
+output ATI3\13                  ; Show modem software version
+chkok {Can't determine modem software version}
+
+if def \%1 if not equal "\%1" "=" goto BEGIN
+echo Modem initialization complete, no number to dial
+end 0
+
+:BEGIN                          ; Now DIAL.
+clear                           ; Clear INPUT buffer.
+set count 5                     ; Dialing retry counter, 5 tries allowed.
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+pause 1
+goto dial                       ; 1st time, skip pause and Redialing message
+
+:REDIAL
+set alarm 30
+pause 30                        ; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number.
+set alarm 90                    ; (For detecting keyboard interruptions.)
+if > VERSION 312 clear input    ; Clear echo from INPUT buffer.
+if < VERSION 313 clear
+input 30 \10                    ; Wait for the linefeeds...
+
+:GETMSG
+input 60 \10                    ; ...that surround the response message.
+if success goto gotmsg          ; Got a message.
+if alarm errfail {No response from modem.} ; No response in 90 seconds.
+hangup                          ; User interrupted from keyboard,
+output \13                      ; cancel dialing by sending carriage return,
+goto again                      ; and go try again right away.
+
+:GOTMSG
+reinput 1 CONNECT               ; Got a message, was it CONNECT?
+if success goto done            ; If so, we're done.
+reinput 1 BUSY                  ; Line is busy.
+if success goto busy            ; Go wait a while and then dial again.
+reinput 1 ERROR                 ; Command syntax error.
+if success errfail {Dialing command error}
+reinput 1 NO CARRIER            ; Phone didn't answer or no carrier.
+if success errfail {No answer or no carrier}
+reinput 1 NO ANSWER             ; No answer
+if success errfail {No answer - try again later}
+reinput 1 NO DIALTONE           ; No dialtone when phone taken off hook.
+if success errfail {No dialtone - Is your modem connected to the phone line\63}
+goto getmsg                     ; None of the above, get another message.
+
+:BUSY
+if < \v(count) 2 goto quit      ; Don't wait 30 seconds if tries are used up.
+Echo Line is busy, will dial again in 30 seconds.
+echo Press any key to cancel...
+output \13                      ; CR cancels dialing
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+define errfail                  ; Erase local macro definitions...
+end 0                           ; Finished, return success code.
+
+:FAIL                           ; Dialing failed, no beep.
+define errfail                  ; Erase local macro definitions...
+end 1                           ; Return failure code.
+
+; End of CONN144P.SCR

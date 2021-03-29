@@ -1,0 +1,32 @@
+FILE XONXOFF.HLP          SERIAL PRINTER DRIVER                 September 1991
+
+XONXOFF.COM is a tiny public domain serial printer driver for MS-DOS computers,
+written by Frank Whaley in 1989 and found by Joe Doupnik in the mirror/printer
+directory on wuarchive.wustl.edu.
+
+MS-DOS allows you to define a COM port as a printer device using the MODE
+command, for use with a serial printer, for example:
+
+  MODE COM1:9600,N,8,1,P
+  MODE LPT1:=COM1
+
+However, MS-DOS does not provide flow control between itself and a serial
+printer.  MS-DOS Kermit uses standard DOS calls for printer operations (print
+screen, transparent print, autoprint, etc).  A common complaint is that these
+print operations do not work well with serial printers -- characters are lost
+or garbled, etc.
+
+XONXOFF.COM provides software (Xon/Xoff) flow control for serial printers.  It
+works only for COM1 only.  It installs itself as a terminate-and-stay-resident
+(TSR) program, intercepts DOS interrupt 17H, leaves the port baud rate and
+other parameters as found (so you must set them with the MODE command), and
+contains no provisions for de-installation.
+
+Run it from your AUTOEXEC.BAT file after giving the necessary MODE commands,
+for example:
+
+  MODE COM1:9600,N,8,1,P
+  MODE LPT1:=COM1
+  C:\KERMIT\UTILS\XONXOFF
+
+(End of XONXOFF.HLP)

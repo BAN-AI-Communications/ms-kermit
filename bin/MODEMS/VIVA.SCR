@@ -1,0 +1,121 @@
+; File VIVA.SCR -- minor modification of Christine's HAYES.SCR.
+; To be used with MS-DOS Kermit 3.11 or later.
+;
+; Gregory L. Forster [glf@alpha1.csd.uwm.edu]
+; The Career Connection BBS 8/N/1 2400 (414)258-0164
+;
+; Place this file in your
+; current directory or in any directory in your DOS PATH, and then set the
+; DOS environment variable, MODEM, to be VIVA.  Give the following command
+; at the DOS prompt before starting Kermit, or add it to your AUTOEXEC.BAT
+; file:
+;
+;   SET MODEM=VIVA  or
+;   DEFINE _MODEM VIVA at the MS-DOS Kermit prompt, or
+;   DEFINE _MODEM VIVA to your MSCUSTOM.INI file.
+;
+; Uses ATD (modem's default dialing method) to dial the number.
+; Force tone dialing by including T as first character of phone
+; number, or pulse dialing by including P as first character.
+;
+; Puts the VIVA 2442ef in the following modes, which this script depends upon
+; for following operation:
+; V1 Selects Long-Form verbal result codes.
+; E1 Echoes back characters to host typed in command mode
+; M0 Speaker always off
+; N1 Permits handshaking to occur at any speed supported by both  
+;    modems.  Enables automode detection.
+; Q0 Result codes are sent.
+; X4 BUSY detect, NO DIALTONE detect, CONNECT (speed) messages displayed
+; &C1 DCD On indicates presence of data carrier.
+; &D2 DTR On-To-Off transition causes the modem to hangup, 
+;     enter the command state, and disable auto-answer
+; &S0 Modem maintains DSR on at all times
+; %C3 Enable both MNP5 and V.42bis Data Compression
+; %D2 Sets the V.42bis dictionary size at 2048
+; %M3 Enables two-way compression
+; These are set by the statement:
+;    output ATV1E1M0X4&C1&D2&S0%C3%D2%M3\13
+;
+; Sets SUCCESS flag if dialing succeeds, sets FAILURE flag 
+; if it fails.
+;
+echo  Using VIVA 2442ef V.42bis/MNP5 FAX/MODEM\13  
+set speed 19200			; Set interface speed to 19,200
+
+def errfail echo \%1,hangup,goto fail ; Macro to handle failures.
+
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE
+
+set input echo off              ; Don't echo the modem test
+output ATV1E1M0N1Q0X4&C1&D2&S0%C3%D2%M3\13  ; Send AT, initialization
+input 2 OK                      ; Modem should say "OK"
+if fail errfail {Turn on or connect your modem!}
+set flow rts                    ; Hardware flow control
+clear				; Clear input buffer
+;
+if not equ \%1 = goto dialnow   ; This provides for initialization only.
+echo Modem initialization completed, no number to dial
+end 0
+:dialnow
+set count 15                    ; Set up dialing retry counter (15 times)
+set input echo on               ; From now on, show what happens
+echo Dialing \%1, wait...       ; Dial inputted phone number
+pause 1                         ; Pause 1 second 
+goto dial                       ; 1st time, skip Redialing message
+:REDIAL
+set alarm 30
+pause 5 			; Wait 5 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1                         ; Pause 1 second
+:DIAL
+output ATD\%1\13                ; Dial the number (ATDT or ATDP)
+:GETMSG
+set alarm 60			; Detect keyboard interruptions.
+input 40 \10                    ; Wait for the linefeeds...
+input 20 \10			; that surround response message.
+if success goto gotmsg		; Got a message.
+if alarm errfail {No response from modem.} ; No response in 60 secs.
+hangup				; User interrupted from keyboard,
+if count goto redial		; so try again right away.
+
+:GOTMSG
+reinput 0 CONNECT               ; Got message, was it CONNECT?
+if success goto speed           ; DTE-DCE rate.  Successful, continue
+reinput 0 ERROR			; No, check for command error.
+if success errfail {Modem command error.}
+reinput 0 CARRIER		; Connection rate (DCE-DCE)
+if success goto getmsg		; no action
+reinput 0 PROTOCOL		; Error correction type (NONE/LAPM/ALT)
+if success goto getmsg		; no action (=/V.42/MNP)
+reinput COMPRESSION		; Compression type (CLASS 5/V.42BIS/NONE)
+if success goto getmsg		; no action (=MNP5/V.42bis/)
+reinput 0 RING			; Ring signal detected.  Not a Hayes
+if success goto getmsg		; Look for something useful.
+reinput 0 NO CARRIER		; NO CARRIER?
+if success goto busy		; Treat like BUSY.
+reinput 0 BUSY                  ; BUSY?
+if success goto busy 		; Go wait a bit, then dial again.
+errfail {No dialtone or no answer.  Try again later.}
+
+:BUSY
+if < \v(count) 2 goto quit	; Don't wait 60 seconds if tries used up.
+Echo Busy or No Carrier, will dial again in 5 seconds...
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {Not answering now... Try later.} ; Too many tries.
+
+; The following block is retained for compatibility for HAYES.SCR.  Since
+; this modem buffers (always retains the same DCE<->DTE speed), the computer
+; should not speed-match and the next section is a no-op.
+:SPEED                          ; Connected!
+echo \7                         ; Celebrate with a beep.
+define errfail			; Erase ERRFAIL definition
+end 0				; Finished, return success code.
+
+:FAIL				; Failed, return failure code.
+define errfail			; Erase ERRFAIL definition
+end 1

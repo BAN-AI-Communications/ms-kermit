@@ -1,0 +1,125 @@
+; FILE HAYES.SCR
+;
+; To be used with MS-DOS Kermit 3.11 or later.
+;
+; An MS-DOS Kermit script program for dialing Hayes 2400 Smartmodems and
+; compatibles.  Should also work with Hayes 1200, and ROLMphone 244PCs.
+;
+; Stored in Kermit Distribution as MSMHAYES.SCR; rename to HAYES.SCR if
+; necessary so the DIAL macro can find it.  Place this file in your current
+; directory, or any directory in your DOS PATH.
+;
+; Expects variable \%1 to contain the phone number; this is done by the DIAL
+; macro defined in MSKERMIT.INI.  If you lack the DIAL macro definition, use
+; this simple substitute:
+;   DEFINE DIAL TAKE HAYES.SCR
+; To use, just type DIAL nnnnnnn at the MS-Kermit> prompt, where nnnnnnn is
+; the desired phone number.
+;
+; Uses ATD (modem's default dialing method) to dial the number.  Force tone
+; dialing by including T as first character of phone number, or pulse dialing
+; by including P as first character.
+;
+; Sets SUCCESS flag if dialing succeeds, sets FAILURE flag if it fails, for
+; use with IF SUCCESS, IF FAILURE, \v(status).
+;
+; Puts the Hayes modem in the following modes, which this script depends upon
+; for proper operation:
+;   Q0 = Enable result codes
+;   V1 = Use verbose (English) result codes
+;   X1 = Enable result codes OK, CONNECT, RING, NO CARRIER, ERROR,
+;        CONNECT 1200, CONNECT 2400
+; These are set by the statement:
+;   output ATQ0V1X1\13
+; If these modes don't agree with your modem's normal settings, you can add
+; OUTPUT commands to restore the desired settings just before the two END
+; statements at the end of this file.
+;
+; Hayes modems do not issue any messages like RINGING or RRING when the other
+; phone is ringing, but certain Hayes-compatible modems do, like Telebit.  If
+; you experience problems with this, comment (or uncomment) the appropriate
+; statement below, in the "GOTMSG" section below.  (Note: RING is different:
+; it means another modem is calling your modem.)
+;
+; Author: Christine M. Gianone, January 1990
+; Updated for MS-DOS Kermit version 3.11, July 1991
+; Updated to allow redial cancellation from keyboard, July 1993
+; 
+def errfail echo \%1,hangup,goto fail ; Macro to handle failures.
+
+if < VERSION 311 errfail {MS-DOS Kermit 3.11 or later required.}
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE
+set input echo off              ; Don't echo the modem test
+output ATQ0V1X1\13              ; Send AT, use word result codes.
+input 2 OK                      ; Modem should say "OK"
+if fail errfail {Turn on or connect your modem!}
+clear				; Clear input buffer
+if def \%1 if equal "\%1" "=" end 0 ; Phone number "=" means initialize only.
+
+set count 5                     ; Set up dialing retry counter
+set input echo on               ; From now on, show what happens
+echo Dialing \%1, wait...
+pause 1
+goto dial                       ; 1st time, skip Redialing message
+
+:REDIAL
+set alarm 30
+pause 30			; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number (ATDT or ATDP)
+;;;pause 20			; *** Might be necessary for some modems.
+set alarm 60			; Detect keyboard interruptions.
+clear				; Clear INPUT buffer.
+input 40 \10                    ; Wait for the linefeeds...
+
+:GETMSG
+input 20 \10			; that surround response message.
+if success goto gotmsg		; Got a message.
+if alarm errfail {No response from modem.} ; No response in 60 secs.
+hangup				; User interrupted from keyboard,
+goto again			; so try again right away
+
+; REINPUT 2 needed for GVC and maybe other modems that put out
+; extra linefeeds.
+
+:GOTMSG
+reinput 2 CONNECT               ; Got message, was it CONNECT?
+if success goto speed           ; Yes, go check the speed.
+reinput 2 ERROR			; No, check for command error.
+if success errfail {Modem command error.}
+reinput 2 NO CARRIER		; NO CARRIER?
+if success goto busy		; Treat like BUSY.
+reinput 2 BUSY                  ; BUSY?
+if success goto busy 		; Go wait a bit, then dial again.
+; reinput 2 RRING		; *** No, check for RRING (Telebit only).
+; if success goto getmsg	; *** RRING, just wait for next message.
+; reinput 2 RINGING		; *** No, check for RINGING (not real Hayes).
+; if success goto getmsg	; *** RINGING, just wait for next message.
+errfail {No dialtone or no answer.  Try again later.}
+
+:BUSY
+if < \v(count) 2 goto quit	; Don't wait 60 seconds if tries used up.
+Echo Busy or No Carrier, will dial again in 30 seconds...
+echo Press any key to cancel...
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:SPEED                          ; Connected!
+echo \7                         ; Celebrate with a beep.
+reinput 0 1200                  ; Was the message CONNECT 1200?
+if success set speed 1200       ; Yes, change the speed.
+reinput 0 2400			; Was it CONNECT 2400?
+if success set speed 2400	; Yes, change speed.
+define errfail			; Erase ERRFAIL definition
+end 0				; Finished, return success code.
+
+:FAIL				; Dialing failed.
+define errfail			; Erase ERRFAIL definition
+end 1				; Return failure code.

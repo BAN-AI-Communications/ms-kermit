@@ -1,0 +1,130 @@
+IBM Code Page 852
+char dec col/row oct hex  description
+[Ä]  128  08/00  200  80  C cedilla
+[Å]  129  08/01  201  81  u diaeresis
+[Ç]  130  08/02  202  82  e acute
+[É]  131  08/03  203  83  a circumflex
+[Ñ]  132  08/04  204  84  a diaeresis
+[Ö]  133  08/05  205  85  u ring
+[Ü]  134  08/06  206  86  c acute
+[á]  135  08/07  207  87  c cedilla
+[à]  136  08/08  210  88  l with stroke
+[â]  137  08/09  211  89  e diaeresis
+[ä]  138  08/10  212  8A  O double acute accent
+[ã]  139  08/11  213  8B  o double acute accent
+[å]  140  08/12  214  8C  i circumflex
+[ç]  141  08/13  215  8D  Z acute
+[é]  142  08/14  216  8E  A diaeresis
+[è]  143  08/15  217  8F  C acute
+[ê]  144  09/00  220  90  E acute
+[ë]  145  09/01  221  91  L acute
+[í]  146  09/02  222  92  l acute
+[ì]  147  09/03  223  93  o circumflex
+[î]  148  09/04  224  94  o diaeresis
+[ï]  149  09/05  225  95  l caron
+[ñ]  150  09/06  226  96  I caron
+[ó]  151  09/07  227  97  S acute
+[ò]  152  09/08  230  98  s acute
+[ô]  153  09/09  231  99  O diaeresis
+[ö]  154  09/10  232  9A  U diaeresis
+[õ]  155  09/11  233  9B  T caron
+[ú]  156  09/12  234  9C  t caron
+[ù]  157  09/13  235  9D  L with stroke
+[û]  158  09/14  236  9E  Multiplication sign
+[ü]  159  09/15  237  9F  c caron
+[†]  160  10/00  240  A0  a acute
+[°]  161  10/01  241  A1  i acute
+[¢]  162  10/02  242  A2  o acute
+[£]  163  10/03  243  A3  u acute
+[§]  164  10/04  244  A4  A ogonek
+[•]  165  10/05  245  A5  a ogonek
+[¶]  166  10/06  246  A6  Z caron
+[ß]  167  10/07  247  A7  z caron
+[®]  168  10/08  250  A8  E ogonek
+[©]  169  10/09  251  A9  e ogonek
+[™]  170  10/10  252  AA  UNDEFINED (SHY)
+[´]  171  10/11  253  AB  z acute
+[¨]  172  10/12  254  AC  C caron
+[≠]  173  10/13  255  AD  s cedilla
+[Æ]  174  10/14  256  AE  Left angle quotes
+[Ø]  175  10/15  257  AF  Right angle quotes
+[∞]  176  11/00  260  B0  Fill character light
+[±]  177  11/01  261  B1  Fill character medium
+[≤]  178  11/02  262  B2  Fill character heavy
+[≥]  179  11/03  263  B3  Center box bar vertical
+[¥]  180  11/04  264  B4  Right middle box side
+[µ]  181  11/05  265  B5  A acute
+[∂]  182  11/06  266  B6  A circumflex
+[∑]  183  11/07  267  B7  E caron
+[∏]  184  11/08  270  B8  S cedilla
+[π]  185  11/09  271  B9  Right box side double
+[∫]  186  11/10  272  BA  Center box vertical double
+[ª]  187  11/11  273  BB  Upper right box corner double
+[º]  188  11/12  274  BC  Lower right box corner double
+[Ω]  189  11/13  275  BD  Z dot above
+[æ]  190  11/14  276  BE  z dot above
+[ø]  191  11/15  277  BF  Upper right box corner
+[¿]  192  12/00  300  C0  Lower right box corner
+[¡]  193  12/01  301  C1  Middle box bottom
+[¬]  194  12/02  302  C2  Middle box top
+[√]  195  12/03  303  C3  Left middle box side
+[ƒ]  196  12/04  304  C4  Center box bar horizontal
+[≈]  197  12/05  305  C5  Box intersection
+[∆]  198  12/06  306  C6  A caron
+[«]  199  12/07  307  C7  a caron
+[»]  200  12/08  310  C8  Lower left box corner double
+[…]  201  12/09  311  C9  Upper left box corner double
+[ ]  202  12/10  312  CA  Middle box bottom double
+[À]  203  12/11  313  CB  Middle box top double
+[Ã]  204  12/12  314  CC  Left box side double
+[Õ]  205  12/13  315  CD  Center box bar horizontal double
+[Œ]  206  12/14  316  CE  Box intersection double
+[œ]  207  12/15  317  CF  International currency symbol
+[–]  208  13/00  320  D0  d stroke
+[—]  209  13/01  321  D1  D stroke
+[“]  210  13/02  322  D2  D caron
+[”]  211  13/03  323  D3  E diaeresis
+[‘]  212  13/04  324  D4  d caron
+[’]  213  13/05  325  D5  N caron
+[÷]  214  13/06  326  D6  I acute
+[◊]  215  13/07  327  D7  I circumflex
+[ÿ]  216  13/08  330  D8  e caron
+[Ÿ]  217  13/09  331  D9  Lower right box corner
+[⁄]  218  13/10  332  DA  Upper left box corner
+[€]  219  13/11  333  DB  Solid fill character
+[‹]  220  13/12  334  DC  Solid fill character bottom half
+[›]  221  13/13  335  DD  T cedilla
+[ﬁ]  222  13/14  336  DE  U ring
+[ﬂ]  223  13/15  337  DF  Solid fill character upper half
+[‡]  224  14/00  340  E0  O acute
+[·]  225  14/01  341  E1  German sharp s
+[‚]  226  14/02  342  E2  O circumflex
+[„]  227  14/03  343  E3  N acute
+[‰]  228  14/04  344  E4  n acute
+[Â]  229  14/05  345  E5  n caron
+[Ê]  230  14/06  346  E6  S caron
+[Á]  231  14/07  347  E7  s caron
+[Ë]  232  14/08  350  E8  R acute
+[È]  233  14/09  351  E9  U acute
+[Í]  234  14/10  352  EA  r acute
+[Î]  235  14/11  353  EB  U double acute
+[Ï]  236  14/12  354  EC  y acute
+[Ì]  237  14/13  355  ED  Y acute
+[Ó]  238  14/14  356  EE  t cedilla
+[Ô]  239  14/15  357  EF  Acute accent
+[]  240  15/00  360  F0  dash
+[Ò]  241  15/01  361  F1  Double acute accent
+[Ú]  242  15/02  362  F2  Ogonek
+[Û]  243  15/03  363  F3  Caron
+[Ù]  244  15/04  364  F4  Breve
+[ı]  245  15/05  365  F5  Paragraph sign
+[ˆ]  246  15/06  366  F6  Divide sign
+[˜]  247  15/07  367  F7  Cedilla
+[¯]  248  15/08  370  F8  Degree sign
+[˘]  249  15/09  371  F9  Diaeresis
+[˙]  250  15/10  372  FA  Center dot
+[˚]  251  15/11  373  FB  u double acute
+[¸]  252  15/12  374  FC  R caron
+[˝]  253  15/13  375  FD  r caron
+[˛]  254  15/14  376  FE  Solid square
+[ˇ]  255  15/15  377  FF  Required Space

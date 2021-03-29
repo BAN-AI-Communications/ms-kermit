@@ -1,0 +1,28 @@
+SLIP8250 -- SLIP-CLASS (CLASS 6) PACKET DRIVER FOR DOS
+
+Command-Line format:
+
+SLIP8250 [-n] [-d] [-w] packet_int_no [-h] [driver_class] [int_no]
+  [io_addr] [baud_rate] [recv_buf_size]
+
+Note: All parameters are given on one line, in the order shown.  Trailing
+arguments (after packet_int_no) can be omitted.  The defaults are:
+
+  driver_class  = SLIP (Class 6)
+  int_no        = 4 (for IRQ 4)
+  io_addr       = 03f8h (for COM1)
+  baud_rate     = Whatever the port is presently set to
+  recv_buf_size = 3000
+
+The driver_class should be SLIP, KISS, AX.25, or a number.  A 3000-byte
+receive buffer is about twice as large as most programs need, but
+experimenting is ok.
+
+-h enables hardware handshaking (RTS/CTS) (recommended!).  Software flow
+control (Xon/Xoff) is not available.
+
+Run SLIP8250 from the DOS prompt, or from your AUTOEXEC.BAT file.  Example: 
+
+  slip8250 0x60 SLIP 4 0x3f8 19200 3000
+
+(End of SLIP8250.DOC)

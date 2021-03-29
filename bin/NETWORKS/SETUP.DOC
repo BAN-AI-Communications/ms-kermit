@@ -1,0 +1,1476 @@
+File NETWORKS\SETUP.DOC						   January 1995
+
+SETTING UP YOUR PC FOR MS-DOS KERMIT NETWORKING
+
+Applies to:  MS-DOS Kermit 3.14
+Authors:     Joe R. Doupnik, Utah State University
+	     Frank da Cruz, Columbia University
+
+Last updated: Wed May 31 09:45:25 1995
+
+Revised June 2002:
+  to emphasize that all references to Windows are to 16-bit Windows 3.x.
+
+
+ABSTRACT
+
+Applying mainly to TCP/IP, but with some discussion of STARLAN, etc, this file
+concentrates on the low-level network configuration of your PC, network board
+interface standards, drivers and shims, Windows 3.x, memory management, TCP/IP
+configuration, and how to get MS-DOS Kermit working on your network.
+
+
+CHAPTER 0. GENERAL PRINCIPLES
+
+Specific Network Boards:
+
+  Kermit does not support specific network boards.  It speaks to network
+  boards only through interpreters known as drivers, and only those drivers
+  that present certain standard interfaces to the application (Kermit).
+
+The Zeroth Law of Kermodynamics (pay attention):
+
+  ONLY ONE PROTOCOL STACK OF A GIVEN KIND PER NETWORK BOARD.
+
+Corollary:
+
+  Only one TCP/IP-based application can use a LAN adapter at a time.
+
+Some applications of this principle:
+
+  You can't run Kermit's TCP/IP stack at the same time as (for example):
+  . LAN Workplace for DOS (LWP) (but Kermit can run over it)
+  . PC/TCP			(but Kermit can run over it)
+  . PC NFS
+  . Trumpet Winsock
+  . etc etc etc
+
+Brief explanation: The board driver has little slots for each "protocol", such
+as IP, ARP, IPX, LAT, etc, one slot for each.  Each slot identifies the
+application that is using the given protocol on the board.  Now, the network
+packets also contain protocol types.  So if (say) an IP packet comes in, the
+driver looks up IP in its protocol slots, sees who owns it, and gives the
+packet to that application.  There is only one slot per protocol.
+
+This is good because it allows multiple protocols to be active at once,
+for example IPX and TCP/IP (this is why Kermit can, say, transfer a file from
+a NetWare disk to a UNIX computer via TCP/IP, when the NetWare server and the
+UNIX system are both being accessed by Kermit at the same time through the
+same Ethernet board).
+
+But... if you need to run multiple TCP/IP applications, i.e. different
+applications that use the *same* protocol, you'll have to unload one before
+you can start the other.  For example, you can't make a TCP/IP connection
+with Kermit to transfer a file from an NFS-mounted disk.
+
+If you need to run them simultaneously, then you have the following choices:
+
+ . Install a second network board (recommended) (really, they're cheap).
+ . Tell one, if possible, to use the other's TCP/IP stack for transport.
+   More about this later on.
+ . Look into something called PKTMUX, but please don't ask us about it.
+   We don't support it or recommend it.	 But if it works for you, fine.
+   (We don't denigrate it either -- it is a heroic attempt at dealing
+   with the limitations of the PC platform, but it is very complicated,
+   and a short glance at the warnings and disclaimers at the beginning
+   of the manual will scare away all but the most courageous.)
+
+Note, by the way, that TCP, UDP, and ICMP are not "protocols" at this level.
+The network driver software never sees them because they are encapsulated
+inside IP packets.
+
+CHAPTER 1.  NETWORK DRIVERS USABLE BY KERMIT
+
+MS-DOS Kermit 3.11 and later contains an extremely compact and fast built-in
+TCP/IP protocol implementation, including TELNET protocol, designed to run
+over any of the following types of network board drivers:
+
+ 1. A packet driver of the ETHERNET (1) or SLIP (6) class.
+ 2. An ODI driver.
+ 3. The Novell SLIP_PPP driver.
+ 4. The Telebit PPP driver.
+
+(1.1) PACKET DRIVERS
+
+These provide a somewhat uniform interface between a wide variety of network
+boards and the application.  However, the application still must be aware of
+which kind of network technology is being used -- Ethernet, Token Ring,
+Arcnet, SLIP, etc.  Kermit knows about Ethernet and SLIP.  In order to use
+Kermit with a packet driver over some other kind of network board, such as
+Token Ring or Arcnet, you need an "Ethernet simulation" packet driver -- i.e.
+one that converts between its own networking method and Ethernet, tricking
+Kermit into thinking it has an Ethernet board.
+
+The packet driver should be loaded in conventional memory from AUTOEXEC.BAT,
+or by hand when you need to use it.
+
+The packet driver works as an extension of the application program, since they
+share the same memory.	To send a packet, the application puts it in a buffer,
+tells the packet driver where the buffer is, and tells it to send it.  The
+packet driver returns some kind of completion code.  When packets arrive from
+the outside, the packet driver gets an interrupt from the device, takes over
+the CPU, asks the application for a buffer, and copies the incoming data from
+the device to the buffer, and then taps the application on the shoulder to 
+let it know that the packet has arrived.  There are several incompatible
+"classes" of packet drivers: 1 (Ethernet), 2 (ProNet), 3 (Token Ring), ...,
+5 (Appletalk), 6 (Serial Line), etc.  Kermit supports classes 1 and 6.
+
+Packet drivers are usually provided with each network board by the vendor.
+There are also some free packet drivers (Cyrnwr Collection being the best
+known), including the one supplied on the Kermit disk for SLIP. 
+
+This discussion has neglected what happens under Microsoft Windows 3.x, which
+is postponed until later. If you need to use Kermit to make TCP/IP connections
+from within Windows, don't forget to read CHAPTER 3: WINDOWS.
+
+(1.2) ODI DRIVERS
+
+ODI is Novell's Open Datalink Inteface, providing a uniform way for the
+application to talk to the network board, independent of which networking
+method it uses: Ethernet, Token Ring, etc.  MS-DOS Kermit supports this method
+directly.  That is, it talks directly to the ODI driver.
+
+Direct use of ODI drivers permits Kermit's TCP/IP to run with several kinds of
+Ethernet frames: DIX/Blue-Book/Ethernet_II, Token Ring, Arcnet, and PCLan
+broadband.  No extra protocol "shim" is needed, but you must have ODI drivers
+from Novell or your network board vendor.
+
+The mechanics are roughly the same as for packet drivers.  The driver
+configuration, however, is done differently.  Rather than feeding command-line
+parameters to the driver, a file called NET.CFG is created to give certain
+information not only to the driver, but also to the applications that use it.
+
+ODI drivers generally come on a diskette packaged with your network board.
+Novell supplied drivers and ODI components are available from Compuserve
+and across the Internet from ftp.novell.com and its official mirror sites:
+
+  BNUG FTP server, bnug.proteon.com [128.185.17.201]
+  University of Groningen, ftp.rug.nl [129.125.4.15]
+  University of Salford, ftp.salford.ac.uk [146.87.0.201]
+  Utah State University, netlab2.usu.edu [129.123.1.44],
+   netlab1.usu.edu [129.123.1.43]
+  Lincoln University, tui.lincoln.ac.nz [138.75.80.3]
+  National Research Council (Canada), novell.nrc.ca [132.246.160.4]
+
+Example Ethernet NET.CFG file, using VLMs in this case
+
+; File NET.CFG for NW 4.0 and for VLMs
+; Don't forget to say  lastdrive=z  in config.sys!
+
+Netware dos requester
+	PB buffers=6
+	true commit=off		; off=let server buffer writes
+	network printers=1	; shrinks print.vlm, won't load it
+	average name length=24	; shrinks connection table
+	load low conn=ON
+	load low ipxncp=ON
+	signature level=0	; 0=don't load security.vlm
+	read only compatibility=on
+	first network drive=n
+	preferred server=edu-usu-netlab2
+	preferred tree=USU-TREE
+	name context="O=USU"
+; VLM selection, order sensitive.
+; For Bindery include bind and netx, omit nds.
+;   Also preferred server is read for Bindery only.
+; For Directory Services include nds, omit bind and netx.
+;   Also preferred tree and name context are read for DS only.
+	use defaults=off	; off=use explict list of vlms which follow
+	vlm=conn.vlm		; Connection tables
+	vlm=ipxncp.vlm		; NCP over IPX
+	vlm=tran.vlm		; Transport services worker
+	vlm=security.vlm	; Security, optional
+;	 vlm=nds.vlm		; DS, NCP Directory Services
+	vlm=bind.vlm		; Bindery, NCP
+	vlm=nwp.vlm		; Transport services worker
+	vlm=fio.vlm		; File i/o
+	vlm=general.vlm		; General support routines
+	vlm=redir.vlm		; Redirector
+	vlm=print.vlm		; Print services, optional
+	vlm=netx.vlm		; Bindery, shell compatibility
+;	vlm=rsa.vlm		; DS, RSA encryption, optional
+;	vlm=auto.vlm		; DS, autoreconnect/retry, optional
+;	vlm=nmr.vlm		; Managment responder, optional
+
+Netx
+	show dots=on
+
+;# Below this line material is the same as for NetWare 3.x and for NETX
+
+protocol KERMIT
+	bind ne2000
+
+Link Support
+	Buffers	6 1600
+	MemPool	2048
+
+Link Driver NE2000
+	INT 5
+	PORT 360
+	FRAME	Ethernet_II
+	Protocol IPX	8137	Ethernet_II
+	Protocol IP	0800	Ethernet_II
+	Protocol ARP	0806	Ethernet_II
+	Protocol RARP	8035	Ethernet_II
+
+Please notice several things about this file. Items must be spelled as shown,
+indented items must be indented (with a tab for SMC drivers), and flush left
+items must be flush left. There is no, none, zero, creativity permitted in
+this material, and that applies especially to the indented protocol lines.
+IP is not IPX, so don't get them mixed up.  Please type carefully.
+
+Ethernet clients must use Ethernet_II frames for TCP/IP work (IP, ARP, and
+RARP).	Token Ring clients will use TOKEN-RING_SNAP for the frame kind with
+IP, ARP, and RARP.  The protocol ident values are the same as above.
+
+LINK DRIVER TOKEN
+     INT 3
+     FRAME TOKEN-RING
+     FRAME TOKEN-RING_SNAP
+     PROTOCOL IPX  E0	TOKEN-RING
+     Protocol IP   0800 TOKEN-RING_SNAP
+     Protocol ARP  0806 TOKEN-RING_SNAP
+     Protocol RARP 8035 TOKEN-RING_SNAP
+
+Arcnet clients will use NOVELL_RX-NET for the frame kind, and the protocol
+ident values will be D4 for IP, D5 for ARP, and D6 for RARP, rather than 0800
+etc, as per RFC-1201.
+
+LINK DRIVER SMCARCWS
+     INT 3
+     PORT 300
+     MEM D0000
+     Frame NOVELL_RX-NET
+     Protocol IPX  FA NOVELL_RX-NET
+     Protocol IP   D4 NOVELL_RX-NET
+     Protocol ARP  D5 NOVELL_RX-NET
+     Protocol RARP D6 NOVELL_RX-NET
+
+Which board will Kermit (or IPX or other application) use if two or more boards
+are available? Although one would think the board could be selected by placing
+the Protocol IP, etc, lines under the desired Link Driver section, such is not
+the case; those lines tell LSL the frame kind to associate with the protocol
+(say IP) but not the board.  The frame lines are associated with particular
+boards, however.  By default, the application chooses "the first board"
+offering a suitable frame, regardless of whether or not the Protocol IP, etc,
+lines are present for that board. "First" refers not to the contents of NET.CFG
+but to the order in which board drivers are loaded at DOS level.  So the
+indented protocol lines tell ODI which frame a protocol needs, and a TYPE to
+use for recognizing packets, but the lines do not identify a particular board.
+
+To target a particular board, a separate main section is used in NET.CFG.  The
+section starts with the word Protocol against the left margin and has Bind
+indented beneath it, like this -
+
+	Protocol Kermit			Identifies Kermit section of NET.CFG
+		bind SMCPLUS		Bind to SMCPLUS board driver
+
+When a board name is used more than once then the alternative form is to use
+a board number in place of the name:
+
+	Protocol Kermit
+		bind #2			bind to the board loaded second
+
+Kermit considers the text in these sections to be case-insensitive.  The
+#<digit> construction must not have a separation between the number sign (#)
+and the digit. The #<digit> case is normally used when two or more boards share
+the same driver and thus are not distinguishable by name alone.	 Note that
+IPXODI now can use only the #number form.
+
+A sample STARTNET.BAT file might look like this:
+
+@echo off			run quietly
+c:\lsl >nul			LSL is always loaded before boards
+c:\smcplus.com >nul		SMC/WD8003E board, the first
+c:\exos.com >nul		EXOS-205T board, the second
+rem c:\odinsup			Odinsup can coexist with Kermit
+rem c:\odipkt 0 96		Odipkt can coexist with Kermit
+c:\ipxodi >nul			IPX is always loaded after boards
+rem echo Starting network...	may be needed to help some drivers
+c:\bnetx ps=my-preferred-server > nul
+rem (Packet Burst mode)	NETX loads after IPX
+@echo on
+
+If both EXOS and SMCPLUS boards offer frame Ethernet_II Kermit will choose the
+first loaded board, SMCPLUS, in the absence of a "bind" command.  Putting the
+section "Protocol Kermit, bind <board name or number>" anywhere in NET.CFG
+selects a particular board for Kermit.
+
+(1.3) THE NOVELL SLIP_PPP DRIVER
+
+Novell provides a combined SLIP/PPP async ODI board driver and separate dialer.
+The ODI configuration file NET.CFG needs sections as shown below to support
+Kermit and SLIP_PPP.
+
+Protocol KERMIT
+	Bind SLIP_PPP
+
+Link Driver SLIP_PPP
+	DIRECT	YES
+	BAUD	 9600
+	OPEN	ACTIVE
+;;	TCPIPCOMP	VJ		<<< Optional Van Jacobson compression
+	PCOMP	YES
+	ACCOMP	YES
+	PORT	2F8			<< serial port details, COM2 here
+	INT	3
+	FRAME	SLIP			<< choose SLIP or PPP, not both
+;;	FRAME	PPP
+	Protocol IP	0800	SLIP	<< required for Kermit
+;;	Protocol PPP	0800	PPP	<< alternative, with PPP
+
+Dialing the phone is separate from loading the ODI components.  Once those
+components are loaded the phone may be dialed with Novell's Dialer program (see
+Netwire archives for LWP/DOS updates; archives include Compuserve,
+ftp.novell.com, and official mirrors such as netlab2.usu.edu).  Kermit itself
+can be used to dial the phone, and in many cases it can do so after SLIP_PPP is
+loaded (but you will need to tell Kermit the port details via "SET COM1 port
+irq" because SLIP_PPP will try to hide them for safety).  The remote host may
+say or your notes will be needed to find out the current IP number.
+
+Further details are given in the documentation for Lan WorkPlace for DOS and in
+the NetWare 3.12 and 4.02 operating systems.  The latter pair are available
+across the net from the sites mentioned above, directory EPUB.
+
+(1.4) THE TELEBIT PPP DRIVER
+
+Telebit provides an ODI compatible PPP driver with their NetBlazer modem pool
+product.  That driver needs a section of ODI configuration file NET.CFG as
+shown below in the ODIPPP section.  The driver has a feature of reporting back
+the IP number to be used in a PPP session and writing it into an application
+part of NET.CFG.  Kermit's part is shown below, and the MYIP line is ready to
+receive the IP number.  The IPCP line tells the PPP driver the syntax to be
+used when locating Kermit's MYIP line, and the constuction must be as shown
+below in the IPCP line.
+
+Kermit can be told to look at the MYIP line for its IP address by command SET
+TCP ADDRESS Telebit-PPP.  Notice also that the driver name to bind to is
+"telebit", not ODIPPP unfortunately (a Telebit design "feature").
+
+Protocol KERMIT
+	Bind telebit
+	MYIP				<<< ODIPPP fills in IP number here
+
+Link Driver ODIPPP
+	Frame PPP
+	Protocol IP	0800 PPP
+	Protocol IPX	0000 PPP
+	Protocol ARP	0806 PPP
+	Protocol RARP	8035 PPP
+	IPCP DYNAMIC "PROTOCOL KERMIT: MYIP:"
+
+An example batch file to startup this combination is shown below.
+
+@echo off
+set nwlanguage=ENGLISH
+comppp pppmar94.jrd	<< pppmar94.jrd is a personalized Telebit config file
+lsl.com			<< serial part is going, now start ODI material
+odippp			<< ODI MLID (board driver), Telebit's PPP here
+ipxodi /d		<< /d omits diagnostic part, to save memory
+vlm /mX			<< /mX loads VLMs into extended (raw) memory
+@echo on
+
+The COMPPP driver reads configuration file PPPMAR94.JRD (or your file name) and
+makes a telephone connection before exiting back to the .BAT file to load the
+ODI components.
+
+CHAPTER 2.  SHIMS.
+
+Some interface standards are not supported directly by Kermit.  In such cases,
+we insert what is known as a "shim" (a term familiar to carpenters) between the
+board driver and Kermit, which fools Kermit into thinking it is one of the
+driver types that it knows about.
+
+An example is NDIS (Network Driver Interface Specification) from Microsoft and
+3COM.  You probably have NDIS drivers installed if you are using Banyan Vines,
+LAN Manager, DEC PATHWORKS, AT&T STARGROUP, some cases of Windows for
+Workgroups, etc.  Like ODI, NDIS gives a uniform interface to the application,
+independent of the networking method, but a different one from ODI.
+
+To use Kermit over NDIS, we insert the shim called DIS_PKT9.  It talks NDIS on
+one side and packet-driver on the other.  Expect Packet Driver applications to
+work properly with this shim only if the board is Ethernet; there is no
+general frame-conversion facility.
+
+Here is a section of NDIS configuration file PROTOCOL.INI.  Several important
+points about this need to be noticed:
+
+ . Spelling must be correct.
+ . The names in [square brackets] must be those specified by the various
+   vendors, including the [pktdrv] one for DIS_PKT9.
+ . The right side of the "DRIVERNAME=" clause must be as given by the vendor
+   (pktdrv$ for dis_pkt9); it is not a filename.  The drivername string is
+   written into the code of the driver; no user choices. 
+ . The right side of the "BINDINGS=" clause is a name which appears elsewhere
+   in square brackets, and for DIS_PKT9 it is the square bracket name for a
+   board driver.
+
+; Packet Driver protocol users tie in here, dis_pkt9 section
+[pktdrv]
+	drivername = pktdrv$
+	bindings = wd8003
+	intvec = 0x60
+;	chainvec = 0x66		; chaining to another Packet Driver is unused
+
+; AT&T StarGROUP protocol stack ties in here via name ATTISO$
+[attiso]
+	drivername = ATTISO$
+	bindings = wd8003
+	nsess = 5
+	ncmds = 14
+	use_emm = n
+
+;Western Digital EtherCard PLUS Family Adapter, WD8003E in this case
+[wd8003]
+	drivername = MACWD$
+	irq = 7
+	ramaddress = 0xCA00
+	iobase = 0x280
+	receivebufsize = 1536
+
+Lengthier examples are presented in text file DIS_PKT9.DOC.
+
+Similarly, there is a shim called ODIPKT, which makes an ODI driver look like a
+packet driver.	This is not normally needed by Kermit except when running in
+Windows 3.x (explained in Chapter 3).
+
+Please note that the introduction of Windows For Workgroups (WFW) 3.11 has
+changed the way networking drivers are loaded and which kind of drivers, NDIS
+v2 real mode or NDIS v3 protected mode.	 This is explained more fully in 
+Chapter 8, below.
+
+CHAPTER 3.  WINDOWS.
+
+  This chapter applies to Microsoft Windows 3.x.  It does not apply to
+  Windows 95 or later (including Windows 98, ME, NT, 2000, or XP), which
+  has its own native Kermit software, Kermit 95:
+
+    http://www.columbia.edu/kermit/k95.html
+  
+Windows complicates matters for us by moving Kermit around in memory and/or
+swapping it in and out, and also by disguising the address of its network
+buffers (in technical terms, providing a virtual address space when the the
+packet driver must be given actual physical addresses).  The latter case occurs
+under Windows in Enhanced Mode, when Windows loads Kermit in "high memory".
+
+If you paid attention to Chapter 1, you can see why this might be a problem.
+The board driver has been given a buffer address to use for incoming packets,
+but Kermit's buffer isn't really there -- Kermit has been moved, or it is in
+high memory, or it is swapped out.  When the driver writes the data to the
+address, it is writing it over something else -- another application, a disk
+buffer, it could be almost anything, with results ranging from bad to worse.
+
+There are two ways around this.  First, you can tell Windows to "Lock
+Application Memory" for Kermit -- that is, once having loaded Kermit into
+memory, leave it there and don't move it or swap it out.  This is a .PIF file
+option, good for Kermit but bad for your other applications, which have less
+memory available to them (not only because Kermit is hanging on to its own
+piece, but because the remaining memory might therefore be fragmented).
+
+The second method is to put the shim WINPKT on top of the Packet Driver.
+WINPKT knows about Windows, traps the packet delivery, asks Windows to activate
+our application (putting it back where it was at buffer handout time), and then
+copies the packet safely to the application's buffer.  WINPKT is sort of a way
+to "lock in memory but only when needed."
+
+The setup of a packet driver depends on the particular driver, but in general
+one feeds it parameters on the command line:
+
+  c:\wd8003e 0x60 7 0x280 0xd000
+  c:\winpkt 0x60
+
+The first line loads a Packet Driver for a WD8003E Ethernet board, using
+software interrupt 60 hexadecimal, with the board using hardware IRQ 7, port
+280 hex, and shared memory starting at segment D000 hex.  The second line loads
+WINPKT, telling it to form a new Packet Driver interface at the same interrupt,
+hiding the real packet driver from the application (see NETWORKS\WINPKT.DOC for
+details).  Now you see why we call it a shim.
+
+WINPKT only works over packet drivers, not ODI drivers or NDIS drivers.	 Thus,
+if you have an ODI or NDIS driver, you must run the appropriate packet-driver
+simulation shim over it, and then run WINPKT over that.
+
+Please note that there are two WINPKT programs: the two-argument one (included
+on the Kermit diskette as WINPKT9.COM) and the one-argument one described
+above (WINPKT.COM).  The one-arg WINPKT is newer, and works with Winsock (in
+fact, it comes from the Winsock distribution) but, reportedly, is less stable.
+If you have trouble with it when using Kermit, try the two-arg version:
+
+  c:\wd8003e 0x61 7 0x280 0xd000
+  c:\winpkt 0x60 0x61
+
+Also note that the introduction of Windows For Workgroups (WFW) 3.11 has
+changed the way networking drivers are loaded and which kind of drivers, NDIS
+v2 real mode or NDIS v3 protected mode.	 See Chapter 8.
+
+CHAPTER 4.  SETTING UP KERMIT'S TCP/IP CONFIGURATION
+
+This chapter discusses TCP/IP setup *after* you have successfully coped with
+the driver issues, and assumes some knowledge of TCP/IP.  See "Using MS-DOS
+Kermit", Chapter 16, for additional explanatory material, or Douglas Comer's
+book(s) "Internetworking with TCP/IP" (Prentice-Hall), or show this material to
+your network manager.  Also consult the networks section of MSKERM.BWR
+(KERMIT.BWR) for additional detail.
+
+Before Kermit can use the TCP/IP network, you must use SET TCP/IP commands to
+supply Kermit with the necessary details about it.  Check with your network
+manager to find out the correct values for these commands, and then put them
+in your MSCUSTOM.INI file.  Don't make them up!	 Automatic downloading of your
+TCP/IP network configuration via BOOTP is recommended.
+
+You can view your TCP/IP settings with the SHOW COMMUNICATIONS command.
+
+Here are the commands for configuring Kermit for TCP/IP connections:
+
+SET TCP/IP ADDRESS {<IP-address>, BOOTP, RARP, TELEBIT-PPP}
+  Tell Kermit your PC's IP address (required).	If your local network has a
+  BOOTP or RARP server, you can SET TCP/IP ADDRESS BOOTP or RARP to have the
+  server download your IP address automatically.  Examples:
+    SET TCP/IP ADDRESS 128.59.77.23 ; My IP address, fully specified
+    SET TCP/IP ADDRESS BOOTP	    ; Get my address from a BOOTP server
+    SET TCP/IP ADDRESS RARP	    ; Get my address from a RARP server
+
+SET TCP/IP SUBNETMASK <IP-address-mask>
+  Tell Kermit which portion of an IP address corresponds to your physical
+  network.  The default is 255.255.255.0.  A correct value is essential; it is
+  used by Kermit to tell whether an IP address is on your physical network
+  or must be accessed through a gateway.  Incorrect values prevent successful
+  communication.  The subnetmask can be downloaded by BOOTP.
+
+SET TCP/IP BROADCAST <IP-broadcast-address>
+  Tell Kermit the IP address to use when sending IP broadcast messages, for
+  example to the BOOTP server, and to recognize incoming ones.	The default is
+  255.255.255.255, meaning "my own physical network".  Change this parameter
+  if your BOOTP server is on a different subnet of your local network, or if
+  your local network uses the old 4.2 Berkeley UNIX convention of 0's rather
+  than 1's for IP broadcast addresses.	An incorrect value can prevent
+  successful communication, or worse.  This parameter can NOT be downloaded
+  from a BOOTP server -- you can't reach the BOOTP server in the first place
+  unless you already have the correct broadcast address.
+
+SET TCP/IP PRIMARY-NAMESERVER <IP-address>
+  The IP address of your network's primary nameserver, which translates
+  hostnames into IP addresses.	Required if you want to use host names rather
+  than numeric IP addresses in your SET PORT TCP/IP commands.  Example:
+    SET TCP/IP PRIMARY-NAMESERVER 128.59.77.1
+  Can also be downloaded automatically by BOOTP.
+
+SET TCP/IP SECONDARY-NAMESERVER <IP-address>
+  The IP address of your network's secondary nameserver, used by Kermit if the
+  primary nameserver is unavailable.  If no nameserver is reachable, use IP
+  host numbers rather than names in your SET PORT TCP/IP commands.  Nameserver
+  addresses can also be downloaded automatically by BOOTP.
+
+SET TCP/IP GATEWAY <IP-address>
+  The IP address of the gateway between your local area network and the rest of
+  the Internet.	 Required if you want to communicate outside of your immediate
+  local network.  Can also be downloaded automatically by BOOTP.
+
+SET TCP/IP HOST {<IP-address>, <IP-hostname>}
+  The default host for SET PORT TCP/IP commands.  SET PORT TCP/IP <host> sets
+  this too, so the next SET PORT TCP/IP command remembers it if you omit the
+  host.	 This allows you to switch back and forth between serial and TCP/IP
+  connections.
+
+SET TCP/IP DOMAIN <domain-name>
+  IP domain name for your organization or department, for example columbia.edu
+  for Columbia University, cc.columbia.edu for the Computer Center at Columbia
+  University.  This lets you refer to hosts on your local network with
+  nicknames, for example watsun rather than watsun.cc.columbia.edu.  When a
+  hostname given in your SET PORT TCP/IP command can't be found, Kermit appends
+  the domain and tries again.  If it still can't be found, Kermit trims the
+  leftmost field from the domain and tries again, and so on until the host is
+  found or the domain name is used up:
+    SET TCP/IP DOMAIN cc.columbia.edu
+    SET PORT TCP/IP oofa.cs
+  Kermit tries (in this order): oofa.cs, oofa.cs.cc.columbia.edu,
+  oofa.cs.columbia.edu, oofa.cs.edu.  Version 3.13 of MS-DOS Kermit can get
+  the domain name from a BOOTP server that has been upgraded to RFC1395 level.
+
+SET TCP/IP PACKET-DRIVER-INTERRUPT {<number>, ODI}
+  MS-DOS Kermit normally searches for the packet driver beginning at interrupt
+  \x60 and going up the \x80.  You can use this command to disable MS-DOS
+  Kermit's automatic search and specify a particular interrupt number, for
+  example, SET TCP PACKET-DRIVER \x63.	If you specify "ODI" instead of an
+  interrupt number, Kermit uses ODI rather than packet-driver conventions for
+  communicating with the network board driver.
+
+SET TCP/IP MSS <number> (version 3.14)
+   Maximum TCP Segment Size, to override built-in defaults of 1046 bytes 
+   local and 536 bytes if routed (plus 40 bytes TCP and IP headers).  This
+   may be considered MTU (maximum transmission unit) but smarter because
+   TCP informs the other side.	Maximum size is 1460 bytes (1500 byte pkt).
+
+SET TELNET TERM-TYPE <name>
+  Normally MS-DOS Kermit sends the name of terminal it is currently emulating,
+  for example, "VT320", in response to a terminal-type request from the remote
+  TELNET server.  Use this command to supply any terminal-type name you want.
+
+SET TELNET NEWLINE-MODE {OFF, ON}
+  During terminal emulation on a TCP/IP connection, MS-DOS Kermit follows the
+  TELNET specification and transmits carriage and line feed (CRLF) whenever
+  you type carriage return (the Enter key).  If the remote TELNET server is
+  confused by this (i.e. it does not follow the TELNET specification), use SET
+  TCP/IP NEWLINE-MODE OFF to make Kermit omit the line feed.
+
+SET TELNET MODE {NVT-ASCII, BINARY}
+  NVT-ASCII is the normal TELNET mode; you may also select BINARY if needed.
+  Mode selection is effective only when starting a connection.
+
+SET TELNET DEBUG-OPTIONS {ON, OFF} 
+  Whether to display TELNET options negotiation on the screen.	Default is
+  OFF, don't display them.  When ON, you can view the negotiations on the
+  screen, and you can capture them in screen dump or session log files, or
+  print them, just like any other CONNECT-mode screen text.
+
+Sample TCP-related commands for MSCUSTOM.INI (substitute your own correct
+values for the ones shown here!):
+
+  SET TCP/IP ADDRESS 128.59.77.23	       ; Your PC's IP address
+  SET TCP/IP SUBNETMASK 255.255.255.0	       ; Your local net's subnet mask
+  SET TCP/IP GATEWAY 128.59.77.1	       ; The gateway on your local net
+  SET TCP/IP PRIMARY-NAMESERVER 128.59.77.19   ; Nameserver on your local net
+  SET TCP/IP SECONDARY-NAMESERVER 128.59.78.12 ; Fallback nameserver
+  SET TCP/IP DOMAIN bar.baz.edu		       ; Your local IP domain name
+
+Then, to make a TCP/IP connection:
+
+  SET PORT TCP/IP foo			       ; Connect to foo.bar.baz.edu
+  CONNECT
+
+The TCP/IP connection is not actually established until the CONNECT (or INPUT,
+OUTPUT, PAUSE, or similar) command is given, at which time some progress
+messages are displayed on your screen.	If connection is immediate, you won't
+see these messages, but if the connection fails, they will remain visible so
+you'll know why it failed.
+
+Logging out from the remote host will normally terminate your session and
+pop you back to the MS-Kermit> prompt.	The HANGUP command, or Ctrl-]H during
+terminal emulation, should do the same thing.
+
+If your network has a BOOTP server, Kermit can learn its own IP address, as
+well as the nameserver addresses, gateway address, subnet mask, and other
+information from the server if the BOOTP server's database has an entry for
+your PC that contains these items.  The BOOTP server knows it's your PC making
+the request because it has your network interface board's hardware address in
+its database, and BOOTP requests contain the network board's hardware address.
+To enter your PC in the BOOTP database, use the PKTADDR program (supplied on
+your Kermit diskette) to find out the hardware address, for example:
+
+  C:\KERMIT\NETWORKS\PKTADDR 0x60
+  My Ethernet address is 00:00:1E:0C:AA:1F
+
+Give this address to your network administrator, along with the adapter type
+(Ethernet, Token Ring, etc), your PC's IP host name and address (if you know
+it, or ask your network administrator to assign these to you -- DON'T MAKE THEM
+UP!).  Then, the only commands you need to set up your TCP connection are:
+
+  SET TCP/IP SUBNETMASK 255.255.254.0 ; Only needed if different from default
+  SET TCP/IP BROADCAST 0.0.0.0	      ; Only needed if different from default
+  SET TCP/IP DOMAIN bar.baz.edu	      ; (3.12 and earlier, or pre-RFC1395)
+  SET TCP/IP ADDRESS BOOTP	      ; Get my TCP/IP configuration from BOOTP 
+  SET PORT TCP/IP <name-or-number>    ; Establish a connection
+  CONNECT
+
+Notes:
+
+ . The SET TCP/IP BROADCAST command is not needed unless you have a nonstandard
+   network that uses all-zeroes for IP broadcasts, rather than all ones.
+
+ . The SET TCP/IP SUBNETMASK command is necessary only if your subnetwork uses
+   a different mask than Kermit's default, which is 255.255.255.0.  These
+   commands should go in your MSCUSTOM.INI file.
+
+ . The SET TCP/IP DOMAIN command is not needed if you have MS-DOS Kermit 3.13,
+   the BOOTP server is at RFC1395 level (January 1993), and its BOOTP database
+   contains your PC's domain name.
+
+Thus, in many cases, your TCP/IP setup can be as simple as this:
+
+  SET TCP/IP ADDRESS BOOTP
+
+Kermit sends an IP broadcast message to find the BOOTP server. If you also have
+given SET TCP/IP ADDRESS, SUBNETMASK, PRIMARY-NAMESERVER, SECONDARY-NAMESERVER,
+and GATEWAY commands, their values will be superseded by any values sent by the
+BOOTP server.
+
+BOOTP service has the great advantage that PC network configurations need be
+maintained in only one central file, rather than on many individual PCs.  If
+the BOOTP server is unavailable, users can still enter the required information
+with SET TCP/IP commands.
+
+If your network has a RARP server, Kermit can learn its own IP address from the
+server, if the RARP server's database contains an entry for your PC.  The RARP
+server can't tell you the subnetmask, nameserver addresses, or gateway address,
+so you will still need these items in your MSCUSTOM.INI file.  However,
+everybody on the same physical network can use the same TCP/IP network
+parameters in their MSCUSTOM.INI files because the SET TCP/IP parameters other
+than ADDRESS are all the same.
+
+HINT: To avoid typing long SET PORT TCP/IP commands, define a macro for each
+host you commonly connect to:
+
+  DEFINE OOFA SET PORT TCP/IP OOFA.XYZ.COM, PAUSE 0, IF SUCCESS CONNECT
+
+Put these definitions in your MSCUSTOM.INI file.  Then just type "OOFA" to
+connect to TCP/IP host OOFA.XYZ.COM.  The standard sample MSCUSTOM.INI file
+already defines a TELNET macro for you:
+
+; TELNET macro, and macros for telnetting to particular hosts
+; using appropriate terminal type.
+;   \%1 = IP host name or address
+;   \%2 = TCP port (optional, default is 23)
+;   \%3 = terminal type (optional)
+;
+define telnet -
+  set port tcp \%1 \%2,-
+  set flow none,-
+  if def \%3 set term type \%3,-
+  pause 0, if fail end 1, connect
+
+You can use this to easily make a connection to a particular host:
+
+  TELNET FOO
+
+and you can optionally specify a nonstandard (i.e. other than 23) TCP port:
+
+  TELNET FOO 2000
+
+and you can also (optionally) specify a terminal type to use:
+
+  TELNET FOO 23 HEATH-19
+
+For information about multiple sessions, see KERMIT.UPD.
+
+MAKING SLIP CONNECTIONS
+
+To make a SLIP (Serial Line IP) connection, follow these steps:
+
+1. SET PORT 1
+   (or whichever serial port you will be using for the SLIP connection).
+
+2. SET SPEED 19200
+   (or whatever speed you will be using)
+
+3. SET FLOW RTS/CTS (or NONE)
+   Don't use Xon/Xoff flow control on a SLIP connection!  SLIP and Xon/Xoff
+   are incompatible with each other.
+
+4. Establish a connection to the terminal server or other device that will be
+   providing SLIP service.  Determine the IP address and other information
+   (e.g. gateway address) that it has assigned to you.	Normally, these are
+   displayed on your screen before the terminal server enters SLIP mode.
+
+5. Escape back to the MS-Kermit prompt and EXIT from MS-DOS Kermit.  The
+   connection is left open.
+
+6. Start the SLIP8250 driver, telling it to use the same port (hex address and
+   IRQ number must be supplied) and speed (decimal) used in (1) and (2) above,
+   and to use hardware flow control (-h), for example:
+
+      slip8250 0x60 -h slip 4 0x3f8 19200
+
+7. Start MS-DOS Kermit again.  Do NOT give it a SET PORT command for the
+   serial port where SLIP is running.  Instead, give the SET TCP ADDRESS,
+   SET TCP GATEWAY, and other necessary SET TCP commands.  Then, to make
+   a connection, use SET PORT TCP <address>, where <address> is the IP
+   hostname or address of the IP host you want to connect to.
+
+Note: Even though you might think it's silly to exit from Kermit and then start
+it again, when you could simply start the SLIP driver from the Kermit prompt,
+there is a reason: starting a driver from inside an application results in
+memory fragmentation.
+
+Note 2: In version 3.13 and later, it is also possible to obtain BOOTP service
+on a SLIP connection if your SLIP server is configured to provide it (for
+example, Cisco terminal servers can do this).  Also, MS-DOS Kermit's SHOW
+COMMUNICATIONS command will display the IP address of the BOOTP server.
+
+CHAPTER 5.  ACCESSING EXTERNAL TCP/IP PROTOCOL STACKS
+
+MS-DOS Kermit can also work with TCP/IP protocol stacks from other vendors,
+but it cannot be built with support for stacks which require a proprietary
+library.  Kermit is a DOS program, 16-bit Windows-aware, but not a pure
+Windows program.  Thus it cannot use the various 32-bit Winsock Windows TCP/IP
+implementations.
+
+(4.1) FTP Software Inc. PC/TCP. 
+
+Use the FTP Telnet interface TNGLASS and run Kermit from it.
+
+  tnglass host.domain <optional port> -c0 -e kermit.exe
+
+This example uses communication port 1 (-c0) so tell Kermit SET PORT BIOS1.
+The TNGLASS interface causes the Enter key to send <CR><LF> pairs, as
+specified in the Telnet protocol specification.  This may cause some problems
+in connecting to UNIX machines.  Using "stty igncr" might help, along with
+"set key \284 \10" to re-map the Enter key to send a newline.
+
+(4.2) Novell Lan WorkPlace for DOS with TELAPI
+
+start LWP/DOS and run the TCPIP.EXE program, and also run TELAPI.EXE:
+
+  kermit
+  set port telapi host.domain <optional port>
+  connect
+
+This uses Kermit macro named "telapi" which is defined as:
+
+  def telapi run tsu -o \%1 -p \%2 k1,run tsu -a k1 1,set port novell
+
+TSU is a LWP/DOS transitor helper program doing resolution of IP names to IP
+numbers, -o is open to host in first Kermit argument \%1, -p using port in
+second Kermit argument \%2 (defaults to 23, Telnet), and assign TSU label k1 to
+the connection.	 Then run TSU again to -a attach connection k1 to serial port
+simulator for Bios com1 (1).  Finally tell Kermit to use fast transmission
+method SET PORT NOVELL.	 Other choices are SET PORT 3COM and SET PORT BIOS1
+(slowest).  If other serial ports are used then tell Kermit SET PORT BIOSn.
+	
+Kermit needs ODIPKT only if running in Windows 3.x enhanced mode, and it needs
+WINPKT then too.  Otherwise it runs fastest straight over ODI (force use of ODI
+over an available Packet Driver by SET TCP PACKET ODI).	 If Kermit is run over
+LWP then it can do so in Windows too.
+
+If you want to use Kermit's built-in TCP/IP stack instead of Telapi, you can
+also unload the LWP/DOS TCP/IP stack and then run Kermit.  It unloads smoothly
+and can be reloaded as smoothly.
+
+(4.3) Beame and Whiteside TCP/IP
+
+Kermit uses the loaded B&W TCP/IP drivers to communicate. The command SET PORT
+BWTCP Host Port defines the connection. Host is an IP number, not a name, and
+port is an optional TCP port number (defaults to 23, Telnet). Here is a section
+of config.sys which loads the B&W resident drivers
+
+  DEVICE=C:\BWTCP\ETHDEV.SYS
+  DEVICE=C:\QEMM\LOADHI.SYS C:\BWTCP\TCPIP.SYS 1514
+
+CHAPTER 6.  OTHER NETWORKS
+
+(5.1) Meridian Technology SuperLAT
+
+Load the SuperLAT driver according to the Meridian instruction manual.	Kermit
+can talk to the driver directly via command SET PORT SUPERLAT host.  Host is
+the name of a LAT host, or "*" to see a list of available hosts.  An Interrupt
+14h simulator is also available from Meridian, which Kermit can use via SET
+PORT BIOS1.
+
+When using SuperLAT over ODI drivers please add the following indented Protocol
+LAT line to your NET.CFG file, as shown in the example below.  The frame kind
+should be Ethernet_II.
+
+Protocol LATDRVR
+	bind #1			<< use these two lines only if multiple boards
+
+Link Driver NE2000
+	INT 5
+	PORT 360
+	FRAME	Ethernet_II
+	Protocol IPX	8137	Ethernet_II
+	Protocol LAT	6004	Ethernet_II
+
+(5.2) Novell NASI/NACS
+
+Load the NASI.EXE file (or equivalent) on the client PC, then run Kermit.
+Command SET PORT NOVELL(NASI) chooses the comms channel. You should see a
+connection menu from the NASI.EXE file when you begin Connect mode; that is a
+session manager external to Kermit.  Kermit supports NASI/NACS v2, but in many
+cases it also works fine with v3.
+
+(5.3) DIGITAL PATHWORKS
+
+Kermit can use either LAT or CTERM connection facilities of Pathworks. It tries
+a LAT connection first (LAT is not routeable so only local nodes are reachable
+this way) and then CTERM (regular DECnet). If only LAT or CTERM support modules
+are loaded with Pathworks, then that limits Kermit's choices. The command SET
+PORT DECNET host (or * to see list of LAT hosts) chooses the communications
+channel.
+
+LAT tables in clients are frequently too small to hold all host names
+advertized on the net, so please review the PATHWORKS documentation and enlarge
+the table to match your site.
+
+The PATHWORKS LAT module has distinct trouble if too many bytes are sent by the
+PC in too short a time, and there's no feedback about what is "too many" at any
+given time.  To avoid the link dropping we recommend using medium-small file
+transfer packets, say 256 bytes, and only two window slots.
+
+LAT comes in at least two much different flavors in PATHWORKS, depending on
+version number of PATHWORKS.  Kermit tries to discover which is which and act
+properly, but there might still be nuances which lead to trouble.  MS-DOS
+Kermit 3.14 is tested with PATHWORKS v4.2, the latest available to us.
+
+(5.4) TES, by Interconnections, Inc.
+
+Kermit works with older and the latest TES client programs.  It accommodates
+both kinds transparently to the user.  Command SET PORT TES host (or * to see
+all available hosts) chooses the communications channel.
+
+(5.5) General "Int 14h" Interceptors
+
+Many network products are issued with what as known as an Int 14h support
+program.  Interrupt 14h is the BIOS support for serial ports, and it is very
+simple.	 Kermit supports this via the command SET PORT BIOSn where n is 1 to 4.
+There are other variations on Int 14h, most well known of which is 3COM(BAPI).
+Older TES uses Int 14h too.  Kermit supports these through commands SET PORT
+3COM(BAPI) and SET PORT TES.
+
+Bios Int 14h does not provide feedback about baud rate, has no facility to send
+a BREAK, does not provide information about a network link closing, has no
+interrupt facility, etc.  Loss of a network connection is not reported to
+Kermit.	 It is a very simple interface.	 Further, it is a markedly slower path
+for networking than say 3COM(BAPI).
+
+It is important to distinguish these Int 14h drivers from real serial port
+hardware.  For Kermit, the real hardware is touched by commands SET PORT
+COM1..COM4 and synonyms SET PORT 1..4. Int 14h drivers will not be used if
+Kermit is told to use the hardware.  Be sure to choose the proper kind of
+connection.
+
+UnixWare NVT offers an Int 14h interceptor which Kermit may use.  Please see
+your UnixWare documenation for details.
+
+CHAPTER 7.  INTERRUPTS AND MEMORY MANAGEMENT
+
+Network communication problems are often really systems conflicts of one kind
+or another.  Some useful tips are summarized below.
+
+Hardware IRQ (Interrupt) wires are not sharable.  Only one device can connect
+to an IRQ wire even if other devices are "not active."	No program can clearly
+identify which device is connected to an IRQ wire, you must look inside the
+machine.  The MSD program by Microsoft shows only "conventional" assignments,
+not actual usage.
+
+Network LAN adapters can use shared memory to transfer packets between board
+and driver.  That shared memory MUST be protected against memory management
+programs, including Windows.  Exclude that memory at both DOS level and again
+in Window's SYSTEM.INI file [386Enh] section; see typically "exclude=" commands
+in your memory managment program manual, and the examples below.  SYSTEM.INI
+excerpt, WFW 3.11 -
+
+  [386Enh]
+   ...
+  EMMPageFrame=EC00		<< expanded memory page frame 
+  EMMExclude=C000-C007		<< video bios signature area
+  EMMExclude=A000-BFFF		<< video adapter work area
+
+For greater detail about memory management, read section 19 of KERMIT.BWR.
+
+CHAPTER 8.  WINDOWS FOR WORKGROUPS 3.11
+
+This chapter contains collected hints and tips regarding how to use MS-DOS
+Kermit to make TCP/IP connections from Microsoft Windows for Workgroups 3.11.
+You might encounter contradictions among the various texts, but this does not
+mean that the contradicting items are necessarily wrong (or right) -- only that
+this is yet another extremely complicated and obscure topic, and that differing
+approaches are possible.
+
+------------------------------
+TEXT #1
+
+Windows-for-Workgroups (WFW) networking is built upon LAN Manager NDIS board
+handler software.  MS-DOS Kermit can make TCP/IP connections from within
+Windows for Workgroups by using the DIS_PKT9.DOS and WINPKT.COM shims that come
+on the Kermit disk.  For WFW 3.10 and earlier, NDIS drivers are normal
+CONFIG.SYS device drivers, and DIS_PKT9 instructions apply.  For WFW 3.11 and
+later, which uses its own built-in protected-mode NDIS 3.0:
+
+ . In the SYSTEM.INI file, [Network Drivers] section, add DIS_PKT9.DOS at the
+   end of the "transport=" line.  Make sure you are using DIS_PKT9 as
+   distributed on the MS-DOS Kermit diskette, and not DIS_PKT11 or any other
+   version.  See below about PROTOCOL.INI.
+
+ . Also in the [Network Drivers] section of SYSTEM.INI file, include
+   "LoadRMDrivers=yes".	 This means that the NET START command loads Real Mode
+   (RM) Drivers.  DIS_PKT9.DOS is a Real Mode Driver.
+
+ . In AUTOEXEC.BAT, use NET START.
+
+ . As with all network connections in Windows, you must either lock Kermit in
+   memory (Check Lock Application Memory in the KERMIT.PIF file) or else load
+   the WINPKT shim "on top of" DIS_PKT9, following the instructions in
+   WINPKT.DOC.
+
+------------------------------
+TEXT #2
+
+A Noddy's Guide to Kermit over TCP/IP under Windows for Workgroups 3.11
+
+  Gisbert W. Selke
+  WIdO, Bonn, Germany, January 1994
+
+This document contains a brief outline of the problem and a step-for-step guide
+on how to overcome it.	If you are only interested in a quick solution, feel
+free to skip ahead to section 2.
+
+1. Where's the problem?
+
+Running multiple network protocols over a single Ethernet adapter has always
+been a problem, since each application tends to try and gain complete control
+over the board.	 A solution has been developed, back in the good ol' DOS days,
+by FTP Inc., in the form of so-called packet drivers.  The idea behind this
+approach is beautifully explained elsewhere [1], so I will not attempt to give
+a complete description here.  Suffice it to say that a resident module -- the
+packet driver -- grabs hold of the networking board, and all software wanting
+to access the Ethernet talks to the packet driver instead of directly to the
+board.	This driver hands the network packets of each application down to the
+networking board, and distributes packets arriving over the network back to the
+individual applications, keeping track of which application uses what protocol.
+Using this strategy, one could, e.g., concurrently run TELNET and Netware.
+
+As time went by, other solutions were developed that basically served the some
+purpose; the non-proprietary nature of the packet driver approach and the
+availability of them for a huge range of adapter types ensured their
+popularity. The situation grew worse with the introduction of Windows, however;
+with its task-switching capabilities, the demand for multiple protocols grew,
+while at the same time Windows' habit of shifting resident programmes around in
+memory made it more difficult for applications to find the packet driver, which
+had suddenly turned into a moving target.  Again, a non-proprietary solution
+was found: on top of the original packet driver, a fake winpacket driver was
+loaded, whose only purpose was to overcome the shifting around in memory.
+
+In the meantime, Microsoft had discovered that a great number of places used
+this kind of software which had Not been Invented There in Redmond; so it was
+decided to re-invent the wheel and dub it NDIS.	 Of course, nobody had to pay
+any attention, really ...  But, to simplify things for people who, for some
+reason, had to employ NDIS drivers, a shim was developed -- and given to the
+public for free -- that made NDIS look like a packet driver.  So one could
+continue to run, say, TCP/IP, Netware and the Microsoft networking method named
+NetBEUI.
+
+Then, however, Windows for Workgroups 3.11 came out, and all the magic
+incantations that were necessary in order to run NDIS, and to make it
+accessible to other software, changed again, with all the documentation buried
+somewhere deep down on CD-ROM, if at all.  Since Microsoft, of course, did not
+supply, say, TELNET or FTP clients, a solution had to be found -- that was the
+situation at our site early in January 1994.
+
+Without the many pieces of freely available software mentioned above, and
+without the profound networking wisdom of and support by Joe Doupnik, we would
+either have had to abandon our host computers or else turn away from MS Windows
+for good.
+
+Instead of delving into the merits of each of these possibilities, it is
+preferable to explain the steps that are necessary for a successful setup of
+Windows for Workgroups, so that its built-in incompatibilities with TELNET/FTP
+applications (like, e.g., MS-Kermit 3.13) do not show up.
+
+2. The Nine Steps on the Stairway to Network Heaven
+
+Requirements:
+
+* You have the Windows for Workgroup 3.11 (WfW for short) setup diskettes.
+
+* You have MS-Kermit 3.11 (or later) already installed on your disk.
+  (Applications like NCSA TELNET, QVTNet etc. will also do; it is assumed that
+  the application is configured for packet driver use, where necessary.)
+
+* You have DIS_PKT9.DOS (this is version 1.09) and WINPKT.COM (version 9.x or
+  later) (found, e.g., in the MS-Kermit distribution).	You know which version
+  of WINPKT you have (if in doubt, execute it without parameters and see.)
+
+Now follow these steps:
+
+a) Remove all references to a packet driver from AUTOEXEC.BAT (or from
+   whatever batch file you used to start it from).
+
+b) Install WfW properly.Once you get to the item of "Network Setup", you should
+   notice that WfW has recognized your network adapter and has installed
+   NetBEUI support. When prompted later to enter a network name for your
+   computer, go ahead and do so. At some point, you will be prompted to install
+   an NDIS driver appropriate for your kind of network adapter. If the driver
+   has been supplied with WfW, fine; if not, get out the support disk that came
+   with your adapter and hope there is an up-to-date NDIS driver there.
+
+c) At the very end of installation, choose "Return to DOS".
+
+d) Copy DIS_PKT9.DOS and WINPKT.COM to a suitable directory, e.g., \KERMIT, if
+   you have not done so before.
+
+e) Use your favourite plain ASCII editor to edit file SYSTEM.INI which can be
+   found in your main Windows directory:
+
+   * Find the section "[network drivers]".There should be a line starting
+     "transport=" among the next few lines. Add ";C:\KERMIT\DIS_PKT9.DOS" to
+     the end of this line, without any intervening blanks. (If you have used a
+     different directory in the previous step, you should, of course, change
+     this entry accordingly.)
+
+   * If there is a line "LoadRMDrivers=No" in this section, change the "No" to
+     "Yes". If there is no such line, add a line "LoadRMDrivers=Yes".
+
+   *  Save the changed file (making sure it is in plain ASCII format).
+
+f) Use your favourite plain ASCII editor to edit file PROTOCOL.INI found in the
+   very same directory:
+
+   * Locate a section starting "[NetBEUI]".
+
+     There should be a line like this: "Bindings=foo$bar". If there is no line
+     starting with "Bindings=", you are in trouble, because networking support
+     has apparently not been properly installed. Go and call the Microsoft
+     Hotline in order to listen to some nice muzak.
+
+   * If there is such a line, memorize the value of this field (the "foo$bar"
+     part).
+
+   * Go to the end of the file, add a blank line and then a new section:
+
+     [PKTDRV]
+     DriverName=PKTDRV$
+     Bindings=foo$bar
+     IntVec=0x7E
+
+     It is a good idea to insert the name you remember from the previous step
+     instead of the word "foo$bar", of course. The value of 'IntVec' can be any
+     interrupt number that has been used with your old packet driver; in any
+     case, it should be in the range 0x61 to 0x7F (in C-style hex notation).
+     Remember the value you choose; you will need it below.
+
+   * Save the changed file (again making sure it is plain ASCII).
+
+g) Use your favourite plain ASCII editor once again to change file AUTOEXEC.BAT
+   in your root directory:
+
+   * There should be a line "...Net Start" there. (If it is not, you're
+     probably in trouble anyway; cf. the helpful hints under f) in this
+     case). Change this line to read "...Net Start NetBind".
+
+   * Right after this line, add a new one with contents like this:
+   
+       c:\kermit\winpkt 0x7E	(if your WINPKT version is 11.x or later)
+
+	 or
+
+       c:\kermit\winpkt 0x7D 0x7E	       (otherwise)
+
+     In the first case, the only argument should be the value you chose at the
+     end of the previous step. In the second case, the second argument should
+     be that value, while the first argument should be a hex number less than
+     the second argument.
+
+   * Save the changed file (yes, indeed, in plain ASCII).
+
+h) Re-boot your computer -- you're done.
+
+i) Check wether it worked:
+
+   * While still in DOS, run Kermit.
+
+   * Start Windows, insert Kermit into a program manager group, double-click
+     on it.
+
+HINT: The applications and the packet drivers talk to each others using DOS
+interrupts; hence, they must both know which interrupt vector to use.  (Older
+versions of WINPKT use two interrupts -- one to talk "upstream" to the
+application, one to talk "downstream" to DIS_PKT or some other "real" packet
+driver.)  MS-Kermit finds the packet driver interrupt itself.  If your
+networking software must be configured for what interrupt vector number it
+should employ (like NCSA TELNET/FTP must; look for a line like "ioaddr=0x7E" in
+file CONFIG.TEL), be sure that the first -- or only -- argument to WINPKT
+(cf. step g)) is specified.
+
+3. Acknowledgements
+
+We would have been completely lost were it not for Prof. Joe R. Doupnik, Utah
+State University, USA, his wonderful assortment of long-range crystal balls,
+and his amazing readiness to help others. Thanks also to the Kermit people of
+Columbia University, New York, USA, in particular to Frank da Cruz, for their
+support and their channelling of vital information.  Duncan Phillips of
+Staffordshire University, UK, succeeded first in what we were merely
+attempting, and was very helpful in sharing his knowledge.
+
+Finally, thanks to my colleagues who helped sorting out this mess, in
+particular to Ernst-Peter Beyer, without whose ingenuity and patience I would
+probably still be trying to find my way through a labyrinthine heap of windows.
+
+References:
+
+[1] Joe R. Doupnik: Packet Drivers, made simple.  To be found, e.g., in the
+    Crynwr packet driver distribution as file PACKET.DOC
+
+All trademarks etc. mentioned are owned by their respective owners.
+
+Gisbert W. Selke
+Wissenschaftliches Institut der AOK
+Bonn, Germany
+<gisbert@watsun.cc.columbia.edu>
+
+------------------------------
+TEXT #3
+
+Windows for Workgroups v3.11 and DIS_PKT9.DOS
+
+Joe R. Doupnik
+jrd@cc.usu.edu
+Utah State University
+3 Feb 1994
+
+Windows for Workgroups v3.11 introduces major changes to the network support
+material.  If you wish to use a Packet Driver program, such as MS-DOS Kermit
+or one of the winsock DLLs, while within WFW then two supporting shims will be
+need to be loaded before WFW starts.  There are at least two situations to
+consider and different shims are involved.
+
+SITUATION 1: WFW runs over a LAN adapter dedicated to WFW.
+
+This is the case we explore in detail below.  The two shims needed are
+DIS_PKT9.DOS and WINPKT.COM, both available by anonymous ftp from
+netlab2.usu.edu [129.123.1.44] in directory \anonftp\drivers and from sites
+carrying the Crynwr Collection of Packet Drivers.  The important points are
+that a Version 2 NDIS driver is required, not the newer Version 3 32-bit
+protected mode NDIS kind, and that small edits will be needed to WFW text files
+PROTOCOL.INI and SYSTEM.INI.
+
+SITUATION 2: WFW runs over a Novell ODI handler. 
+
+The two shims needed are ODIPKT.COM and WINPKT.COM, both available from netlab2
+above.	Both are installed independently of WFW and no changes to WFW are
+needed.	 DIS_PKT9 will not run in this environment because no NDIS V2 interface
+is provided by WFW when using ODI.  Instead ODIPKT provides the Packet Driver
+interface on the top of ODI.
+
+SITUATION OTHER: WFW runs over another network's handler.
+
+We can't say much because the environment is not known to us.  The general
+guidlines about NDIS V2 support still apply.
+
+Please notice that we deal only with DIS_PKT9.DOS and WINPKT.COM.  If you have
+another variation of DIS_PKT you will need to contact the persons responsible
+for your variation. Similarly, people have circulated modified copies of winpkt
+without source code or external identifying markings. The winpkt referred to
+here uses two command line arguments and the entire package is bundled in
+winpkt.zip as source code, doc, and executable. Both are available from netlab2
+as cited above. If in doubt get these.
+
+ODIPKT is on your Kermit disk.
+
+Steps to follow after installing network support in WFW v3.11.	This presumes
+that WFW owns the network adapter (Situation 1 above).
+
+1. Ensure that both PROTMAN.EXE and PROTMAN.DOS are in the WFW directory.
+   You may have to uncompress them from the WFW distribution media.  Copy 
+   files DIS_PKT9.DOS and WINPKT.COM there too.
+
+2. Edit PROTOCOL.INI to insert the [pktdrv] section as shown below.
+   Changes to the intvec= and novell= lines are permitted.  An NE2000 
+   NDIS v2 board driver, MS$NE2000, is used in this example:
+
+	[pktdrv]
+	DriverName=PKTDRV$
+	bindings=MS$NE2000
+	intvec=0x63
+	novell=no
+
+3. Edit SYSTEM.INI [network drivers] section to add ",DIS_PKT9.DOS" to the 
+   transport= line, and to ensure an NDIS v2 netcard= driver has been given. 
+   Please do not confuse this transport= line with a similar one in the 
+   [enhanced] section; the [enhanced] section refers to 32-bit protected 
+   mode material.  An NE2000 board is used in this example.
+
+	[network drivers]
+	devdir=C:\WFW
+	LoadRMDrivers=Yes
+	transport=ndishlp.sys,*netbeui,dis_pkt9.dos
+	netcard=ne2000.dos
+
+4. Before starting Windows issue DOS commands (once only)
+
+	NET START
+	WINPKT \x060 0x63		(example interrupts)
+
+   The first command energizes the NDIS V2 handlers, and the DIS_PKT9 banner
+   should be displayed ending with the Ethernet address of your board.	NET.EXE
+   is in the WFW directory; also see next paragraph.  The second command starts
+   Windows helper shim WINPKT, and that needs the Packet Driver (DIS_PKT9)
+   active beforehand.
+   
+   A comment on the line "LoadRMDrivers=Yes."  NET START reads file SYSTEM.INI
+   to obtain loading information, and the answer "Yes" tells it to run
+   PROTMAN.EXE that loads the drivers with PROTOCOL.INI supplying details.  If
+   the answer were "No" then the Real Mode (RM) drivers would not be loaded or
+   available.  However, if "No" were stated then we could give command NET
+   START NETBIND to run PROTMAN.EXE and get the same results as the "Yes" case.
+
+SAMPLE WFW 3.11 PROTOCOL.INI FILE USING AN NE2000 ETHERNET BOARD
+
+[network.setup]
+version=0x3110
+netcard=ms$ne2000,1,MS$NE2000,3
+transport=ms$ndishlp,MS$NDISHLP
+transport=ms$netbeui,NETBEUI
+lana0=ms$ne2000,1,ms$ndishlp
+lana1=ms$ne2000,1,ms$netbeui
+
+[protman]
+DriverName=PROTMAN$
+PRIORITY=MS$NDISHLP
+
+[MS$NDISHLP]
+DriverName=ndishlp$
+BINDINGS=MS$NE2000
+
+[NETBEUI]
+DriverName=netbeui$
+SESSIONS=10
+NCBS=12
+BINDINGS=MS$NE2000
+LANABASE=0
+
+[pktdrv]				(dis_pkt9 section, use as shown)
+DriverName=PKTDRV$			(spelling must be correct here)
+bindings=MS$NE2000			(use board driver section name)
+intvec=0x63				(Packet Driver interrupt to use)
+novell=no				(use novell=y if Ethernet_802.3)
+
+[MS$NE2000]				(NDIS v2 board driver section)
+DriverName=MS2000$
+INTERRUPT=5
+IOBASE=0x360
+
+[NE2000]
+Adapters=MS$NE2000
+
+SECTION FROM WFW 3.11 SYSTEM.INI FILE
+
+[network drivers]			(You need to edit this section)
+devdir=C:\WFW
+LoadRMDrivers=Yes
+transport=ndishlp.sys,*netbeui,dis_pkt9.dos
+netcard=ne2000.dos	      ^^^^^^^^^^^^^--+
+^^^^^^^^^^^^^^^^^^			     |
+|					     |
+ensure a netcard= line like this	     |- add this by hand
+exists right here.  It chooses the
+NDIS v2 level board driver.
+
+------------------------------
+TEXT #4 (Not directly related, but maybe useful)
+
+X-News: cc.usu.edu comp.protocols.tcp-ip.ibmpc:4768
+From: fks@ftp.com  (Frances Selkirk)
+Subject: Re: PC/TCP+ WfWg3.11+ Novell 3.12
+Date: Sun, 30 Jan 1994 21:21:01
+
+In article <frank.25.0010A199@isis.wu-wien.ac.at> frank@isis.wu-wien.ac.at
+(Mag. Wolfgang FRANK) writes:
+> Is there any way to use Pc/Tcp Ver. 2.2 with WfWg 3.11 and Novell 3.12
+
+You can run PC/TCP version 2.2 with WfWg 3.11 with one bit of additional
+software - a driver that is freely available from our anonymous FTP server and
+BBS - but if you wish to use our NetBIOS as well, you will need to upgrade to
+2.3. The standard instructions we have assume use of the NDIS. If you need to
+use ODI, that gets more complicated. Please contact me (fks@ftp.com) or
+support@ftp.com if you have problems with the instructions below:
+
+How to Configure PC/TCP Network Software v2.3, DOS/Windows and Windows for
+Workgroups, Version 3.11
+
+Since our last newsletter, Microsoft Windows for Workgroups 3.11 was released.
+There were some changes from the beta version of this release which alter the
+configuration necessary for PC/TCP Network Software v2.3, DOS/Windows.	Follow
+these steps to configure PC/TCP, DOS/Windows with Windows for Workgroups
+Version 3.11:
+
+1. Choose Real Mode NDIS Driver (NDIS2) during Windows for Workgroups setup.
+
+2. Review the config.sys file to make sure:
+
+ * The Windows for Workgroups installation program inserted the
+   Device=drive:\path\ifshlp.sys entry which is necessary to load the NDIS2
+   converter.
+
+ * There are no entries that load protocol manager or an NDIS card specific
+   driver.  If they exist in this file, remove them.
+
+3. Make the following changes to the autoexec.bat file:
+
+  * Arrange the entries so that the net start command, inserted by the Windows
+    for Workgroups installation program, precedes any TSRs (Terminate and Stay
+    Resident programs).	 The net start command should include the full path, if
+    the command precedes the path statement in the autoexec.bat file.  If the
+    netbind command is in this file, remove it.
+
+  * Add the drive:\path\kernel command to load PC/TCP kernel after net start.
+
+4. Make the following changes to the Windows system.ini file:
+
+  * Add the Secondnet.drv=drive:\path\pctcpnet.drv entry after the
+    Network.drv=wfwnet.drv entry in the [Boot] section.
+
+  * Add the Secondnet=drive:\path\vpctcp.386 and
+    Device=drive:\path\wfwftp.386 entries to the [386Enh] section.
+
+Note: You must use the wfwftp.386 file that FTP Software created specifically
+for Windows for Workgroups Version 3.11.  You can get the file from our
+Technical Support BBS (filename: wfw311.exe) or our vax.ftp.com anonymous FTP
+server (filename:/support/fixes/pctcpdos/wfw311.exe).
+
+This wfwftp.386 file will also work with Windows for Workgroups 3.1.  The
+wfwftp.386 file created for Windows for Workgroups 3.1 will not work with 3.11.
+
+* Review the [network drivers] section.	 These entries must be present:
+
+netcard=(your NDIS driver)
+transport=ndishlp.sys,*netbeui
+LoadRMDrivers=Yes
+
+By the way, the asterisk in *netbeui is an accurate statement used by
+Microsoft.
+
+* Replace the Transport= entry with 
+  Transport=ndishlp.sys,*netbeui,drive:\path\dis_pkt.gup.
+
+5. Make the following changes to the protocol.ini file.
+
+* Add a [PKTDRV] section with the following entries:
+
+[PKTDRV]
+DriverName=PKTDRV$
+Bindings=(The Windows for Workgroups name for the driver section)
+IntVec=		
+ChainVec=
+
+The IntVec= and ChainVec= entries must be available software interrupts; common
+settings are 0x60 and 0x65, respectively).
+
+If you want to use the PC/TCP,DOS/Windows netbios.com program in addition to
+the Windows for Workgroups NetBEUI stack, make the following changes:
+
+1. Add the drive\path\netbios.com entry to the autoexec.bat file.
+
+2. Make the following changes to the protocol.ini file:
+
+* Change the lana0= entry to lanan (where n is the next available adapter
+number) in the [network.setup] section.	 An example of this entry follows:
+
+lanan=ms$drivername,1,ms$netbeui
+
+* Change LANABASE=0 to LANABASE=n in the [NETBEUI] section (where n is the same
+number as the adapter number in the previous bullet.)
+
+The lana0 and LANABASE=0 settings are reserved for the PC/TCP, DOS/Windows
+netbios.com program.
+
+3. Edit the [pctcp netbios] section of the pctcp.ini file to include the
+   following NetBIOS specific parameters:
+
+[pctcp netbios]
+Ncbs=64
+Sessions=n
+Names=32
+
+Note: The Sessions= entry must correspond to the value set in the
+Tcp-Connections= entry in the [pctcp kernel] section of the pctcp.ini file.
+
+If you want to use the PC/TCP, DOS/Windows netbios.com program without the
+Windows for Workgroups NetBEUI stack, comment out the NetMisc= and Transport=
+entries in the [386Enh] section in the Windows system.ini file by placing a
+semi-colon (;) before the entry.
+
+Frances K. Selkirk					fks@ftp.com
+FTP Software, Inc.	    Technical Support	    support@ftp.com
+Support's newsletter provides technical information on our products.
+FTP to vax.ftp.com, or login to our BBS at 1-508-659-6240.
+
+(End of NETWORKS\SETUP.DOC)

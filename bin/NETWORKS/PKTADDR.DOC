@@ -1,0 +1,12 @@
+PKTADDR is a small program that you can use to find out the hardware address
+of your network board if you have a packet driver loaded for the board.  Just
+type:
+
+  pktaddr 0x60
+
+at the DOS prompt.  This assumes that the packet driver is using interrupt 60
+hex, which is the most commonly used address.  If your network has a BOOTP
+server, you can report the hardware address to your network manager so your PC
+can be entered in the BOOTP table.  This allows MS-DOS Kermit to obtain all
+the necessary TCP/IP parameters from the BOOTP server, provided you have told
+MS-DOS Kermit (e.g. in your MSCUSTOM.INI file) to SET TCP/IP ADDRESS BOOTP.

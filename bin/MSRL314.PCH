@@ -1,0 +1,24 @@
+314 \x1d27 ; File MSRL314.PCH. No lines may precede this one.
+; For MS Kermit/IBM-PC Version 3.14, Patches 1-4, 23 May 1995
+; Put this file on your PC in the same directory with your MSKERMIT.INI file.
+; If necessary rename this file to be MSKERMIT.PCH.
+; Then start MS-DOS Kermit and give the command PATCH, or give the
+; command PATCH in MSKERMIT.INI.
+; Patch 1 Correct search path worker for relative paths
+as:000c 00 06 8c d8 8e d8 fc b0 5c f2 ae 07 c3
+as:1cd8 fc e8 31 e3
+ds:1c6d 00 31
+; Patch 2 Do not encode data in Resend ACK packet
+as:2ef1 a2 e9 24 d1
+as:0018 00 a2 3f 16 56 06 be 3e 16 89 0e 4b 11
+as:0024 00 8b 3e 49 11 8e c7 83 3e 47 11 fc f3 a4 07 5e 5f e9 c6 2e
+ds:1c6d 31 32
+; Patch 3 Ignore or use hyphen as READ line continuation character
+; Ignore: Remove semicolons (;) at start of "as:..." and "ds:..." lines below
+; Retain: Place semicolons (;) at start of "as:..." and "ds:..." lines below
+as:a294 75 eb
+ds:1c6d 32 33
+; Patch 4 Correct loss of mail-to destination after first of multiple files
+;as:0cdb a2 90 90 90
+ds:1c6d 33 34
+

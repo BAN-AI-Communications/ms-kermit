@@ -1,0 +1,2399 @@
+File MSKERM.BWR	       MS-DOS KERMIT 3.14 "BEWARE FILE"		      June 1995
+
+		       BUGS, LIMITATIONS, HINTS & TIPS
+
+This file last updated: Thu Jun 22 10:05:45 1995
+
+  IMPORTANT: MS-DOS Kermit 3.14 dated 12 January 1995 had several serious
+  bugs; the cursor position report was incorrect, wild cursor addressing could
+  cause memory corruption, and (worst of all) the PATCH command didn't work.
+  These bugs were caught and corrected before the 3.14 diskettes were
+  duplicated.  The fixed version is still called 3.14, but dated January 18.
+  All subsequent bugs are corrected by patches to the Jan 18 release.
+
+  BUT... A nonpatchable bug regarding TCP/IP Address Resolution Protocol (ARP)
+  was discovered somewhat later.  The only way it could be fixed was by
+  issuing new EXE files.  The EXEs with this fix are dated May 21, 1995.
+
+This file discusses common problems installing or using MS-DOS Kermit and
+presents solutions or workarounds.  It applies to MS-DOS Kermit 3.14 for the
+IBM PC family and compatibles.  See KERMIT.HLP (MSKERM.HLP) for copyright
+information, terms and conditions, and a summary of MS-DOS Kermit commands.
+
+CONTENTS:
+
+  (0) OUR MOST FREQUENTLY ASKED QUESTION
+  (1) PATCHES
+  (2) INCOMPATIBILITIES BETWEEN MS-DOS KERMIT 3.14 AND EARLIER VERSIONS
+  (3) WORDPERFECT
+  (4) MICROSOFT WINDOWS
+  (5) WINDOWS FOR WORKGROUPS
+  (6) TROUBLESHOOTING MS-DOS KERMIT SERIAL PORT AND MODEM PROBLEMS
+  (6.1) FREQUENTLY ASKED QUESTIONS
+  (6.2) HOW A PHYSICAL COMMUNICATION PORT IS ASSOCIATED WITH A DOS COMn DEVICE
+  (6.3) SPECIFYING THE PORT ADDRESS
+  (6.4) INTERRUPTS AND IRQS
+  (6.5) MODEM PROBLEMS
+  (7) DEVICE INTERRUPT CONFLICTS AND OTHER HARDWARE CONSIDERATIONS
+  (8) MS-DOS 5.0 AND 6.x
+  (9) MICROSOFT WINDOWS, DESQVIEW, OS/2, WINDOWS NT, ETC.
+  (9.1) OS/2
+  (9.2) MICROSOFT WINDOWS
+  (9.3) DESQVIEW AND DESQVIEW/X
+  (9.4) WINDOWS NT
+ (10) VIDEO PROBLEMS
+ (11) SERIAL COMMUNICATIONS
+ (12) TERMINAL EMULATION
+ (12.1) KEYBOARDS AND KEYBOARD DRIVERS
+ (12.2) VT TERMINAL EMULATION
+ (12.3) DG TERMINAL EMULATION
+ (12.4) CHANGING SCREEN DIMENSIONS
+ (12.5) 132-COLUMN MODE
+ (12.6) GRAPHICS TERMINAL EMULATION
+ (13) PRINTER SUPPORT
+ (14) INTERNATIONAL CHARACTER SETS
+ (15) COMMAND PROCESSING
+ (16) KEY MAPPING
+ (17) FILE TRANSFER
+ (17.1) PERFORMANCE
+ (17.2) HARDWARE FLOW CONTROL PROBLEMS
+ (17.3) MISCELLANEOUS FILE TRANSFER HINTS AND TIPS
+ (18) SCRIPT PROGRAMMING
+ (19) MEMORY MANAGEMENT
+ (20) INTERACTIONS WITH DOS
+ (21) NETWORKS
+ (21.1) NETBIOS STATION-TO-STATION CONNECTIONS
+ (21.2) TCP/IP SUPPORT
+
+The user manual for MS-DOS Kermit 3.14 is the book "Using MS-DOS Kermit",
+Second Edition, by Christine M. Gianone, published by Digital Press /
+Butterworth-Heinemann, Woburn, MA, 1992, 345 pages, ISBN 1-55558-082-3.
+Available in book and computer stores, or order from Columbia University at
++1 212 854-3703.  Changes since the book was published are described in
+KERMIT.UPD (MSKERM.UPD).
+
+Please consult "Using MS-DOS Kermit" and this file before contacting Kermit
+technical support staff.  Report problems via e-mail to kermit@columbia.edu or
+call +1 212 854-5126, or by Fax to +1 212 663-8202, or write to Kermit
+Distribution, Columbia University Academic Information Systems, 612 West 115th
+Street, New York, NY 10025, USA.
+
+Also, please read the installation instructions in the top-level READ.ME file
+on the Kermit diskette.
+
+(0) OUR MOST FREQUENTLY ASKED QUESTION
+
+  "Why are Kermit file transfers so slow?"
+
+Today's Kermit protocol, when properly implemented -- as it is in MS-DOS
+Kermit, C-Kermit, IBM Mainframe Kermit from Columbia University's Kermit
+software collection -- can transfer files very efficiently if you give it a
+few commands to override its deliberately conservative (pessimistic) initial
+(default) protocol settings.  Our priority is to make transfers work, even
+under adverse conditions.  Other protocols are tuned to make transfers fast,
+but when conditions are poor (noisy or non-transparent connections, buffering
+or flow control problems, etc), these protocols often don't work at all.
+
+See Section 17, File Transfer, for our Secret Formula for Fast Kermit File
+Transfers.  For a detailed discussion of Kermit file transfer performance,
+please read the file PERFORM\PERFORM.DOC on the Kermit diskette.
+
+(1) PATCHES
+
+ Patch file     For executable
+
+  MSR314.PCH     KERMIT.EXE      Full version
+  MSRM314.PCH    KERMITE.EXE     Medium version
+  MSRL314.PCH    KERLITE.EXE     Lite version
+  MSRP314.PCH    KERMIT_P.EXE    Full version, Portuguese legends
+
+The patches are as follows:
+
+ 1. Optional Orchid Designer Professional VGA board video-mode patch.
+    Allows patching in the appropriate video mode, since different models
+    use different modes, but identify themselves the same way to Kermit.
+
+ 2. Fix for file names given on the command line in the -F option
+    (alternate initialization file) not always being parsed correctly.
+
+ 3. VT220/320 terminal emulator patch for correctly recognizing OSC and
+    PM sequences.  Without this patch, such sequences (which are rarely
+    used) could cause Kermit to hang until reset.
+ 
+ 4. Patch to prevent MS-DOS Kermit from improperly encoding its response
+    to the A packet.  The most notable symptom was failure to properly
+    receive RESENDs.
+
+ 5. Patch to the READ command to prevent it from improperly treating "-"
+    at the end of a line as a continuation character.
+
+ 6. Patch for TES networking: preserve TES LAT ID around restarts.
+
+ 7. Optional patch for Hebrew-model VT100 terminal emulation.  Described
+    below.
+
+ 8. Patch to make the MAIL command once again work properly when sending
+    multiple files.  Without this patch, the MAIL command only works for
+    one file; e.g. "mail foo.*" would send all foo.* files, but only the
+    first one would be mailed; the rest would disappear.
+
+THE HEBREW PATCH
+
+Certain applications are hardcoded for the DEC Hebrew-model VT100
+terminal, and can't use Kermit's VT420-level Hebrew features.
+Reportedly, MS-DOS Kermit 3.14's interpretation of the Hebrew VT100 was
+incorrect.  Diagnosis: ESC ) 1 selects the "Alternate ROM" character set.
+When this is Hebrew, it also has the side effect of switching writing
+direction to right-to-left, but Kermit didn't do this.  ESC ) B switches
+back to ASCII, and resets screen writing to left-to-right.  Cure: Enable
+Patch 7 but uncommenting it (i.e. remove the semicolon from the front of
+each line).  Do NOT enable patch 7 if you do not require VT100-level
+Hebrew, because other Alternate ROMs do not have this same side effect.
+In the next release, we will add a SET COMMAND to control the Alternate
+ROM side effects.
+
+Patch 7 is available only for KERMIT.EXE because it is a difficult patch
+to create. If there is a strong need then a patch can be created for
+Portuguese and Medium versions.
+
+PROBLEM RECEIVING RESENDS
+
+If MS-DOS Kermit has its FILE COLLISION set to UPDATE, it won't be able to
+receive RESENDs as advertised.  Instead, it will refuse the RESEND with
+"Refused: Date".  This problem is too complex to be patched, and so a
+workaround must be used, one of the following:
+
+ . MS-DOS Kermit's FILE COLLISION should be set to OVERWRITE when
+   receiving RESENDs.  Or:
+
+ . Tell MS-DOS Kermit or the other Kermit to SET ATTRIBUTE DATE OFF when
+   RESENDing.
+
+For example, here is a macro that can be used in place of RESEND in
+C-Kermit or MS-DOS Kermit to get around this problem:
+
+  define XRESEND set attr date off, -
+    resend \%1 \%2, -
+    assign \%9 \v(status), -
+    set attr date on, -
+    end \%9
+
+A fix will appear in the next release.
+
+(2) INCOMPATIBILITIES BETWEEN MS-DOS KERMIT 3.14 AND EARLIER VERSIONS
+
+ 1. In version 3.13, the escape sequence that invoked the TERMINALR/S macros
+    was changed to control screen writing direction (details in KERMIT.UPD),
+    for compatibility with newer VT terminals.  Any host software that sent
+    the TERMINALR/S sequences will need to be converted to send APC sequences.
+    See KERMIT.UPD and the WordPerfect section of this file.
+
+ 2. STATUS command removed.  Use the SHOW command to display categories of
+    settings: SHOW TERMINAL, SHOW COMMUNICATIONS, SHOW PROTOCOL, etc; v3.13.
+
+ 3. STATISTICS, which displays file transfer statistics, has been added as a
+    top-level command, for compatibility with C-Kermit; v3.13.
+
+ 4. Alt-n was previously bound by default to the \Knethold verb.  It is now
+    bound to the new \Knextsession verb.  \Knethold moved to Alt-z.  v3.13.
+
+ 5. \m(macroname) behaves differently in 3.14; see section 18.
+
+ 6. SET TAKE-ECHO is now SET TAKE ECHO, to allow for other SET TAKE commands.
+
+ 7. Status line format changed in 3.14.
+
+ 8. Semicolon must be the first character on the line or else be preceded
+    by a space or tab to be treated as a comment introducer; v3.14.
+
+(3) WORDPERFECT
+
+WordPerfect 6.0 comes with a fax TSR, FAXDIR.EXE, which, reportedly, fiddles
+with the communication port even when other communication applications (such
+as Kermit) are running. If you experience hangups, changes of interface speed,
+etc, while running Kermit with FAXDIR loaded, remove FAXDIR.
+
+The WordPerfect Office Shell is not a true multitasking environment.  It
+simply brings the "hot-key'd" program to the foreground and deactivates the
+other programs.  Thus, you can't use it to accomplish Kermit file transfers in
+the "background" or to put Kermit TCP/IP connections on hold.
+
+To make host-based UNIX WordPerfect work with MS-DOS Kermit 3.13 or later,
+follow these directions (courtesy of Chris Thompson at Vanderbilt University;
+presumably similar steps can be followed for the VMS version):
+
+. Go into the directory where the terminal definitions are stored (in my case
+  of WP 5.1 for AIX, it was /usr/wp51/shlib), and execute "wpterm" (it usually
+  requires you to be superuser).
+
+. A screen containing all the terminal definitions will appear.	 Highlight the
+  current Kermit terminal definition and hit Create.
+
+. It will ask "Model new definition after Kermit?"  Answer yes.
+
+. It will then ask for a new name for your new terminal definition.  Call it
+  something like KERMIT314.
+   
+. At the bottom of the screen, several options will appear.  Choose 
+  Terminal Control Characters.  It will then bring up a screen with the
+  different initialization strings and their values.  The first four items are
+  the ones that need altering (Terminal Initialization, Terminal Reset, Quick
+  Initialization, and Quick Reset).  Delete "[27][?34h" or "[27][?34l" (for
+  initialization and reset, respectively) from the string and replace it with
+  "[27]_take \kermit\keyboard\wp_unix.ini[27]\" or "[27]_set key clear[27]\",
+  leaving the rest of the string intact.
+   
+. Be sure to change your WPTERM environment variable if you decided to create
+  a definition with a different name.
+
+(4) MICROSOFT WINDOWS
+
+MS-DOS Kermit is the recommended Kermit software for Windows.  Follow the
+installation instructions in the READ.ME file.  Kermit will probably run
+slower under Windows than under DOS because Windows has higher overhead.
+Watch out for interrupt and memory conflicts, etc.  To improve Kermit's
+performance under Windows, try any or all of the following:
+
+1. Use the PIF editor to raise Kermit's priority in the KERMIT.PIF file.  This
+   will slow down any other active applications while Kermit is running.
+
+2. Use the PIF editor to lock Kermit in memory.	 This will also interfere with
+   other applications, but it eliminates the chance of Kermit being swapped
+   out when characters arrive on the communications device, which could
+   otherwise be lost while Windows swaps Kermit back in to process them.
+
+3. Make sure your serial communication (COM) device or internal modem has a
+   16550A buffered UART.  This reduces the number of interrupts that must be
+   serviced (slowly) by Windows before Kermit gets to see them.
+
+4. In the "[386Enh]" section of SYSTEM.INI, look for:
+
+     COM1Irq=4
+     COM1Base=03F8
+     COM2Irq=3
+     COM2Base=02F8
+     etc.
+
+   For any COM port that really has a 16550A buffered UART, add a line like:
+
+      COM1FIFO=1
+
+   and correct the addresses and IRQs if they are wrong.  Also you might
+   want to investigate other COMxBlah parameters, such as COMxTxSize,
+   COMxRxSize, COMxBuffer, COMBoostTime, etc.
+
+5. Install an alternative communication port driver, such as the WFXCOMM
+   driver that comes with WinFax PRO, Delrina Technology Inc, or TurboCom/2
+   from Pacific Commware (we do not necessarily recommend any of these, and
+   do not provide support for them, but we have heard reports that they
+   improve performance).
+
+6. If you want to "minimize" Kermit while it is running, e.g. for "background"
+   file transfers, be sure to allocat background time for it in the KERMIT.PIF
+   file.  Even then, Kermit (and all other tasks) are at the mercy of other
+   applications that might not give up their shares of the CPU.
+
+To avoid memory conflicts, don't let Windows choose its own memory management
+layout.  See section (19).
+
+Messages like "This application has violated system integrity due to execution
+of an invalid instruction and will be terminated" can occur if the expanded
+memory page frame was allowed to overlap another important piece of memory.
+Workaround: Tell DOS *and* Windows where to locate the 64KB expanded memory
+page frame (E000 is typical, see section 19).
+
+Reportedly, "AfterDark version 3.0 for Windows seems to have some compatiblity
+problems with *any* DOS based session (including MS-DOS Kermit).  The symptoms
+are random 'Unexepected protection violations' and device conflicts.  My
+*unofficial* fix (after lots of experimenting) is to go into the AD3.0 control
+panel and turn OFF the 'Enable screen saving in DOS windows' box (in the
+advanced options).  AD2.0 works fine."
+
+Don't use SMARTDRIVE -- it turns off CPU recognition of interrupts while
+flushing disk buffers, causing other applications, like Kermit, not to receive
+them, therefore resulting in loss of data.
+
+(5) WINDOWS FOR WORKGROUPS
+
+See the section on this in the file NETWORKS\SETUP.DOC.
+
+(6) TROUBLESHOOTING MS-DOS KERMIT SERIAL PORT AND MODEM PROBLEMS
+
+  "Why can't MS-DOS Kermit find my COM3 or COM4 port?"
+  "Why can Kermit send characters to my COM port, but not read them?"
+  "Why doesn't Kermit work with my internal modem?"
+
+Rule out the obvious: Is everything connected and turned on?  Did you
+give a SET PORT command for the right device, and did you give it BEFORE any
+other device-related commands, such as SET SPEED, PARITY, and FLOW?  Remember,
+port-related settings apply to the port that was selected in the most recent
+SET PORT command, so a proper sequence might be:
+
+  SET PORT COM2	    ; First select the port
+  SET SPEED 19200   ; Then set its speed
+  SET PARITY EVEN   ; and other parameters for this port...
+  SET FLOW RTS/CTS
+  SET LOCAL-ECHO ON
+
+If you purchased an internal modem (or add-on UART, e.g. a buffered UART to
+replace a non-buffered one) and installed it as COMx (e.g. COM2) on a PC that
+already had a COMx built into the motherboard, you have to go into the PCs
+hardware setup screen to disable the pre-existing built-in COM port.
+
+Before giving the SET FLOW RTS/CTS command, be sure the current serial port is
+receiving the CTS signal -- use SHOW MODEM to check.  If not, Kermit will hang
+for 10-15 seconds waiting for CTS to come on every time you type a character.
+
+Each of these parameters is remembered for each port, so switching ports (e.g.
+SET PORT COM1 after you have given the above sequence of commands) changes
+all these parameters to their previous (or default) values for the port you
+have switched to.  To see communication parameters for the current port:
+
+  SHOW COMMUNICATIONS
+
+Check them carefully to be sure they are what you intended.
+
+(6.1) FREQUENTLY ASKED QUESTIONS
+
+Q: When I give the DIAL command, it says "Please turn on or connect your
+   modem", but my modem is turned on and connected.
+
+A: Here are the most common reasons for this:
+
+   1. You did not SET PORT to the same port that the modem is connected to.
+      Kermit uses COM1 unless you say otherwise.  If your modem is on (say)
+      COM2, then SET PORT 2 before giving the DIAL command.
+
+   2. You are not using an appropriate dialing script for your modem.
+      See MODEMS\READ.ME on the Kermit diskette.
+
+   You can always dial manually by CONNECTing to the modem and typing
+   modem commands (like ATDT7654321) directly at it.
+
+Q: MS-DOS Kermit only supports COM1 through COM4.  But I have a specialized
+   communications board that has additional ports on it, and I want to use
+   Kermit with COM8.
+
+A: The trick is to tell Kermit that it is COM1, 2, 3, or 4, and then tell
+   Kermit its address and IRQ (more about addresses and IRQs below).  For
+   example, suppose your COM8 is at address 2e8 (hex) using IRQ 5; you would
+   tell Kermit to "set com4 \x2e8 5" and then "set port 4".  Or if you have a
+   Fossil driver, you can use Kermit's SET PORT FOSSIL command to access
+   high-numbered ports.
+
+Q: I installed my new internal data/fax modem on COM4 and I followed all
+   the instructions in the KERMIT.BWR file, so I can use it under DOS, but
+   I still can't use it under Windows, even after going into the Control 
+   Panel:Ports:COM4:Advanced dialog to set the address and IRQ.
+
+A: Most likely cause: gaps in the COM port sequence; e.g. no COM3.  You must
+   also tell Windows that there is (e.g.) no physical COM3 by:
+
+   . Edit \windows\system.ini
+   . Search for the [386Enh] section
+   . Add the following line:
+       COM3IRQ=-1
+     in the COM3 section.
+
+   So now (for example) we have the following lines describing COM3 and COM4:
+
+     COM3IRQ=-1
+     COM4Base=02E8
+     COM4IRQ=5
+
+  (All of this terminology is explained below.)  Now to the hard cases...
+
+  The following discussion is detailed and technical, but most of it boils
+  down to (a) telling Kermit two numbers, the port address and IRQ value; and
+  (b) fiddling with your modem.	 Keep that in mind as you read more about PC
+  hardware than you ever wanted to know.
+
+(6.2) HOW A PHYSICAL COMMUNICATION PORT IS ASSOCIATED WITH A DOS COMn DEVICE
+
+DOS PCs support only two communication ports, COM1 and COM2, but have
+provisions for two more, COM3 and COM4.  COM3 and COM4 are not well supported
+in most types of PCs, as are COM1 and COM2 which rarely (by themselves) cause
+any problems (note: this last phrase is becoming increasingly less true as PCs
+are loaded up with additional devices such as CDROM drives, sound boards, etc).
+This discussion considers only COM1-COM4.
+
+The digit in the port name (like the "2" in COM2) is an index into an area in
+memory that contains the address of the serial port hardware.  The PC's Basic
+Input/Ouput System (BIOS) has four words starting at segment 40 (hexadecimal),
+word 0, for the addresses of the first four COM ports.	Word 0 is for COM1,
+word 2 (two bytes per word) for COM2, word 4 COM3, and word 6 COM4.  To view:
+
+  C:\> debug	(start the debug program)
+  -d 40:0   	(display segment 40)
+  -q		(quit the debug program)
+
+("C:\>" is the DOS prompt, "-" is the debug prompt.)  Here are the results
+on a PS/2 with 3 COM ports:
+
+  0040:0000  F8 03 F8 02 20 32 00 00-BC 03 00 00 00 00 60 03  .... 2........`.
+	     ^^^^^ ^^^^^ ^^^^^ ^^^^^
+	     COM1  COM2	 COM3  COM4
+
+The first line contains the COM port information (ignore the other lines, as
+well as the characters on the right).  "F8 03" is the 2-byte COM1 address,
+expressed in hexadecimal (base 16) with the low byte first. Thus the actual
+COM1 address is 03F8 hex, expressed in Kermit commands as \x3f8.  The COM2
+address is 02F8, the COM3 address is 3220, and (since there is no COM4) the
+COM4 address is 0000.  That is how both DOS and the BIOS understand which
+ports are defined and where to find them.
+
+When your PC is powered up, the BIOS startup code checks for serial port
+hardware (that is, a Universal Asynchronous Receiver/Transmitter, or UART) at
+the two port addresses 03F8 and 02F8.  If it finds a UART at the first address
+then that address is placed in word 40:0 and declared to be COM1.  Then the
+BIOS tries the second address and if successful this address goes into the
+first available word at that time, typically 40:2 as the address of COM2.
+Thus if you remove a COM1 device then a previously COM2 device will appear in
+the COM1 BIOS storage area as COM1 to DOS and Kermit.  What happens to the
+other two words depends on the PC model and BIOS.  The IBM PS/2 BIOS fills in
+all four words on startup, but most others handle only the first two because
+that's how original PCs worked.
+
+  So... just setting switches or jumpers on a serial port board or internal
+  modem does NOT necessarily define the board to be a particular COM port.
+
+So why do some communication programs work with COM3 and COM4 without any
+special fiddling?  These programs ASSUME certain COM3 and COM4 addresses, even
+when there are no entries in the BIOS communication-port area. Some of these
+programs show you their assumptions in a menu (and might allow you to change
+them), others do not.  The assumed values are usually as follows:
+
+  Port	 Assumed Address (hexadecimal)
+  COM1	      03F8
+  COM2	      02F8
+  COM3	      03E8
+  COM4	      02E8
+
+PS/2s use different addresses for COM3 and COM4 -- 3220 and 3228,
+respectively.  Well-behaved communication software (like Kermit) uses these
+addresses rather than the defaults listed above.  Ill-behaved software ignores
+the segment-40 addresses and erroneously uses its own values, right or wrong.
+
+Unchecked use of an assumed port address is DANGEROUS if the device is not
+really where the software expects, especially if some other kind of device,
+say a network adapter, is at the given address.  It can also produce unwanted
+conflicts under Windows, OS/2, and DesqView, whose drivers often set the
+port's segment-40 word to 0 when they want to use the port exclusively and
+without interference, and then restore the real address when done, and similar
+unwanted interference with Int 14H redirectors that allow serial-port
+communication software to be used on network connections.
+
+Unlike most other PC communication software, Kermit does NOT attempt to use a
+communications port unless:
+
+  (a) It finds its address in the BIOS comm-port area, segment 40, or:
+  (b) You specify the address yourself.
+AND:
+  The device at the given address passes certain tests, in which registers
+  must contain certain values that are legitimate for a UART.
+
+In other words, KERMIT IS MORE CAREFUL than most other communication software,
+because does not want to risk disrupting normal operation of your PC.
+
+(6.3) SPECIFYING THE PORT ADDRESS
+
+If you tell MS-DOS Kermit to SET PORT COMn (where n is 1, 2, 3, or 4), and
+Kermit responds:
+
+  Warning, no hardware for this serial port.
+  This port will be operated through the BIOS as BIOSn
+
+it means that Kermit did not find an address for the port in the BIOS area or
+it did find one but the hardware at that address did not look like a UART.  If
+the cause of the message is a missing address, you can tell MS-DOS Kermit the
+address of the port by issuing the following command:
+
+  SET COMn \xhhhh
+
+where n is 1, 2, 3, or 4, and hhhh are four hexadecimal digits (0-9, A-F)
+representing the 16-bit address.  This command not only informs Kermit of the
+address, but also inserts the address into the BIOS so other programs can find
+the port (if they follow the rules), and so you don't have to give this
+command to Kermit again until after the next time you reboot, unless another
+program removes it again.
+
+After giving the SET COMn command, give a SET PORT COMn command for the same
+port, e.g.:
+
+  set com3 \x3e8   ; FIRST specify the address of COM3 
+  set port com3	   ; THEN select COM3
+
+How do you know what addresses to give?  If have purchased an internal modem
+or an add-on serial port, the installation instructions should tell you.  You
+have to make sure that the address that you have chosen agrees with the
+address that Kermit will use.
+
+Although it is not recommended that you guess at address values, sometimes it
+is the only way (as often with inherited equipment), for which occasions here
+is a list of commonly used addresses:
+
+  Port	 Likely Addresses (hexadecimal)
+  COM1	     03F8
+  COM2	     02F8
+  COM3	     03E8, 3220 (PS/2)
+  COM4	     02E8, 3228 (PS/2), 02E0
+
+Now let's look at the other cause for "This port will be operated through the
+BIOS", namely that an address was found in segment 40, but the device at that
+address does not appear to be a genuine serial port.  Possible explanations:
+
+ 1. The device is at a different address.  Check your device's configuration
+    again, or your SET COMn command.
+
+ 2. Your device is indeed at the given address, but its registers do not
+    contain values expected of a true PC serial port.  In that case, BIOS
+    operation is the only alternative.
+
+ 3. Your device is at the given address, but there is a conflict with another
+    device at that address or the machine's bus speed (not CPU speed) is set 
+    so high that the hardware test gave confusing results.
+
+When Kermit operates a port through the BIOS, rather than directly, it will be
+MUCH slower and might not work at all because the BIOS requires the CD, CTS,
+and DSR modem signals to be asserted by the device connected to the port (and
+the CD signal is normally NOT asserted by a modem before it has made a
+connection to another modem).  In that case, you must configure the device
+(e.g. modem) to assert DSR, CTS, and CD always, or wire your modem cable to
+fake these signals (e.g. by connecting CD and DSR together).
+
+Assuming you have found the right address for your COM3 or COM4 port (or
+nonstandard address for COM1 or COM2), and you want these addresses to be set
+correctly for Kermit at all times, even if it doesn't read its initialization
+file, you can put a command like the following in your AUTOEXEC.BAT file:
+
+  set kermit=com3 \x3e8; com4 \x2e8;
+
+(6.4) INTERRUPTS AND IRQS
+
+  "I can send characters to the modem, but I never see any on my screen."
+
+This complaint, also known as "can-talk-but-not-listen syndrome", usually
+means that the communication device was found at the expected address, but
+Kermit's idea of its interrupt is wrong, or more than one device is generating
+the same interrupt.  What's an interrupt?
+
+To achieve high-speed communication without impacting other applications,
+Kermit reads characters from a serial device using "interrupts".  Whenever a
+character arrives at the serial device, the device sends a signal, called an
+interrupt, that can be "caught" by applications like Kermit, leaving the
+application free to do other work in the meantime without having to constantly
+look at the serial port to see if any characters have arrived (an operation
+called "polling", which is used by some other communications programs).
+Polling programs are not sensitive to interrupts being set improperly and
+might therefore work with improperly-configured machines where Kermit will not
+(until you give it the required info), but they also tend to take over the
+entire computer.
+
+In contrast to polling programs, Kermit is normally waiting for input from the
+keyboard, so it is idle if you are not typing and no characters are arriving
+at the communication port.  In multitasking environments like Windows or OS/2,
+this gives other applications the largest possible share of the CPU.
+
+When a character arrives at the port, an interrupt signals Kermit to wake up
+from its keyboard-wait state and read from the port.  But Kermit needs to know
+which device the interrupt came from, so it will not read from the wrong one.
+The device is identified by an Interrupt Request (IRQ) number, a small number
+like 3 or 4. The BIOS does not record the IRQ number used by a serial port
+because the BIOS uses polling rather than interrupts.  The communications
+software has to know which IRQ to use.  By convention from the original IBM
+PC, COM1 uses IRQ 4 and COM2 uses IRQ 3. There is no standard for COM3 and
+above, but certain conventions are normally followed:
+
+  Port	 PS/2  Others
+  COM3	 IRQ3	IRQ4
+  COM4	 IRQ3	IRQ3
+
+Certain serial port cards and internal modems allow themselves to be
+configured with different IRQ numbers (such as 9), even on COM1 or COM2.
+Check your device's installation instructions.
+
+In general, NO TWO DEVICES SHOULD HAVE THE SAME INTERRUPT.  Otherwise there
+will be a serious conflict and potential lockups or damage.
+
+Some types of PCs, however, notably Microchannel PS/2s, allow sharing of IRQ
+numbers.  Each application has its own interrupt service routine and each such
+routine is built to "chain" interrupts properly (pass them along to other
+applications if they arrived at the wrong place).  This works, for example,
+with Kermit on a PS/2; you can run two copies of Kermit under Windows, one
+using COM2/IRQ3 and the other using COM3/IRQ3 (i.e. two ports, same IRQ), both
+doing input and output simultaneously with no confusion.  But on most types of
+PCs, IRQs can NOT be shared, so each device must have a unique IRQ
+number. This caution applies especially when you have a serial mouse on IRQ 3
+or 4.
+
+Once Kermit knows the COM port's address, it tests to see which IRQ number, 3
+or 4, the device uses. This is a safe test and doesn't cause any modem
+signaling or communication to take place.  The PC architecture has a limited
+range of IRQ numbers available, and so (usually) there can not be a unique IRQ
+number for each serial port when there are more than two, so in most cases no
+more than two serial ports can be active at once.  If the IRQ test fails, a
+default value is used, as listed above.  No error message is given in this
+case, but "can-talk-but-not-listen syndrome" is a likely result.
+
+Some add-on communication boards or internal modems are set up to use IRQ
+numbers other than 3 or 4 to avoid conflicts with COM1 or COM2 and/or to allow
+more than two COM ports to be active at once.  But this can be dangerous --
+for example, IRQ 5 (which is often used for this purpose) is also used by the
+hard disk controller on the PC/XT. IRQ 7 is often used by network boards.  For
+this reason, Kermit does not automatically test any IRQ numbers other than 3
+or 4, and does not use any other IRQ number unless you tell it to.
+
+But it is sometimes necessary, particularly on ISA (Industry Standard
+Architecture) bus machines (PC/ATs and compatibles) and earlier (such as PCs
+and XTs) to use an IRQ other than 3 or 4, for example when when an internal
+modem is installed as COM3 on IRQ4, and then use of COM1 prevents COM3 from
+working, and vice versa.  This problem can often be solved by reconfiguring
+the board to use an otherwise unused unique IRQ number.  Ideally this would be
+a normally free IRQ such as 10 or 11, but unfortunately most communication
+boards are not configurable for IRQs higher than 7.  Here is a brief, and
+definitely not comprehensive, guide to the low IRQ numbers (decimal):
+
+     2	Normally available, but some video boards use it to obey an obsolete
+	standard for indicating vertical refresh.  Adjust video board jumpers
+	to not do this.	 On 286's and above, IRQ 2 is also known as IRQ 9:
+	same IRQ, alternate number.  Windows 3.0 had difficulty with devices
+	using IRQ 2, but Windows 3.1 is better.
+
+     3	Normally COM2 and COM4.	 PS/2's use IRQ 3 for all serial ports above
+	COM1.  IRQ3 is also a favorite "factory default" of many local area
+	network (LAN) adapters.
+
+     4	Normally COM1 and informally COM3 (except on PS/2s).
+
+     5	Secondary parallel port.  Parallel ports are rarely interrupt-driven
+	(except for Novell RPRINTER users) so this IRQ becomes free if you
+	unjumper it on the parallel port board.  LAN adapters are often placed
+	on IRQ 5.  PC/XTs use IRQ 5 for the hard disk.  Careful with this one.
+
+     6	Floppy disk drives. Leave it alone!
+
+     7	Primary parallel port.	Remove as described for IRQ 5.	Be careful,
+	LAN adapters are frequently placed here.
+
+IRQs higher than 7 are not available on original PCs or PC/XTs.
+
+     9	Alias for IRQ 2 on PC/AT and above.  Don't try to use this one
+	as if it were a unique IRQ.
+
+    10	Usually free.
+
+    11	Usually free.
+
+    12	Used by the IBM bus mouse, otherwise usually free.
+
+    13	Math coprocessor errors are trapped here, otherwise frequently free.
+
+    14	Used by hard disk on 286 and above.  Leave alone!
+
+    15	Some SCSI controllers use this.	 Usually free.
+	
+If your communication board uses an IRQ other than 3 or 4 and you experience
+"can talk but not listen" syndrome when using Kermit, simply tell Kermit the
+device's IRQ number.  This is done in the SET COMn command, after the address:
+
+  SET COMn <address> <irq>
+
+for example:
+
+  SET COM3 \x03e8 5
+
+When you include a number (like 3, 4, 5, 6, or 7) after the port address
+(separated by a space), Kermit skips its IRQ test and uses the IRQ number you
+specified the next time you give a SET PORT command for that port.
+
+  AVOID address and IRQ conflicts; these items MUST NOT overlap existing
+  equipment. SERIOUS DAMAGE can result if, for example, the IRQ number you
+  give is the same as the one used by your disk controller or network
+  adapter.  Incorrect operation can result if the interrupt is in use by a
+  less critical device, such as a mouse.
+
+It is necessary to specify the IRQ number in either of these two situations:
+
+  1. The communication device uses an IRQ number other than 3 or 4.
+
+  2. Kermit's IRQ test interferes with Windows or a similar environment.
+
+Check your PC's configuration carefully before specifying an IRQ number.
+Before starting Kermit, you can use public domain or commercial utilities like
+MAPMEM, Northgate QAPLUS, Quarterdeck MFT, or the MSD utility shipped with
+Windows 3.1 to get an idea of which IRQ numbers are already in use (these
+utilities are, of course, not foolproof -- for example, they can't tell what
+IRQs are used by programs that are not presently loaded).  (NOTE: Run these
+programs under DOS, not Windows, if possible, since Windows hides things.)
+
+If, even after establishing the device's interrupt, Kermit still fails to
+operate correctly, check whether:
+
+  1. Some other device (such as a mouse or LAN adapter) is generating the 
+     same interrupt.
+
+  2. Some other software (such as a mouse or video driver) is catching the 
+     same interrupt.
+
+If you find a conflict, you'll have to resolve it: remove the offending device
+driver or TSR from your CONFIG.SYS or AUTOEXEC.BAT file or turn it off
+temporarily (e.g. with the MOUSE OFF command for certain mouse drivers) or
+reconfigure one of the conflicting devices to use a different IRQ.
+
+Example: A PC (not PS/2) is delivered with a serial mouse on COM1 and with
+COM2 as a free serial port.  COM2 can be used with an external modem, but you
+can't put an internal modem on COM3 because its IRQ conflicts with the mouse
+and the COM4 address clashes with an 8514/A video adapter (such as the ATI
+Ultra+).  Neither the mouse interrupt nor the video board address can be
+changed.  So to install an internal modem, you must remove the serial mouse
+and driver and, if you need a mouse, replace it with a bus mouse.
+
+(6.5) MODEM PROBLEMS
+
+  "I just bought and installed an XYZ-PowerTurbo V-Dot-Everything internal
+   data/fax modem, and I can't make it work!"
+
+With internal modems, particularly when they are installed on COM3 or COM4,
+the most common problems are:
+
+ 1. Kermit doesn't know the modem's address, or the device is using an IRQ
+    number other than 3 or 4.  These problems can be fixed by giving the
+    appropriate SET COMn command to Kermit and/or clearing up any interrupt
+    conflicts among your PC's devices.
+
+ 2. The internal modem is installed incorrectly, with an address or IRQ that
+    conflicts with one already in use on your PC.
+
+ 3. The internal modem does not correctly emulate a real IBM PC serial port,
+    and therefore fails Kermit's hardware test, and therefore can only be
+    used through the BIOS.
+
+ 4. The device is in a battery-powered computer, and power to the internal
+    modem has been disabled in the CMOS setup, or has been turned off
+    automatically when the cover is closed or the machine shut down.
+
+In mid-1992, a new generation of low-cost, high-speed modems, both internal
+and external, began to appear on the market.  These modems typically offer a
+wide range of features: V.32 and V.32bis modulation, V.42 and MNP error
+correction, V.42bis and MNP data compression, etc.  Unfortunately, many of
+these modems suffered from bugs not found in earlier modems.  The problems are
+generally related to initialization of the modem and interaction with its
+command processor.  Some common complaints:
+
+ 1. "The modem won't dial or respond to commands".  Or the modem ignores
+    commands when Kermit's PARITY is set to a particular value, like EVEN.
+    Or commands are not processed correctly above a certain interface speed.
+
+ 2. "I can dial successfully, and in general send characters to and through
+    the modem, but I never get any characters back."  This looks suspiciously
+    like the "talk-but-not-listen" problem, but in some cases it is a bug in,
+    or a configuration problem with, the modem, having nothing to do with
+    Kermit: the modem is simply not sending any characters to the PC.
+
+ 3. "After using the modem with <name-omitted> communication software, it
+    also works with Kermit, but it won't work with Kermit unless I run
+    <name-omitted> first."
+
+ 4. "I can communicate in command-mode with the modem, up until I give it
+    an ATZ command, at which point my PC freezes up."
+
+ 5. The modem does not pass the BREAK signal.
+
+ 6. The DSR signal goes off after successful dialing.
+
+And so on.  Here are some suggestions for overcoming these problems:
+
+ 1. Before giving a DIAL command, which invokes a macro containing OUTPUT
+    commands for the modem's command processor, give the command:
+
+	SET OUTPUT PACING <milliseconds>
+
+    For example:
+
+	SET OUTPUT PACING 100
+	OUTPUT AT Q0 E1 V1 &F\13
+
+    This inserts a pause between every character that Kermit sends to the
+    modem.
+
+ 2. External modems only: Check that your modem cable has wires for (at least)
+    the TD, RD, SG, CTS, RTS, DSR, CD, and DTR RS-232 signals.	If it does
+    not, replace the cable with a real modem cable, or (temporarily) configure
+    your modem to compensate for the missing signals.
+
+ 3. Read your modem manual and check your modem's configuration.  Perhaps its
+    interface speed is locked to a different speed than the one Kermit is
+    using.  Perhaps Kermit is set to use RTS/CTS flow control, but the modem
+    is not asserting CTS.  Also, check its factory and/or saved settings, and
+    under what conditions they are restored (for example, are they restored
+    when the PC drops DTR?).  How are you selecting saved settings -- read
+    your modem manual about (e.g.) the difference between AT&F and AT&F2.  Be
+    aware that the AT&Fn commands might not restore all S-registers, so double
+    check them.	 Be particularly sensitive to the registers that control
+    interface speed, modulation technique, error correction, data compression,
+    negotiation, and fallback, and note that each modem maker probably uses
+    different registers and commands to control each of these features.
+
+ 4. Try the following sequence to initialize the port (using COM3 in this
+    example):
+
+	SET COM3 <address> <irq>	; (if necessary)
+	SET PORT 3			; Select port 3
+	HANGUP				; Drop DTR on port 3
+	SET PORT 3			; Re-initialize port 3
+
+ 5. SET PARITY NONE before directly talking to the modem's command processor,
+    and then SET PARITY to whatever the remote host or service requires after
+    making the connection.  (In v3.14, the DIAL macro does this
+    automatically.)
+
+ 6. Ensure your PC bus speed is 8MHz.  Some PCs come with a BIOS SETUP
+    facility that lets you change the PC's bus speed, memory wait states, etc.
+    It is usually dangerous to deviate from the defaults, particularly from
+    the 8MHz bus speed, a standard for add-on devices; it might be required by
+    your communication board or internal modem.
+
+ 7. To avoid negotiation and fallback problems between the two modems, set
+    your modem for features that you know the answering modem will support:
+    the particular type of modulation, error correction, compression
+    (connection problems between the two modems have nothing to do with Kermit
+    and are beyond the scope of this document). If a modem appears to dial
+    correctly, gets connection tones, and then hangs up, it is a problem
+    between the two modems (involving one or both modems and/or the phone
+    company), and indicates a modem configuration problem, a bug, or a basic
+    incompatibility between the calling and answering modems.
+
+ 8. The ATZ problem -- a bug in your modem.  If the modem doesn't work after
+    an ATZ command, HANGUP and SET PORT again.  If that doesn't do it, power
+    the modem off and on.  If that doesn't work, power the PC off and on.
+
+ 9. If the modem doesn't pass the BREAK signal, but you want it to, read your
+    modem manual about how to configure it appropriately.  If your modem can't
+    be configured to pass the BREAK signal, but it does correctly implement a
+    command for sending BREAK, such as AT\B9, define an MS-DOS Kermit macro,
+    SBREAK, to send a BREAK as follows:
+
+      define sbreak pause 1, output +++, pause 1, output ATB\{92}9\13, -
+	pause 1, output ATO\13, connect
+	
+    and assign it to the key of your choice, for example F1:
+
+      set key \315 {\Ksbreak}
+
+10. Reportedly, some new modems (e.g. some of the PCMCIA kind) require their
+    commands to be in uppercase.  The dialing scripts should issue only
+    uppercase commands, but also check your dialing directory (e.g. "t" for
+    Tone dialing should be "T", etc).
+
+11. Call your modem maker's technical support number.  Ask if they have
+    replacement chips to fix bugs in your modem.
+
+(7) DEVICE INTERRUPT CONFLICTS AND OTHER HARDWARE CONSIDERATIONS
+
+On certain PCs, Kermit file transfers (or terminal sessions that are being
+logged to disk) through serial communication devices (COM1 thru 4) can suffer
+from data loss during disk read/write operations.  This is apparently because,
+on these PCs, the entire interrupt mechanism is TURNED OFF during disk reads
+or writes.  Thus, while the disk driver is active, no interrupts are generated
+by incoming characters, and therefore they are likely to be lost.
+
+If you experience data loss during uploads (watch the "Retries" counter), try
+sending the same file from a RAM disk; if the retries go away, your PC has
+this problem.  If downloads to disk have lots of retries, try downloading the
+same file to the NUL device (tell MS-DOS Kermit to RECEIVE NUL); same deal.
+
+Disk cache programs also consume many CPU cycles with interrupts turned off.
+The larger the amount to be written from cache the longer they stay off.
+If necessary shorten or eliminate the disk cache program.
+
+Other types of conflicts can arise from:
+ . The video adapter driving Int 2 for vertical retrace.
+ . Video adapter clashing with memory controller caching on the motherboard.
+ . System bus cranked up too fast; should be 8MHz.
+ . Too few wait states.
+ . DOS PRINT TSR or other TSRs.
+
+Several users have reported that on systems which have user-selectable
+processor speeds (such as 11MHz vs 25MHz), that Kermit works effectively at
+high serial communication speeds only when the higher processor speed is
+selected.
+
+(8) MS-DOS 5.0 AND 6.x
+
+You should not use MS-DOS Kermit (or other communications software) under
+DOSSHELL.  Unlike Windows, DesqView, OS/2, etc, DOSSHELL is NOT a multitasking
+environment.
+
+(9) MICROSOFT WINDOWS, DESQVIEW, OS/2, WINDOWS NT, ETC.
+
+Although MS-DOS Kermit can work in these environments, and even takes
+advantage of many of their features, it does not have a "graphical user
+interface".  You still have to type commands to the MS-Kermit> prompt or
+execute them from command files with the TAKE command.
+
+(9.1) OS/2
+
+The recommended communications software for OS/2 (any version) is C-Kermit
+5A(190) or later, a native OS/2 application.  As of this writing, however,
+there are still a few good reasons for using MS-DOS Kermit under OS/2, 
+including:
+
+ . To get Tektronix and/or Sixel graphics terminal emulation, which are not
+   yet offered by OS/2 C-Kermit. 
+
+ . To run a special version of DOS, e.g. Chinese DOS (CC-DOS, KCDOS, or
+   ZWDOS), which can then be used with MS-DOS Kermit for terminal emulation
+   and command processing.
+
+(9.1.1) OS/2 1.x...
+
+Under OS/2 1.3 and earlier, MS-DOS Kermit only runs in full-screen mode.
+Under 1.x of OS/2, the serial port must first be conditioned by the command:
+
+  SETCOM40 COM1=ON
+
+(9.1.2) OS/2 2.0 and Later...
+
+MS-DOS Kermit can run in a window of OS/2 2.x or in a full screen.  Kermit's
+flow control has no effect because OS/2 itself is controlling the device.  You
+can configure OS/2 to handle flow control itself by adding a command like the
+following to your STARTUP.CMD file:
+
+    MODE COM1 XON=ON	      (for XON/XOFF software flow control) 
+or:
+    MODE COM1 RTS=HS OCTS=ON  (for RTS/CTS hardware flow control)
+
+If your PC's communication port is a 16550A[FN] UART serial communication
+adapter (as is standard on the PS/2), it has a built-in buffer to improve
+performance.  To enable use of the 16550's buffering capability, add BUFFER=ON
+to your MODE command:
+
+    MODE COM1 XON=ON BUFFER=ON	       (for XON/XOFF software flow control) 
+or:
+    MODE COM1 RTS=HS OCTS=ON BUFFER=ON (for RTS/CTS hardware flow control)
+
+If you don't have a buffered UART, MS-DOS Kermit (and most likely any other
+communications software) will lose characters galore at high transmission
+speeds.
+
+IDLE_DETECTION_TIME should be set to 0 (which is the default anyway) and
+IDLE_SENSITIVITY should be 100 to reduce jerkiness of DOS sessions.  Also,
+reportedly, HW_TIMER must set to ON to avoid "hangs or extreme slowness" when
+running MS-DOS Kermit scripts in a DOS window.
+
+To make MS-DOS Kermit run VERY FAST under OS/2, use Ray Gwinn's SIO Virtual
+Fossil Driver (VX00.SYS) in conjunction with his OS/2 comm driver (SIO.SYS).
+If you get rid of the overhead of the virtualized 16550 comm port, MS-DOS
+Kermit flies.  Just SET PORT BIOS<n> or FOSSIL <n>, where <n> is an existing
+physical (or SIO mapped) comm port and then use it in the normal way.
+
+You can make TCP/IP connections with MS-DOS Kermit from within OS/2 as long
+as you do not have any other network software loaded; that is, if MS-DOS
+Kermit has exclusive access to the network board.
+
+(9.2) MICROSOFT WINDOWS
+
+MS-DOS Kermit operates under Microsoft Windows 3.0 and 3.1 in fullscreen mode
+on all machines, and in a window on 386-class or higher machines that have
+enough memory for Windows to operate in Enhanced Mode (3-4 megabytes are
+required).  See installation instructions in READ.ME.
+
+Memory-management setups accomplished under DOS (e.g. by EMM386) in CONFIG.SYS
+are undone by Windows. If successful operation of Kermit or other applications
+depends on some special memory configuration (such as eXclude= and frame=
+clauses to protect portions of video memory, etc), you must duplicate this
+configuration in the [Enhanced] section of the Windows SYSTEM.INI file.  See
+section 19.
+
+When running Kermit in two windows at once, one on COM1, one on COM2, Windows
+complains that both applications want to access COM1.  To make sure that
+COM1's IRQ 4 is not touched when starting COM2 (part of the "find the IRQ"
+test), specify the COM2 port parameters explicitly as "set com2 \x2f8 3"
+(standard port address and IRQ for COM2) before "set port com2" to make Kermit
+skip the test.
+
+Similarly, if you have a serial mouse on COM1, and you want Kermit to use (for
+example) COM2 for communication, add the following to your MSCUSTOM.INI
+file to prevent Kermit from touching COM1 and interfering with your mouse:
+
+  SET COM2 \x2f8 3 ; (substitute appropriate values)
+  SET PORT COM2
+
+Kermit's performance under Windows depends on the BIOS, the PC architecture,
+the serial port hardware, which drivers and TSRs are loaded, the system load,
+and Windows settings.  A 16550A UART is particularly important under Windows,
+as is an effective flow control method. For further tuning, look at the
+Windows files SYSIN*.TXT for information about SYSTEM.INI settings related to
+communication ports, particularly COMxBuffer and COMBoostTime.
+
+When running MS-DOS Kermit under Windows, specifying a ",P" at the end of a
+serial port setting in WIN.INI or in a MODE command can cause loss of
+characters from the serial port.  Remove the ",P" from the setting.
+
+TCP/IP connections over packet drivers under Windows require the WINPKT shim.
+TCP/IP connections over ODI under Windows require a packet-driver simulation
+shim and also the WINPKT shim.	Or, instead of using WINPKT, you can lock
+Kermit into memory.  You can't use Kermit in conjunction with Winsock.
+See NETWORKS\SETUP.DOC.
+
+(9.3) DESQVIEW and DESQVIEW/X
+
+Set "Optimize Communications" in the DesqView Advanced menu to "No".
+
+DESQview/X reportedly requires that the serial port be configured to
+"optimize" to prevent Kermit from losing characters.  Network connections
+(TCP/IP over a packet driver or ODI) within an X window of DESQview/X
+apparently do not work.
+
+(9.4) WINDOWS NT
+
+If you run Kermit under 4NT or CMD.EXE (but not under 4DOS or COMMAND.COM)
+under Windows NT 3.5, the serial port will hang up when you exit from Kermit.
+Kermit is not doing this itself, it just happens -- probably because these
+32-bit shells deallocate the port, causing NT to drop RTS and DTR.
+
+If you have performance problems with MS-DOS Kermit under Windows NT:
+
+You really need at least 20 MB of memory to run Windows NT, and particularly
+to run communications software under Windows NT.
+
+Check the Event Viewer for errors in the System Log, or use WINMSD to check
+for IRQ conflicts.
+
+(10) VIDEO PROBLEMS
+
+Never use segments A000 or B000 for memory mapping.  These belong to the
+video adapter.  See section 19.
+
+Kermit does not mix well with NNANSI.SYS, a public domain (or shareware?)
+console driver that replaces ANSI.SYS, and which implements "hardware
+scrolling", a case of two non-cooperating programs directly manipulating the
+video adapter at the same time!  Similarly for other console drivers that
+access the screen directly, including ANSI.COM (from PC Magazine, circa 1988).
+To turn off NNANSI.SYS's direct screen access, put the following commands in
+your MSCUSTOM.INI file:
+
+  echo \27[=98l			 ; Reset "fast mode"
+  define on_exit echo \27[=98h	 ; Set "fast mode"
+
+Q: I am using kermit software and trying to use SET TERMINAL GRAPHICS
+   COMPRESSED and every time I try to use this mode on a monochrome screen it
+   will only show half a screen, even though it works fine on a color screen.
+
+A: Those monochrome boards which do graphics are Hercules-compatible units.
+   Herc adapters have a half and full "page" graphics mode, and you need to
+   configure them for full-page graphics.  Read the booklet that comes with
+   the board; sometimes the vendor supplies utilities on disk, sometimes it's
+   a jumper on the board.
+
+(11) SERIAL COMMUNICATIONS
+
+ANSI.COM, mentioned above in connection with video problems, also interferes
+with serial communications.  Solution: unload it, use ANSI.SYS instead.
+
+On 386-class PCs with high-quality buffered UARTs, Kermit can be used at
+speeds up to 57600 bps under DOS (under Windows or DesqView, or on 286s or
+below, the maximum speed is usually lower).  115200 bps usually works only
+with a short shielded cable, and the async adapters of the two devices in
+perfect tune.  Many new high-speed PCs come with unbuffered UARTs.  Despite
+the speed of the CPUs, these new machines perform serial communications less
+reliably than older slower machines (like the PS/2-70) with buffered UARTs.
+
+MS-DOS Kermit will tell you whether you have a buffered UART:
+
+  SET PORT 2
+  SHOW COMMUNICATIONS
+  ...
+  COM1 Address: Port \xf38, IRQ 4, 16550A UART FIFO
+
+16550A UART means you have the good kind, FIFO means it has a "First-In
+First-Out" buffer.  If Kermit does not say you have a 16550A UART FIFO, and
+you are suffering poor performance or data loss, replace it (if possible)
+with a 16550A.
+
+SHOW COMMUNICATIONS might incorrectly display the UART type after you switch
+ports (e.g. from COM1 to COM2).  After using the new port (e.g. in CONNECT
+mode), the display will be correct again.
+
+If your speed is set too high, the symptom might be lost or garbled characters
+or graphics images on the screen, or data-overrun beeps.  Normally flow
+control prevents these problems so use it if you can.  Printing while in
+CONNECT mode needs flow control to be active.
+
+The SHOW MODEM and WAIT commands work right only if your modem or other
+communication device is configured to raise and lower the DSR, CTS, and CD
+signals appropriately, and the cable that connects your PC to the modem passes
+these signals through.  For some modems, the factory setting is to always keep
+CD on, even if there is no connection.  Consult your modem manual.
+
+For serial devices, the HANGUP command (and Ctrl-]H in CONNECT mode) works
+only if the cable that connects your PC to the communication device passes the
+DTR signal through, and if the communication device itself is configured to
+hang up or otherwise terminate the connection when the DTR signal is lowered
+by the PC.  For some modems, the factory setting is to ignore DTR transitions.
+Consult your modem manual.  NOTE: in version 3.11, the HANGUP command turned
+off DTR for about 1/2 second and then turned it back on again.  In version
+3.12 and later, the HANGUP command turns off DTR until the next time you issue
+a command that accesses the serial port.  If you can't make the HANGUP command
+work, use the ATHANGUP macro defined in MSKERMIT.INI, which should work on
+Hayes-like modems.
+
+On serial connections, when you PUSH to DOS (including when you use Kermit's
+RUN command), and you have XON/XOFF flow control enabled, Kermit sends an XOFF
+(Ctrl-S) to the host when you leave, and XON (Ctrl-Q) when you return (if you
+have RTS/CTS flow control enabled, Kermit turns off RTS).  This is to make the
+host stop transmitting data.  However, if you were in the EMACS text editor on
+the host, Ctrl-S will be interpreted as a Search command, and Ctrl-Q as a
+Quote command.  When you return to EMACS, type several Ctrl-G's to get back to
+normal.
+
+(12) TERMINAL EMULATION
+
+In v3.14 the status line says "Esc:Alt-x help:Alt-h ... 7n1 ..."  This means
+use Alt-x to escape back to the prompt, Alt-h to get a popup help screen.
+This message won't change if you remap the \Kexit and \Khelp verbs to other
+keys.  7n1 means 7 data bits, no parity, 1 stop bit.  To get 8 data bits, you
+also have to SET TERMINAL BYTESIZE 8.
+
+Session logging can be turned on using the LOG SESSION command, and it can be
+toggled on and off during terminal emulation by using whatever keys are
+associated with the verbs \Klogoff and \Klogon.  To enable a session log, but
+to have it initially turned off (using the F1 and F2 keys as examples):
+
+  SET KEY \315 {\Kloginit}  ; F1 to turn on log
+  SET KEY \316 \klogoff	    ; F2 to turn log off
+  DEFINE loginit log session, set key \315 \klogon, define loginit, connect
+
+To log your session to a printer, add the word PRN after "log session" in the
+third line above.
+
+The session log is written to disk by DOS.  The frequency with which DOS
+updates this file is governed by the BUFFERS= line in your CONFIG.SYS file
+(see your DOS manual).  If you allocate a large number of buffers in
+CONFIG.SYS, disk operations occur infrequently and this improves performance.
+If you need to have the session log updated more frequently to minimize the
+loss of data, e.g. when there is a power failure, you can do this (at the
+expense of efficiency) by allocating fewer buffers in CONFIG.SYS.
+
+If you have Kermit's TERMINAL TYPE set to NONE, there is a two-second pause
+after you give a CONNECT command, to give you time to read the message about
+how to get back.
+
+(12.1) KEYBOARDS AND KEYBOARD DRIVERS
+
+On some national keyboards, like the German one, Kermit's normal escape
+character, Ctrl-] (Control-Rightbracket) does not seem to work.  This is
+because certain control characters are typed differently on these keyboards.
+On the German keyboard, Ctrl-] is produced by holding down the Ctrl (Strg) key
+and pressing the + (plus) key.  MS-DOS Kermit has no way of knowing this.
+
+Kermit does not work with certain Swedish keyboard drivers because of a bug in
+the keyboard driver.  Workaround: use a different Swedish keyboard driver;
+reportedy several are available.  Trouble has also been reported with the
+British keyboard driver.
+
+Do not attempt to plug an enhanced (101) keyboard into a PC/XT or earlier.
+The BIOS on early PCs does not support the newer keyboards, even if you
+install the corresponding keyboard driver.
+
+(12.2) VT TERMINAL EMULATION
+
+Kermit's VT320/340 emulator lacks the following features:
+
+ . Smooth scroll
+ . Downloadable soft fonts
+ . ReGis graphics (VT340/330)
+ . Dual sessions in split screens (VT340/330)
+ . Local screen editing and block transmission (for security reasons)
+ . True double height/width characters (these are simulated)
+ . True underscore on color monitors (simulated by color)
+ . Some of the exotic and rarely-used features of the DEC VT340/330 series:
+   formatted screen & graphics operations highly specialized to DEC hardware.
+
+If VMS thinks you have a VT220 or VT320, it sends 8-bit control sequences.
+Kermit does not understand them unless you SET TERMINAL BYTESIZE 8.  The
+symptom is the appearance of fragments of escape sequences on the screen and
+wrong cursor positioning, and possibly fractured tab settings, particularly
+during EVE sessions.  You can prevent VMS from sending 8-bit control sequences
+(if you really do not have an 8-bit connection) by giving the VMS command SET
+TERMINAL /NOEIGHT.  You should also use Xon/Xoff flow control in both
+directions (SET TERM /TTSYNC /HOSTSYNC on VMS).
+
+In VT100/200/300 emulation on the IBM PC family, receipt of ESC [ 4 m (turn on
+underscore) results in a color change rather than underscore on IBM CGA, EGA
+and other color displays.  IBM color display adapters don't have an underscore
+attribute.  The color chosen for underscore simulation is derived from the
+normal fore- and background colors in a way that ensures it is different from
+both.  Use SET TERMINAL UNDERSCORE to pick your own colors for this.
+
+Receipt of ESC [ 0 m does not affect the fore- and background colors, in
+compliance with the definition of this function for real DEC VT terminals,
+unless special Kermit color value 20 is given in command SET TERMINAL COLOR.
+With 20 stated colors are restored to their normal values along with resetting
+all visual attributes. Fore- and background colors can be changed by the host,
+by sending explicit ESC [ 3x/4x m escape sequences, or with SET TERMINAL
+COLOR.
+
+SET TERMINAL COLOR 1 [3xx 4xx] (used to make the foreground color bright), if
+issued when SET TERMINAL SCREEN REVERSE is in effect, reverts to normal video.
+Similary, if SET TERMINAL COLOR 1 is in effect, the effects of the host-
+generated escape sequences CSI 1 m and CSI 0 m are reversed.
+
+If certain incomplete escape sequences (e.g. Operating System Command) are
+received during terminal emulation, Kermit can hang waiting for the string
+terminator that never comes, usually because of noise on the communication
+line.  Reset the terminal emulator by pressing Alt-= (Alt-equals), the default
+key for \Kreset.
+
+(12.3) DG TERMINAL EMULATION
+
+Because Data General terminals use Xon or Xoff characters in escape sequences,
+Kermit can't do Xon/Xoff flow control of incoming characters on serial
+connections.  Solution: use RTS/CTS flow control if available, or else tell
+Kermit to SET FLOW OUTGOING-XON/XOFF.
+
+(12.4) CHANGING SCREEN DIMENSIONS
+
+Kermit assumes 25 screen lines but can adapt to other lengths if it knows how
+to get this information from the video adapter.  The number of lines is
+usually available from DOS as the "video mode".  Unfortunately, different
+video adapters have different video modes, or use the same mode numbers to
+mean different things, and use different methods to set the mode (typically
+some kind of DOS MODE or VMODE "LINES=" command, the "printing" of certain
+escape sequences to be intercepted by the console driver, etc).  In any case,
+Kermit tries its best to use the screen dimensions discovered upon startup,
+but if Kermit subsequently enters 132-column or graphics mode, it will return
+to a 25-line screen because if it doesn't know how the original nonstandard
+geometry was established in the first place.
+
+Certain screen lengths, such as 25 and 43, are more or less standardized
+among different video adapters and drivers, but most others are kludges in
+which, for example, the video adapter enters 25- or 43-line mode but then
+loads a different-size font.  E.g. 50 rows might be achieved by loading
+an 8x8 font into a 25-line screen.  This is why Kermit is often unable to
+retain or restore the screen length when changing the screen width.
+
+WARNING: Some MODE or VMODE programs might corrupt Kermit's memory when run
+from the MS-Kermit> prompt.  This was observed in the following situation: Two
+TELNET sessions to two hosts, frequent switching between them, and also
+frequent changing of screen sizes via "run vmode".  Most likely cause: failure
+of the VMODE program to observe proper memory allocation etiquette.
+
+To get properly formatted screens during terminal emulation, be sure to inform
+the remote host of your screen width and length.  On some UNIX systems, this
+can be done by:
+
+  `eval resize`
+
+which asks the terminal for its dimensions (Kermit responds correctly) and
+puts these values in your UNIX environment.  As of version 3.14, Kermit will,
+on TCP/IP TELNET connections, engage automatically in NAWS (Negotiate About
+Window Size) protocol with the TELNET server, if the TELNET server supports
+this, which will inform the remote host of your screen size automatically.
+
+(12.5) 132-COLUMN MODE
+
+Normally, you can't use 132-column text mode in a Windows window, because
+Windows takes over the graphics adapter and hides its particulars from Kermit,
+but you can use it in a full screen session.  But if you want to try it in a
+window anyway, tell Kermit to SET TERMINAL VIDEO-CHANGE ENABLE.  Then when a
+directive is received to switch video modes, Windows might pop up a dialog box
+saying that it won't let you do this in a Window session; click on OK and the
+Kermit session will be switched to full-screen.
+
+If you have a monitor with fixed horizontal frequency but a video adapter that
+Kermit knows how to switch into 132 column mode, you will see only garbage on
+your screen whenever Kermit switches to 132 columns.  Get a new monitor or
+tell Kermit to SET TERMINAL VIDEO-CHANGE DISABLE.
+
+On serial connections with Xon/Xoff flow control, Kermit sends Xoff and Xon
+apply when commanded to change its screen size between 80 and 132 columns,
+because this is often a time-consuming operation.  With RTS/CTS, Kermit turns
+off RTS while the size is being changed.
+
+See KERMIT.UPD for further information on 132-column mode.
+
+(12.6) GRAPHICS TERMINAL EMULATION
+
+PS/2 Model 25 and 30 MCGA adapter is used in low-resolution CGA mode by
+default; images may be elongated or truncated.	Hi-resolution graphics can be
+done (as of version 3.11) via SET TERM GRAPHICS VGA, but these slow PC models
+might not be able to keep up at speeds above 9600 bps.
+
+When you type the escape character (normally Ctrl-]) while in graphics mode,
+the screen goes back to text memory.  Then when you type the argument
+character, the graphics screen reappears (unless the argument was C or P).
+Ctrl-]F will not file the graphics screen, but rather the text screen, because
+that's the screen that's showing after type the Ctrl-] key.  To file the
+graphics screen (in TIFF format), use \Kdump (normally on Ctrl-Keypad-End).
+
+You can't dump the Tektronix screen while the GIN-mode crosshair cursor is
+active; Kermit's keyboard translator is not active.  Key strokes (of regular
+typewriter keys) or mouse actions are used to transmit the crosshair
+coordinates.  If you press a non-typewriter key, Kermit just beeps.
+
+Kermit does not emulate a particular kind of color Tektronix terminal, e.g.
+41xx or 42xx series.  However, it can be used for color graphics by mixing
+ANSI color-setting escape sequences with Tektronix or Sixel commands.  This
+requires graphics software vendors adding support for MS-DOS Kermit graphics
+to their packages (WordPerfect and SAS have done so for their host-resident
+products).  There is at least one ReGis-to-Sixel converter on the market:
+RETOS, a DEC product for VMS, and there is also a sixel driver for
+Ghostscript.
+
+Problems may occur when using Kermit with host-resident (VAX/VMS) versions of
+WordPerfect because the color palette report sent upon request of WordPerfect
+is very long. If the host is not configured properly, parts of the report will
+be lost because of overruns on the VMS side.  SET TERM /HOSTSYNC and /TTSYNC
+are required for WP/VMS.  Even then intervening communication boxes (e.g.
+terminal servers) can become overloaded with the 200++ byte response.
+
+In v3.14, Ctrl-L (as opposed to ESC Ctrl-L) was removed as Tektronix
+screen-clearing command.
+
+(13) PRINTER SUPPORT
+
+Kermit uses DOS services for printing. There is no knowledge of particular
+printer types in Kermit.  Kermit determines whether the printer is ready, or
+if there has been a printing error, via DOS's return code.  If DOS tells
+Kermit the printer is not ready, Kermit changes the printer device name to NUL
+so subsequent print operations won't block.  To reenable printing operations
+(e.g. after turning on the printer, adding paper, etc), use a SET PRINTER
+command such as SET PRINTER PRN or SET PRINTER LPT1.
+
+When printing a file that contains a Ctrl-Z character, DOS will "close" the
+printer as soon as it sees the Ctrl-Z, and when subsequent characters are sent
+to the printer, DOS reports a printer error and Kermit reports "Printer error,
+discard or retry?".  This is a feature of DOS.
+
+The Print Screen and Shift-PrintScreen keys are never seen by Kermit.  They
+are intercepted and acted on by the BIOS.  Thus Kermit has no control over the
+format of the printed output.  For example, a formfeed is not added to the end
+to force a page eject.  If you want to print the current screen with a
+formfeed at the end, use the following procedure:
+
+  SET DUMP PRN	; Specify that screen dumps go to the printer
+
+and then use the \Kdump keyboard verb to accomplish the screen dump.  This
+verb is assigned by default to the keypad Ctrl-End key on the numeric keypad,
+but you can assign it to another key of your choice (but not Print Screen),
+for example:
+
+  SET KEY \315 \Kdump  ; Assign screen dump to F1
+
+Alternatively, you can define a key to send a formfeed (ASCII 12) to the
+printer:
+
+  DEFINE FFPRINT run echo \12 >PRN, connect
+  SET KEY \316 {\Kffprint} ; F2 sends FF to printer
+
+Or you can redefine your host printing procedure to include a formfeed:
+
+  1. Send ESC [ 5 i
+  2. "type" the file
+  3. Send formfeed (ASCII 12)
+  4. Send ESC [ 4 i
+
+If you SET DUMP PRN and then attempt to use the screen-dump feature, and the
+printer is turned off or not ready, the error message is misleading: "Cannot
+open file to save screen to disk".  This is because Kermit is using DOS for
+this operation, and has no idea that PRN is the printer and not a disk file.
+
+(Shift-)Printscreen can cause the PC to hang if there is no attached printer.
+This is a BIOS feature, Kermit never receives the command.  If this happens
+during terminal emulation, try pressing Alt-= (hold down Alt and press the "="
+key) several times to reset the terminal emulator.
+
+Serial printers are not well supported by DOS, and since Kermit does all its
+printing through DOS, Kermit's printing features might not work well with
+serial printers.  To use a serial printer effectively, you must have a driver
+for it that takes care of flow control, such as UTILS\XONXOFF.COM.
+
+Transparent printing starts when the host sends the sequence ESC [ 4 i and
+stops when the host sends ESC [ 5 i.  All characters, including escape
+sequences, that arrive at the port are passed directly to the printer without
+translation (but the parity bit is stripped if Kermit's parity is not NONE).
+If character translation is desired, or it is desired not pass screen-control
+escape sequences to the printer, use Autoprint rather than Transparent print
+(ESC [ 0 i, ESC [ ? 4 i, ESC [ ? 5 i). In that case, characters are translated
+to the current IBM code page.  If your printer doesn't support your IBM code
+page, you need an external utility to translate from the PC code page to the
+printer's character set.  You can use SET PRINTER xxxx to capture Transparent
+print or Autoprint data into a file.
+
+Under PATHWORKS, reportedly, transparent print operations to a network printer
+do not cause printing to actually occur until the user escapes back to the
+MS-Kermit prompt and forces the printer to be closed (and reopened) with a SET
+PRINTER PRN command.
+
+If transparent print material arrives but the printer is not ready, Kermit
+issues a PRINTER IS NOT READY message and gives the user a chance to retry (R)
+or discard (D).	 If D is selected, then when the printer is made ready again,
+subsequent transparent print jobs are discarded.  Solution: escape back to the
+prompt and give a SET PRINTER PRN command to reenable transparent printing.
+
+If chunks of a printout are missing or garbled, this indicates a lack of
+adequate flow control between Kermit and the printer (normally not a problem
+with parallel or network printers) or between Kermit and the host application.
+Make sure an effective means of flow control is enabled at every interface
+along the communication path.  If you can't eliminate the problem any other
+way, then tell Kermit to SET PRINTER <filename> to have host-generated print
+material redirected to a file, and then print the file later. 
+
+You can use Kermit's controller-print feature to turn a session log into a
+plain text file.  The session log contains escape sequences that can be
+stripped as follows:
+
+ 1. Edit the session log file to insert ESC [ ? 5 i at the beginning
+    (start controller print).
+
+ 2. Start Kermit and give it these commands:
+      SET PORT BIOS1 ; Or some other port you will not actually be using.
+      SET PRINTER FILE.TXT ; Send transparent print material to this file.
+      REPLAY SESSION.LOG   ; Run session log through terminal emulator.
+
+(Thanks to H.D. Knoble for this hint.)
+
+(14) INTERNATIONAL CHARACTER SETS
+
+Character-set translation during terminal emulation is done between the remote
+TERMINAL CHARACTER-SET and the PC's current code page. During file transfer,
+it's between the TRANSFER CHARACTER-SET and the PC's code page.	 At startup,
+MS-DOS Kermit asks DOS to report the current code page, and it sets your FILE
+CHARACTER-SET and your TERMINAL CODE-PAGE to this value.  But DOS often lies
+about the code page, so in most cases when your actual code page is anything
+but 437 (or maybe 850), you, yourself, will have to tell MS-DOS Kermit what
+your code page really is, using the following two commands:
+
+  SET TERMINAL CODE-PAGE CPnnn ; Your actual current code page.
+  SET FILE CHARACTER-SET CPnnn ; The code page for incoming text files.
+
+The two would normally be the same, but MS-DOS Kermit lets you set them
+differently if you want to, for example if you have a Hebrew code page loaded
+for display purposes, but you want to download a Russian file that you will
+display later, after loading a Cyrillic code page.
+
+MS-DOS Kermit does not allow all possible combinations of FILE and TRANSFER
+character sets.	 The Hebrew code page (CP862) forces the Hebrew transfer
+character set, and vice-versa.	Similarly for Cyrillic and Latin-2, etc.
+Latin-1, however, can be used with many code pages: 437, 850, 861, 863, 865.
+
+Some of the ISO 2022 or DEC-specific character-set designation escape
+sequences, which *do* work correctly, nevertheless fail to have an effect on
+the character-set field of the SHOW TERMINAL display.
+
+LOG SESSION records characters that arrive at the serial port, before
+translation by either Kermit's built-in terminal character set translation
+tables or by user-specified SET TRANSLATION INPUT commands.  This allows
+REPLAY to work correctly but it prevents special characters from being logged
+after translation to the PC's own character set.  Screen dump (Ctrl-End or
+Ctrl-]F) and autoprint, however, record the translated characters.
+
+SET TERMINAL CHARACTER SET is effective only for text screens, not for
+graphics screens.
+
+International characters in macro names are not case independent.
+
+Case-independent string matching operations (e.g. SET INPUT CASE IGNORE, IF
+EQUAL xxx yyy) won't necessarily work with international characters.
+
+The macros supplied with MS-DOS Kermit 3.14 for switching fonts use the the
+16-dot-high fonts supplied in the PCFONTS directory of the MS-DOS Kermit
+diskette, which are appropriate for 25x80 screens.  If you need to use a
+different screen size, see PCFONTS\READ.ME for further information.
+
+Fonts are generally not preserved when switching from 80- to 132-column
+screen mode.  If you need to use one of Kermit's PCFONTS in 132-column mode,
+you should put your PC in 132-column mode before starting Kermit.
+Alternatively, you can try loading the font and starting Kermit as follows
+(using CP852 as an example):
+
+  withfont c:\kermit\pcfonts\cp852.f16 kermit
+
+WITHFONT loads itself as a TSR to reload the font each time the video mode
+changes, and then unloads itself when Kermit exits.  (Unfortunately, WITHFONT
+was not included on the original 3.14 Kermit diskette.)
+
+(15) COMMAND PROCESSING
+
+When a command field begins with @ (at-sign), the following characters are
+interpreted as the name of a file that contains the rest of the command.  If
+you need to type a command field that actually starts with @, encode the
+atsign as \64 or \{64}.
+
+\B in an OUTPUT command tells Kermit to send a BREAK.  \L Tells Kermit to
+send a Long BREAK.  To output \B or \L literally, use two OUTPUT
+statements, or use four (yes FOUR) backslashes before the B or L.
+
+Certain commands, such as RUN, DIRECTORY, TYPE, etc, invoke COMMAND.COM
+"underneath" Kermit, and COMMAND.COM might, in turn, invoke other programs.
+If you get the message "Can't run program" in response to such a command, it
+usually means there is not enough memory.  But you should also check your
+SHELL and COMSPEC environment variables to make sure they indicate a valid
+command shell.
+
+When you RUN a program from within KERMIT, there is no way to access the
+program's return code.  Kermit RUNs programs through COMMAND.COM, which does
+not pass along the program's return code to Kermit.
+
+If you include the word STAY anywhere on the Kermit command line, e.g.:
+
+  kermit echo stay
+
+it is interpreted as a STAY command.
+
+Commands in command files can be continued by including "-" as the last
+character on the line, but NOT if the line ends with a trailing comment.  In
+other words, you can't have a trailing comment on a continued line. If you
+need to end a line with a dash, but the dash is part of the command rather
+than a continuation symbol, use \45 instead or add a trailing comment.
+
+Trailing comments can be used only in command files.  All text starting with
+the first semicolon through the end of line is ignored.  If you need to
+include an actual semicolon in a command, precede it with a backslash (\;).
+Note (v3.14) that a semicolon comment must have the semicolon either at the
+beginning of the line or following a whitespace (space, tab) character.
+Otherwise the semicolon and following text is considered part of the command.
+
+The name and password given to SET SERVER LOGIN must be matched exactly by the
+ones in REMOTE LOGIN.  Case matters.  To include spaces within the username,
+password, or account field of the REMOTE LOGIN or SET SERVER LOGIN commands,
+surround the field with {braces}.
+
+DISABLE ALL is not equivalent to all the other DISABLE commands given
+separately.  For example, DISABLE DELETE restricts REMOTE DELETE commands from
+the client to working only in the MS-DOS Kermit server's current directory,
+while DISABLE ALL prevents all types of modifications to the PC's file system,
+including file deletion and creation.
+
+(16) KEY MAPPING
+
+So key translation and macros can work on both IBM and non-IBM compatible PCs,
+Kermit uses the system BIOS to obtain key scan codes.  But the IBM BIOS does
+not produce scan codes at all for certain keys, and may produce duplicate scan
+codes for others.  Num Lock, Print Screen, Scroll Lock, and Pause are
+examples.  The GOLD.COM utility can be used to make Num Lock act like F1.
+
+Version 3.13 and later recognize the difference between between Space,
+Shift-Space, Ctrl-Space, Alt-Space, etc, so that SHOW KEY shows different scan
+codes for each combination of Space with modifier keys (e.g. so Ctrl-Space can
+send NUL).  In 3.14, the Esc key and Enter keys also have new differentiated
+scan codes when combined with Shift, Alt, and Ctrl.  See KERMIT.UPD.
+
+Key macros are executed while in CONNECT mode. If you assign the \Khangup verb
+to a key, Kermit remains in CONNECT mode after the hangup takes place. On a
+serial dialup connection, Kermit turns off the DTR signal, and you should see
+a confirmation message from the modem, such as NO CARRIER, on your screen, and
+then if you have SET CARRIER ON, Kermit should pop back to its prompt;
+otherwise it stays in CONNECT mode.  On a TCP/IP network connection, however,
+Kermit does indeed drop the connection, but since Kermit is still in CONNECT
+mode, it is immediately reestablished.  If you want to terminate a network
+session by pressing a key, use a method that leaves CONNECT mode.  You can do
+this by defining a macro to hang up, and then assigning execution of the macro
+to the key, e.g. Alt-d:
+
+  define xxx hangup
+  set key \2336 {\Kxxx}
+
+This causes Kermit to return from CONNECT mode and execute the macro without
+returning to CONNECT mode.  This technique works for both serial and network
+connections.
+
+To assign several verbs to a single key, use braces like this:
+
+  set key \315 {\{Kfoo}\{Kdump}\{Kbar}}
+
+"foo" and "bar" are macro names, and \Kdump is Kermit's screen-dump verb.
+
+Q: Where is the .INI file that will set MS-DOS Kermit for using a 3270
+   protocol converter to access an IBM mainframe, so I can use PF1 and similar
+   keys that are required by fullscreen mainframe applications?
+
+A: The 3270 protocol converter is mapping between an IBM 3270 terminal and
+   some kind of ASCII terminal, such as a VT100.  And Kermit is emulating a
+   VT100 (not a 3270!).  Neither the VT100 nor the PC have the same keys as a
+   3270 terminal.  Each site that runs 3270 protocol converters sets up its
+   own mapping -- there is no standard for this, and therefore, there can be
+   no one Kermit key-mapping file that will work at all sites.  The mapping
+   is done in the 3270 emulator.  Contact your site administrator for details.
+
+(17) FILE TRANSFER
+
+(17.1) Performance
+
+Q: How can I make Kermit file transfers go faster?
+
+A: Very briefly (page numbers refer to "Using MS-DOS Kermit", 2nd Edition):
+
+1. If you are using an error-correcting, data compressing modem, set Kermit's
+   interface speed (SET SPEED) to at least four times the modem's connection
+   speed -- e.g. if the modems connect at 14400 bps, set Kermit's speed to
+   57600.  And then lock the modem's interface speed to the same value.
+2. Use the most effective flow control method available for the connection.
+   On serial connections, use RTS/CTS if possible.  On TCP/IP connections, SET
+   FLOW NONE.
+3. Use long packets, say 1000 or 2000: SET RECEIVE PACKET-LENGTH (see p.100)
+4. Use sliding windows, say 4 or 8 or 12: SET WINDOW (p.102)
+5. Use "control character unprefixing" (see KERMIT.UPD about this)
+
+Quick Start: MS-DOS Kermit 3.14 MSKERMIT.INI comes with a FAST macro.  Try it.
+If you are using a high-speed modem, be sure to use the appropriate dialing
+script from the MODEMS subdirectory -- these scripts take care of items (1)
+and (2) above for you.
+
+If this works, you'll get fast Kermit downloads easily; if not, then some of
+the parameters will need adjustment -- window size or packet length; read the
+suggested sections of "Using MS-DOS Kermit" for details.  For fast uploads,
+you'll also have to give similar commands to the Kermit program on the other
+end (SET WINDOW, SET RECEIVE-PACKET LENGTH).  SHOW MACRO FAST displays the
+definition of the FAST macro.  To change it, put the new definition in your
+MSCUSTOM.INI file.
+
+When going through a terminal server or PAD, investigate whether it supports
+a special "file transfer" mode, such as Cisco "terminal download".
+
+(17.2) Hardware Flow Control Problems
+
+Even when using RTS/CTS flow control, characters can be lost during file
+transfer.  This can happen if the PC turns off interrupts for any length of
+time, e.g. to service the hard disk -- especially if you have a disk-caching
+program active.  It can also happen if you have loaded the DOS PRINT TSR, or a
+screen saver, or any of various other TSRs.  In such cases, Kermit never gets
+the interrupt that signals a character has arrived, and so cannot service it.
+The standard advice here is to remove TSRs and/or disk caching.
+
+(17.3) Miscellaneous File Transfer Hints and Tips
+
+When transferring files with another PC that is running DOS, Windows, or
+OS/2, it is usually OK to SET FILE TYPE BINARY for all transfers.  This allows
+any mixture of text and binary files to be transferred correctly.  The only
+reason to SET FILE TYPE TEXT would be if you need character-set translation,
+e.g. from one code page to another.
+
+The efficiency reported at the end of a file transfer is relative to the
+serial port speed.  This can be confusing and/or misleading when using a modem
+whose connection speed to the other modem is different from the serial port
+speed, especially when the modems are also doing compression.
+
+SET EOF CTRL-Z, when used with text files that actually contain Ctrl-Zs, might
+result in gaps or truncation in the vicinity of the Ctrl-Z.  A DOS artifact.
+
+If MS-DOS Kermit receives a file whose name (the part before the period)
+corresponds to a DOS device name, such as CON, PRN, etc, the incoming file
+will be sent to that device rather than being stored on disk.  A DOS feature.
+
+When using Kermit through a terminal server (particularly with TELNET
+protocol), or directly through a SET PORT TCP connection, it is sometimes
+necessary to SET PARITY SPACE for file transfer. It is sometimes necessary use
+shorter packets with terminal servers.  Try SET RECEIVE PACKET-LENGTH 80,
+working up or down to the longest length that works.  Also be sure that you
+have not unprefixed the terminal server's escape character.
+
+REMOTE TYPE and other REMOTE commands resulting in an error "Unable to open
+CON": insufficient FILES= in CONFIG.SYS.
+
+The host prompt for TRANSMIT is a single character (SET TRANSMIT PROMPT).  It
+is not possible to specify a multi-character or varying transmit-prompt.  Note
+that the TRANSMIT PROMPT character must be entered in backslash notation, e.g.
+
+  SET TRANSMIT PROMPT \0
+
+for no prompt at all (Backslash-Zero, not Zero).
+
+(18) SCRIPT PROGRAMMING
+
+In version 3.14, the \m(macroname) operator is replaced by the definition of
+the named macro.  No further evaluation occurs.  This is a change from 3.13
+and earlier.  The new behavior is consistent with C-Kermit, and it allows
+the use of "long variable" (i.e. macro) names to hold DOS filespecs, which
+generally contain backslashes, which in turn would trigger unwanted actions
+if we allowed evaluation to proceed to full depth.  Example:
+
+  define \%a blah
+  define _file C:\123\%A.WKS
+  send \m(_file)
+
+Here we have a file called %A.WKS in the 123 directory.  If evaluation were to
+descend past the first level, the SEND command would see a filename called
+C:{blah.WKS rather than C:\123\%A.WKS.  Use ASSIGN to force full evaluation.
+
+To read lines from a file and then ECHO or OUTPUT them, you would normally
+do something like this:
+
+  open read oofa.dat
+  :loop
+  read \%a
+  if fail stop
+  echo \%a
+  goto loop
+
+However, if a line from the file contains any backslashes, the ECHO (or
+OUTPUT, or similar) command will treat them as introducers for variable names,
+numeric character codes, etc, depending on the subsequent characters.  This
+is desirable in some cases (e.g. boilerplates), but undesirable in others.
+To force Kermit to treat backslashes in data files literally, use a trick
+like the following:
+
+  open read oofa.dat
+  :loop
+  read \%a
+  if fail stop
+  echo \freplace(\%a,\,\\)
+  goto loop
+
+It can be hard to interrupt execution of a script program, such as a dialing
+script.  Ctrl-C and Ctrl-Break are noticed only when Kermit asks DOS to read
+from (or check the status of) the keyboard, and only certain Kermit commands
+do this, like PAUSE, which fails if any key is pressed during the PAUSE
+interval.  So if you want your script program to be nicely interruptible, you
+can include the following commands at key points in the program:
+
+  PAUSE 1
+  IF FAIL STOP 1 Interrupted
+
+The terminal emulator is active only when MS-DOS Kermit is in CONNECT mode
+(and when it is executing the REPLAY command).	Thus it is NOT active during
+execution of script commands such as INPUT and OUTPUT.	This means:
+
+ 1. If the host sends the escape sequence that tells the terminal to identify
+    itself, it is ignored.  You have to put the appropriate INPUT and OUTPUT
+    commands in your script program.  Here is a macro to set your terminal
+    type in Kermit and to set up the appropriate response and terminal-type
+    strings:
+
+    def term if not def \%1 def \%1 \v(term),-
+      set term type \%1,-
+      if fail end 1,-
+      assign _ttype \%1,-
+      if eq \%1 vt320 def _tid \27[?63;1;2;4;8;9;15c,-
+      if eq \%1 vt220 def _tid \27[?62;1;2;4;8;9;15c,-
+      if eq \%1 vt102 def _tid \27[?6c,-
+      if eq \%1 vt100 def _tid \27[?1c,-
+      if eq \%1 vt52  def _tid \27/Z
+
+    Whenever you switch terminal emulations, do "term vt102" instead of "set
+    term type vt102" (substitute your preferred terminal type).	 In any script
+    that responds to ESC Z (or whatever), have it "output \m(_tid)", and any
+    prompt that asks for your terminal type you can "output \m(_ttype)".  And
+    be sure to execute a "term" command in your MSKERMIT.INI file, so your
+    initial terminal type is set.
+
+ 2. If the host sends escape sequences to configure the terminal, these too
+    are ignored; i.e. they have no effect on Kermit's terminal emulator.
+
+ 3. A host-generated escape to put the terminal in Tektronix mode has no
+    effect.  Put explicit SET TERMINAL TYPE TEK commands in the appropriate
+    places in your script program.
+
+ 4. Screen formatting escape sequences have no effect.	If you have SET INPUT
+    ECHO ON, they are simply displayed as-is.
+
+If the remote host is sending ANSI (VTxxx) escape sequences during execution
+of the script program, then ANSI.SYS or similar console driver can interpret
+the escape sequences.  This is particularly useful when running a script that
+logs in to a full-screen system, such as an IBM mainframe through a protocol
+converter.  But beware: ANSI.SYS is not totally compatible with a VT100, and
+might produce unwanted side effects, like popping your PC into 40-column mode.
+If you experience such trouble while using Kermit script programs, SET INPUT
+ECHO OFF or remove ANSI.SYS from your CONFIG.SYS file and reboot.
+
+PAUSE, WAIT, and similar commands also open the connection on the currently
+selected port if it is not open already.  For example, SET PORT TCP <host>
+does not open the connection itself -- the first input/output command
+(including PAUSE) will do it.  Similarly, if DTR is not asserted on a serial
+connection, PAUSE will assert it.
+
+PAUSE, WAIT, and similar commands also cause port input to be echoed to the
+screen if INPUT ECHO is ON.  Use SET INPUT ECHO OFF to defeat this effect.
+
+If the REINPUT command fails to find the requested text in the INPUT command
+buffer, it will wait (up to the timeout interval) for more characters to
+arrive from the communication channel.
+
+INPUT / REINPUT combinations will not work if the INPUT buffer is smaller than
+the amount of text that separates the INPUT text from the REINPUT text.	 You
+can increase the size of the INPUT buffer by including the desired size in
+your KERMIT=INPUT <size> environment variable.	The default size is 256 bytes.
+
+Script programming hint: To test whether a readable floppy disk is available
+in drive A:, do this:
+
+  SPACE A:
+  IF FAILURE ECHO No diskette in drive A:.
+
+The ON_EXIT macro is intended only for automatic execution when MS-DOS Kermit
+exits.	It only works once, to prevent recursion (as would happen, for
+example, if you put an EXIT command in your ON_EXIT definition).
+
+C-Kermit 5A(190) has an MINPUT command, which is like INPUT, but looks for
+multiple INPUT strings simultaneously, and succeeds if it encounters any of
+them during the timeout interval, and sets a variable to the number of the
+string that matched.  This can be simulated in MS-DOS Kermit as follows:
+
+  define MINPUT set alarm \%1,-
+  :top,-
+  if alarm end 1,-
+  input 1 \%2,if success asg mynput 1,if success end 0,-
+  if not def \%3 goto top,reinp 0 \%3,if succ asg mynput 2,if succ end 0,-
+  if not def \%4 goto top,reinp 0 \%4,if succ asg mynput 3,if succ end 0,-
+  if not def \%5 goto top,reinp 0 \%5,if succ asg mynput 4,if succ end 0,-
+  if not def \%6 goto top,reinp 0 \%6,if succ asg mynput 5,if succ end 0,-
+  if not def \%7 goto top,reinp 0 \%7,if succ asg mynput 6,if succ end 0,-
+  if not def \%8 goto top,reinp 0 \%8,if succ asg mynput 7,if succ end 0,-
+  if not def \%9 goto top,reinp 0 \%9,if succ asg mynput 8,if succ end 0,-
+  goto top
+
+And used in sequences like the following, which are portable between
+MS-DOS Kermit and C-Kermit:
+
+  minput 60 CONNECT ERROR {NO CARRIER} BUSY RING
+  if fail errfail {No response from the modem}
+  if eq \v(program) C-Kermit asg mynput \v(minput)
+  goto CASE_\m(mynput)
+
+(courtesy James Sturdevant)
+
+(19) MEMORY MANAGEMENT
+
+Any PC software is likely to misbehave if your PC memory is insufficient or is
+incorrectly configured.  MS-DOS Kermit runs in conventional memory (the first
+640K) of your PC, occupying about 280K initially, then allocating additional
+memory as needed for rollback screens, file-transfer packet buffers, etc, and
+also uses additional memory to execute certain commands such as TYPE and
+DIRECTORY, for which it invokes a second copy of COMMAND.COM (appoximately
+30K) in conventional memory, as well as RUN, invokes not only COMMAND.COM but
+an additional program to be run by COMMAND.COM, for example "run edit".  If
+there is insufficient memory, these operations will not work; thus it is
+always best to have as much free conventional memory as possible.
+
+Memory for file-transfer packets is allocated at the time the transfer begins,
+based on the current sliding-window size (SET WINDOW) and packet-length (SET
+RECEIVE PACKET-LENGTH), and is deallocated when the transfer ends.  So SHOW
+MEMORY won't reveal the effect of the packet buffers.  If insufficient memory
+is available for the requested window size and packet length, MS-DOS Kermit
+automatically reduces its RECEIVE PACKET-LENGTH.  For maximum file-transfer
+efficiency, conventional memory is always used for packet buffers. Thus packet
+buffers and RUN/PUSH/TYPE/DIRECTORY commands "time-share" the same
+conventional memory.
+
+Memory for graphics screens is taken from your video display adapter.  Storage
+of graphics images in the video's on-board memory allows rapid switching
+between text and graphics screens provided (a) your video has sufficient
+memory, (b) the memory is not "mapped away", and (c) you are not running
+Kermit under Windows.  Video adapter memory is generally in segments
+A000-BFFF.
+
+Memory for rollback screens is allocated when the CONNECT command is first
+given, i.e. when Kermit first displays its terminal emulation window, and
+remains allocated until you EXIT from Kermit.  This can be demonstrated by
+starting Kermit, giving the command SHOW MEMORY, then giving the CONNECT
+command, then escaping back (Alt-x), and then giving the SHOW MEMORY command
+again -- see how available memory has shrunk.  Approximately 4K is required
+per 24x80 rollback screen (more for bigger screens).  The default number of
+rollback screens is 10, but the number can be set to practically any value at
+all (0 or greater) by giving the following command to DOS before you start
+Kermit (interactively, or in your AUTOEXEC.BAT file):
+
+  SET KERMIT=ROLLBACK 40
+
+The smaller the number, the less memory required; the bigger, the more memory.
+In v3.13 and later, you can also give the command:
+
+  SET ROLLBACK <number-of-screens>
+
+at the MS-Kermit prompt at any time, and the rollback memory will be adjusted
+when you next CONNECT.
+
+A large number of rollback screens can crowd out other possibilities, like the
+ability to use Kermit's RUN, PUSH, TYPE, DIRECTORY, and other commands that
+run inferior processes.  MS-DOS Kermit v3.13 and later lets you store your
+rollback screens in Expanded Memory (EMS) if you have more than 1MB of
+physical memory and you have an expanded memory manager for it like
+Quarterdeck QEMM or EMM386 and HIMEM that come with DOS 5.0 and Windows 3.1.
+
+Using expanded memory for rollback screens frees 40K of conventional memory if
+you are using the default number (10) of rollback screens, and it also allows
+you to have a much larger number of rollback screens.  The following steps are
+required to keep your rollback screens in expanded memory:
+
+1. Make sure the desired amount of expanded (EMS) (not "extended", or XMS)
+   memory is available.	 The DOS MEM command will tell you this.
+
+2. In your AUTOEXEC.BAT file, set the desired number of Kermit rollback
+   screens.  For example, for 250 screens (requiring about 1 megabyte):
+
+      SET KERMIT=ROLLBACK 250
+
+3. Give the following command to MS-DOS Kermit:
+
+      SET TERMINAL EXPANDED-MEMORY ON
+
+   If this command fails, Kermit prints an appropriate error message.
+
+Now start a Kermit session, scroll some text off the screen during CONNECT
+mode, and check the operation of the PageUp/PageDown keys.  If they work,
+you're probably done.  And as an added benefit, graphics screens will also be
+stored in expanded memory, allowing you to switch between graphics and text
+screens (Alt-minus), even under Windows, without losing the graphics screen.
+
+If it doesn't work, then welcome to the bewildering world of DOS memory
+management.  The most common symptom of a bad memory configuration is that
+your PC will freeze the first time Kermit tries to scroll a line off the
+screen or clear the screen.  Time to look at your CONFIG.SYS file.
+
+First, here is a straightforward DOS 5.0 CONFIG.SYS configuration that sets up
+a PC with 8MB of memory to have 6MB of expanded memory:
+
+  DEVICE=C:\DOS\HIMEM.SYS
+  DEVICE=C:\DOS\EMM386.EXE 6144 RAM
+  DOS=HIGH,UMB
+  DEVICEHIGH=C:\DOS\ANSI.SYS
+
+HIMEM.SYS must be loaded first and then EMM386.	 With memory management now
+active, DOS is told to use "high memory" (don't ask) and "upper memory blocks"
+(UMB, the space between 640K and 1MB) and then ANSI.SYS is loaded into the
+upper memory area rather than conventional memory.
+
+EMM386 is asked to take care of 6144K of expanded (EMS) (not extended, XMS)
+memory, and the RAM switch means that it also should manage the upper memory
+blocks.	 This configuration works on a PC that has 8MB of memory (6144K= 6MB=
+1024 x 6), leaving 1MB of extended memory for any process that might need it.
+Adjust as appropriate for different memory sizes.
+
+If you are using RAMDRIVE.SYS, give it the /A switch to use expAnded memory,
+rather than the /E switch for extEnded memory, e.g.:
+
+  DEVICEHIGH=C:\WINDOWS\RAMDRIVE.SYS 1024 512 64 /A
+
+After making these changes to CONFIG.SYS, reboot your PC and give a DOS MEM
+command to check that the needed amount of Expanded (EMS) memory is available.
+
+Now run Kermit and check the expanded-memory rollback feature.  Also tell
+Kermit to SHOW MEMORY to see how much conventional memory remains it starts.
+If it's not enough, look in your CONFIG.SYS and AUTOEXEC.BAT for other drivers
+or TSRs that can be removed or loaded high.  If you access a CD-ROM drive via
+Microsoft CD Extensions, include the /E switch (Expanded) when you start it:
+
+  C:\BIN\MSCDEX /E /D:MSCD000 /M:10
+
+Suppose you have a network board that uses a certain segment of memory
+(e.g. at segment CC00 hex) which conflicts with DOS's memory management.  You
+must tell EMM386 to "exclude" this segment from its memory managing:
+
+  DEVICE=C:\DOS\EMM386.EXE 6144 x=cc00-cc7f RAM frame=e000
+
+These segment address numbers are obtained from the network board technical
+manual (or, perhaps more likely, from the board vendor's technical support
+phone number).
+
+For debugging, get additional info about your PC's memory layout using DOS
+MEM/C and MEM/P commands, the MSD program that comes with Microsoft Windows,
+or the MFT (Manifest) program that comes with QEMM.
+
+It is vital that the expanded memory page frame, all 64KB of it, be located
+where it will not interfere with other memory usage.  Tell your memory manager
+where to place it, usually with a frame=<segment> command-line option.  Don't
+put it in video memory, A000-BFFF.  Don't put it the same place as a network
+board or other device buffer.  Don't assume the memory manager will pick a
+safe spot.  Windows users must do the same in both the DOS memory manager
+(ignored by Windows) AND in Windows SYSTEM.INI [386Enh section], e.g.:
+
+  EMMPageFrame=EC00	<- EMS page frame
+  EMMExclude=C000-C007	<- protecting device buffers from memory managers
+  EMMExclude=CE00-CFFF
+  EMMExclude=A000-BFFF
+
+The configurations in the two places must be the THE SAME.
+
+If all else fails, tell Kermit to SET TERMINAL EXPANDED-MEMORY OFF.  NOTE:
+whenever you switch Kermit's expanded memory status between OFF and ON, your
+previous rollback screens are lost.
+
+Kermit can try to use 132-column display mode if asked, and to do so it needs
+to identify the video adapter, usually by looking for a text string in the
+adapter's ROM Bios, which typically starts at segment C000.  If memory
+management "stealth mode" maps away the video BIOS then Kermit can't find the
+signature and won't know how to control the video board.  Below is an example
+where C000-C007 is kept visible for a Tseng Labs 8900 chip video board (one
+line, broken for presentation):
+
+DEVICE=C:\QEMM\QEMM386.SYS R:3 RAM ROM X=A000-BFFF ARAM=C000-C007 X=D000-D1FF
+ ST:M vxddir=c:\qemm ext=256
+
+(20) INTERACTIONS WITH DOS
+
+Kermit creates temporary files when in server mode and responding to REMOTE
+commands.  If you have a TEMP environment variable, Kermit uses it for these
+files; otherwise Kermit uses your current disk and directory.  If you have a
+TEMP environment variable whose value is not the name of a write-accessible
+disk / directory, Kermit can't respond to REMOTE commands.  It's best to
+define TEMP to refer to a disk with plenty of free space.
+
+The limit on your DOS PATH string is 127 characters.  If you add, say,
+C:\KERMIT to the end of you your PATH= statement in AUTOEXEC.BAT, and that
+makes it longer than 127, DOS (and Kermit's TAKE and similar commands) won't
+be able to find your Kermit files.
+
+A REMOTE HOST or similar command sent to an MS-DOS Kermit server can invoke
+the DOS critical error handler, which issues its "Abort, Ignore, Retry?"
+message on the real screen, and waits for a response from its own real
+keyboard, and so the server will no longer respond.  Kermit attempts to catch
+these errors before DOS learns learns about them, but some cannot be avoided
+(like disk i/o errors).
+
+Similarly, a REMOTE DIRECTORY command sent to an MS-DOS Kermit server can
+cause the server to hang if its default directory command pauses after each
+screen (DIRCMD=/P).  The server will hang any time a subprocess invoked by any
+REMOTE command requests keyboard input.
+
+MS-DOS Kermit uses the program named in the DOS SHELL environment variable as
+a replacement for COMMAND.COM, which can be displayed by typing SET at the DOS
+prompt.  It is not associated with the SHELL= line in CONFIG.SYS.
+
+Interaction between MS-DOS Kermit and various terminate-and-stay-resident
+(TSR) programs is necessarily unpredictable. Console, mouse, clock, or
+graphics drivers might interfere with file transfer, e.g. the CMOSCLK.SYS
+driver on the PS/2 model 55SX.  If TSR programs are interfering with Kermit
+(e.g. by taking over the timer or serial port interrupts), you should remove
+them all from your AUTOEXEC.BAT or CONFIG.SYS files, and then put them back
+one by one until you have identified the culprit.
+
+Mouse drivers are particularly notorious in this respect.  Suggestion: don't
+load your mouse driver in CONFIG.SYS or AUTOEXEC.BAT.  Load it manually when
+needed, unload it or turn it off when you are finished with it.
+
+Use caution when invoking certain TSR programs while PUSHed from Kermit
+(e.g. using the PRINT command for the first time), as not all of these
+programs observe proper etiquette for allocating and freeing memory, and the
+TSRs will be loaded above Kermit into the middle of memory where they may
+prevent large programs from loading later.
+
+On early (original motherboard & BIOS) PCs, and on systems that mimic them
+(e.g. early Compaqs), the cursor may assume a strange shape (e.g. minus sign)
+upon return from CONNECT.  This is caused by a bug in the early BIOS, which
+stored cursor attributes incorrectly.  See "The Dashed Cursor", by Paul
+Pierce, PC Tech J., Dec. 1985, page 47. His code goes like this:
+---(cut)---
+; Program FIXCURS.ASM by Paul Pierce
+code	segment public 'code'
+	assume cs:code, ds:code, es:nothing
+; This program is set up to be made into a COM file
+	org	100H
+; First check for the monochrome adapter.
+start:	int	11H		; set ax = equipment flag
+	and	al,30H		; mask off all but video bits
+	cmp	al,30H		; test for monochrome adapter
+	jne	exit		; jump if not monochrome
+; Now check for incorrect cursor mode returned from the Bios
+	mov	ah,3		; call bios to get cursor type
+	int	10H		;
+	cmp	cx,0607H	; check for invalid (color) type
+	jne	exit		; jump if not a bad value
+; At this point we know that the monochrome adapter is in use and that
+; the bios cursor mode is incorrect.
+; Call the bios to set the cursor type correctly.
+	mov	cx,080cH	; use correct cursor type
+	mov	ah,1		; call bios to set cursor type
+	int	10H
+exit:	mov	ah,0		; exit back to DOS
+	int	21H
+code	ends
+	end	start
+---(cut)---
+Here is the executable CURSOR.COM program, uuencoded (decode with uudecode):
+---(cut)---
+begin 644 CURSOR.COM
+=S1$D,#PP=1&T`\T0@?D'!G4'N0P(M`'-$+0`S2$`/
+``
+end
+---(cut)---
+and here again as a BOO file (decode with MSBPCT.EXE):
+---(cut)---
+CURSOR.COM
+cA4T<3``MA6d0ld@POT71WD7^@`8]07=4;@0cB40~0
+---(cut)---
+
+(21) NETWORKS
+
+When communicating across certain network pathways, the longest burst of
+information tolerated from the PC can be rather short. For example, the LAT
+path with SET PORT DECNET (PATHWORKS) has a limit of 256 bytes and the SET
+PORT TES path has a limit of 512 bytes in a burst (or less, depending on the
+TES release).  Longer bursts can cause the network software on one end or the
+other to drop the connection:
+
+ 1. During file transfer, when sending files from the PC using long packets
+    and/or sliding windows.  The total size of the packets in the window
+    (packet length times the number of window slots) must be less than the
+    burst limit for the network.
+
+ 2. During VT320 terminal emulation, if the host application (such as VMS
+    or UNIX WordPerfect) sends a Terminal State or Color Palette Request
+    escape sequence, DECRQTSR, "ESC [ 2 ; 2 $ u".  The response to this
+    request is more than 200 characters long and has been known to break
+    LAT and TES connections.
+
+This is not a Kermit problem, but rather a limitation (or bug) in the
+underlying networking method.  Workarounds include:
+
+ 1. If you have a DECnet LAT connection, make a DECnet CTERM connection
+    instead (i.e. unload your LAT.EXE TSR and load the CTERM TSR instead).
+
+ 2. For VMS connections, enable Xon/Xoff flow control in MS-DOS Kermit and
+    tell VMS to SET TERM/HOSTSYNC/TTSYNC.
+
+ 3. Use a different networking method, e.g. TCP/IP instead of DECnet.
+
+DECnet/DOS PATHWORKS LAT.EXE is a protocol stack sitting on the top of the
+DECnet stack and is independent of LAN adapter providing LAT (Local Area
+Transport) service, primarily intended for terminal emulation over Ethernet.
+Different versions of PATHWORKS come with different versions of LAT.EXE, which
+work differently.  If you have trouble with LAT.EXE, try loading it in
+conventional memory rather than expanded memory.
+
+On DEC PATHWORKS LAT connections, it is often necessary to tell the LAT
+control program to reserve enough memory for all of the local LAT host names.
+By default, space for 16 names is allocated.  Increase your LAT control
+program's memory allocation if you have more than 16 hosts on your DECnet
+network.  Also, remove all permanent LAT names from your database and let the
+network provide them (this can mean waiting a minute or two for all broadcasts
+to be heard).
+
+When making LAT connections from within Windows, make sure LAT is loaded in
+conventional memory.  Note that under Windows, several copies of Kermit can be
+run simultaneously, each of them with a separate LAT connection, if LAT has
+been configured to provide the neccessary session control blocks (SCBs) to
+handle extra sessions.
+
+If you see the "network not available" message when attempting to SET PORT
+DECNET: (1) make sure that LAT, CTERM, or both are loaded; (b) if you loaded
+LAT into expanded memory, make sure it does not conflict with the memory usage
+of other devices, e.g. A000-BFFF for the video adapter; and (c) that you have
+allocated sufficient SCBs and hostname table space.
+
+To use PATHWORKS and Kermit's built-in TCP/IP support at the same time, use
+the PKTDLL shim, available in Columbia University's packet-driver collection.
+
+Sending BREAK over network connections via SET PORT BIOS1 + Int 14h
+interceptor may or may not work, depending upon the actual network and drivers
+in use.  Kermit uses the BREAK facility if the driver and network support it.
+
+Kermit has no way to set or show the speed or parity used by a Novell
+NASI/NACS communications server. You can do this from the NASI menu.
+
+Reportedly, when running Kermit on DOS 6.0 client on a Novell 3.11 network
+with a NASI 3.0 Communications server, Windows 3.1 crashes upon exiting
+Kermit, and removing EMM386.EXE from the CONFIG.SYS file fixes the problem.
+
+Reportedly, when PCs are connected to Novell networks, "if there is not both a
+system and a personal NetWare login script, however brief, then the default
+LOGIN.EXE script will eat your DOS Path.  Be aware that DOS 6.2 has some
+funnies about handling AUTOEXEC.BAT and the master environment.  Also ensure
+you are running without SETVER affecting the NetWare shells (i.e. use the
+proper NetWare shell so no SETVER is needed)."
+
+Symptom: PC no longer works after installing a network board.  Diagnosis: a
+16-bit VGA display adapter is running in 16-bit mode.  Cure: Jumper it back to
+8 bits and all should start working again.
+
+Reportedly, PC-NFS prevents applications programs such as Kermit from creating
+a file in the root directory of a PC-NFS disk drive.  When the applications
+program asks if a particular file exists in the root, PC-NFS always responds
+with "volume label present", whether or not the actual file is present.
+
+MS-DOS Kermit 3.13 and later no longer supports SET PORT TELAPI for Novell LAN
+Workplace for DOS (LWP) versions prior to 4.0. Versions 3 and 4 are
+incompatible (from the Kermit support point of view), and v3.x had many
+internal difficulties. If you need to make TELAPI connections with Kermit,
+either upgrade your LWP software or use an older version of Kermit.
+
+The Interconnections TES older product, which Kermit fully supports, has a
+menu that pops up if you type the TES "hot key", Alt-LeftShift-T.  Reportedly,
+the pop-up menu interferes with the LK250 driver that is distributed with
+Kermit (it works fine with regular IBM keyboards).  Workaround: use TES's
+text-mode menu, which Kermit brings up if you type Alt-Home during terminal
+emulation.  MS-DOS Kermit 3.13 and later transparently support both older and
+the latest TES products.
+
+However, note that TES itself is somewhat fragile, and does not handle long
+bursts of data very well.  So when using the TES path, use shorter packets.
+
+Reportedly, when making NETBIOS or 3COM(BAPI) connections under Windows,
+characters from a DOS window can show up in the Kermit window, and this can be
+fixed by setting Kermit's foreground and background priority to 150 and
+setting the priority of the other DOS applications to 5000.
+
+(21.1) NETBIOS STATION-TO-STATION CONNECTIONS
+
+The procedure for establishing a NETBIOS PC-to-PC connection is as follows:
+
+ 1. On the first PC:
+      SET NETBIOS NAME <xxx>
+      SET PORT NETBIOS
+      SERVER
+
+ 2. On the second PC:
+      SET PORT NETBIOS <xxx>.K
+
+<xxx> is any name you choose, up to 14 characters long.  Now you can initiate
+file transfer and other Kermit protocol operations from the second PC. If you
+want the two PCs to "chat" in terminal mode, send a FINISH command from the
+second PC (or type Ctrl-C on the first, server, PC), and then give the
+following commands to both PCs:
+
+  SET TERMINAL NEWLINE ON
+  SET LOCAL-ECHO ON
+  CONNECT
+
+(21.2) TCP/IP CONNECTIONS
+
+As of version 3.11, MS-DOS Kermit contains built-in TCP/IP and TELNET protocol
+support.  This allows a PC equipped with a network board that is connected to
+a TCP/IP network to communicate with any other node on the network, without
+requiring any additional TCP/IP software on your PC.  Read NETWORKS\SETUP.DOC
+for details.
+
+Winsock TCP/IP stacks are strictly for pure Windows (and NT) programs, not for
+DOS programs.  MS-DOS Kermit is a DOS program; it runs from the DOS prompt and
+within DOS emulator boxes in various operating systems, and cannot access
+Winsock.  If you want to make a TCP/IP connection with Kermit from within
+Windows, you have to unload Winsock and use Kermit's own built-in TCP/IP
+capability directly over a packet driver or ODI driver.
+
+Linemode TELNET is not supported.  This is the mode in which the TELNET client
+buffers up "lines" and then sends them all at once when the user hits the
+Enter key, and which allows local editing before each line is sent.  This has
+been observed to cause problems with only one TELNET server so far: the UNISYS
+2200 TIP transaction processing system.  In most cases, Kermit TELNET works
+fine with linemode TELNET servers, e.g. on IBM mainframes running VM/CMS.
+
+Domain name resolution might not work when you give a nickname instead of a
+complete host name in the SET PORT TCP/IP command and Kermit transforms the
+nickname into the desired complete host name by combining it with your TCP/IP
+DOMAIN.  Kermit does not use a special Hosts file to relate nicknames to
+complete host names.  Workarounds: use a complete hostname, an IP host number,
+or set your TCP/IP DOMAIN correctly.  Domain Name Servers are specified by
+their IP number rather than name.
+
+Version 3.13 and later support multiple gateways on the local network.
+Choosing the incorrect gateway normally results in that gateway sending an
+ICMP Redirect message to Kermit indicating the preferred gateway, and Kermit
+displays such messages.  Versions 3.11 and 3.12 did not implement ICMP
+Redirects.
+
+Kermit's TCP/IP gateway must be on your physical network.
+
+Kermit is not an IP router handling routing broadcast traffic; it does not
+listen to RIP, etc.  Instead it depends upon the router to do that and then
+tell Kermit what to do.  Kermit computes whether an IP destination is on the
+local network; if it isn't Kermit uses the first IP gateway as the local
+target for ARPing and further relaying.  It is up to that gateway to either
+accept the traffic or to issue an ICMP Redirect indicating another gateway.
+
+For TCP/IP connections to IBM mainframes in full screen 3270 mode, you need an
+intermediate host or device to do the 3270/ASCII terminal conversion.  Typical
+setup is a TCP/IP terminal server with its serial lines connected to a
+protocol converter (e.g. IBM 7171), a UNIX host that has tn3270 available, or
+a terminal server (like Cisco) that does 3270 terminal emulation. To transfer
+files with an IBM mainframe, you might have to tell MS-DOS Kermit to SET
+PARITY SPACE, and you might have to restrict the packet length.
+
+For IBM mainframe linemode TELNET connections, automatic appearance of the
+login banner might not work.  Type a carriage return (Enter) to get the login
+banner.	 Local-echo and linemode operation are negotiated automatically.
+
+BOOTP requests are handled correctly within the local network, and have been
+tested successfully through Novell's BOOTP forwarder NLM and through Cisco
+routers with software version 8.2.7.  In the SET TCP/IP ADDRESS command, the
+words BOOTP and RARP must be spelled out in full.  Version 3.11 and 3.12
+support original RFC951 and 1048 BOOTP protocol, and v3.13 adds support for
+downloading of the PC's full host (domain) name as specified in RFC1395.  See
+KERMIT.HLP (MSKERM.HLP) for details.
+
+EXIT from Kermit closes your TCP/IP session (just like HANGUP).	 PUSHing or
+running DOS commands from Kermit keeps it open.	 In version 3.12 and later,
+EXITing while a session is active causes a warning / confirmation message to
+appear so you can change your mind.
+
+Version 3.11 of MS-DOS Kermit uses only the TELNET port (23) for SET PORT TCP
+connections.  Version 3.12 and later allow you to specify any desired port
+(except 25) in the SET PORT TCP command, after the host name or address.
+
+MS-DOS Kermit honors TELNET protocol negotiations, including terminal type and
+ECHO/SGA.  Version 3.11 always sends "VT100" as its terminal type; later
+versions send MS-DOS Kermit's active terminal type or allows the user to
+create an override string with command SET TELNET TERM-TYPE.
+
+Not supported: FTP, TFTP, automatic setting of PC date/time from network, 3270
+emulation (tn3270), etc.  There is no PING command, but MS-DOS Kermit responds
+when PINGed and when probed by Traceoute.  Multiple simultaneous TCP/IP
+sessions are supported in v3.13 and later; see KERMIT.HLP for details.
+
+Version 3.12 and later support inbound connections to MS-DOS Kermit.  Inbound
+TELNET connections do not copy DOS screens, etc, like Carbon Copy, PC
+Anywhere, etc; a Kermit-to-Kermit connection is made instead.  To configure
+MS-DOS Kermit to be a TCP/IP server, give the following command:
+
+  SET PORT TCP * [ <port> ]
+  SET SERVER LOGIN <username> [ <password> ]  ; (recommended but not required)
+  SERVER
+
+Use asterisk instead of an IP name or address, followed optionally by a TCP
+port number (the default is 23 = TELNET), and then enter server mode.  Anybody
+who TELNETs to your PC will see a brief screen message telling them to escape
+back to their local Kermit prompt and issue commands from there, for example:
+
+  REMOTE LOGIN <usename> <password>
+  REMOTE DIRECTORY
+  GET OOFA.TXT
+
+Chat sessions can also be set up as described in the NETBIOS section above.
+
+Kermit's TCP/IP support cannot be used simultaneously with PC NFS because both
+applications want to register use of ARP and IP with the packet driver, but
+each protocol can only be assigned to one application.	This is only one
+particular case of the more general rule:
+
+  Only one TCP/IP-based application can use a LAN adapter at once.
+
+which also applies to DesqView/X and other TCP/IP products for the PC.
+See NETWORKS\SETUP.DOC for a detailed discussion.
+
+The SET TCP/IP commands return failure codes if there is a parse error.	 SET
+PORT TCP/IP returns error status in Kermit variable \v(tcpip_status), with
+the following values:
+
+  SUCCESS	      0
+  NO_DRIVER	      1
+  NO_LOCAL_ADDRESS    2
+  BOOTP_FAILED	      3
+  RARP_FAILED	      4
+  BAD_SUBNET_MASK     5
+  SESSIONS_EXCEEDED   6
+  HOST_UNKNOWN	      7
+  HOST_UNREACHABLE    8
+  CONNECTION_REJECTED 9
+
+The connection is not opened until the first attempt to communicate with the
+remote host: CONNECT, PAUSE, OUTPUT, etc.  While connection establishment is
+in progress, you can't interrupt the program with Ctrl-C. Use IF SUCCESS /
+FAILURE after PAUSE 0 to check if the connection is open, for example:
+
+  DEFINE TELNET SET PORT TCP \%1 \%2, PAUSE 0, IF SUCCESS CONNECT
+
+Or examine variable \v(tcpip_status) for success, for example:
+
+  DEFINE TELNET SET PORT TCP \%1 \%2, PAUSE 0, IF = 0 \V(TCPIP_STATUS) CONNECT
+
+The \%2 variable is for the optional TCP port number in v3.12 and later.
+
+TCP/IP performance hints: Set your Kermit packet size to 500 or larger to
+achieve most data sent per network packet.  A convenient setting is SET 
+RECEIVE PACKET 1000, SET WINDOW 4, resulting in four 1000-byte packets in a 
+window.  Experiment with other combinations.
+
+SET FLOW NONE lets TCP/IP do the flow control and eliminates Kermit's
+need to check for Xon/Xoff.  In most situations beyond the local network 
+performance will be limited by the long distance lines rather than by the PC.
+
+(End of MSKERM.BWR / KERMIT.BWR)

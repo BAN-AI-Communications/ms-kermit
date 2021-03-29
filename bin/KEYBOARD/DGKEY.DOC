@@ -1,0 +1,23 @@
+File DGKEY.DOC                                                      July 1993
+
+	       DGKEY.COM TSR FOR THE DATA GENERAL DASHER/286 PC
+
+DGKEY.COM is a simple TSR (Terminate and Stay Resident) program for use with
+the Data General (DG) DASHER/286 PC, which has two keys that are normally
+invisible to MS-DOS Kermit, but which are important for DASHER terminal
+emulation:
+
+  SPCL - Normally used for composing accented characters
+  HOME - Normally used for backspacing
+
+The DGKEY.COM program makes these keys return the following scan codes, which
+are seen by Kermit, and which can be used with Kermit's SET KEY command:
+
+  SPCL - \2335
+  HOME - \3363
+
+DGKEY.COM is an adaptation by Joe Doupnik of Bob Eager's GOLD.COM program.
+In all other aspects of operation, DGKEY.COM is identical to GOLD.COM, which
+is described in the file GOLD.DOC (MSUGOLD.DOC).
+
+(End of DGKEY.DOC / MSUDGKEY.DOC)

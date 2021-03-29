@@ -1,0 +1,284 @@
+THE MS-DOS KERMIT VERSION 3.14 DISTRIBUTION DISKETTE           March 21, 1996
+
+  Copyright (C) 1982, 1995, Trustees of Columbia University in the City of
+  New York.  The MS-DOS Kermit software may not be, in whole or in part,
+  licensed or sold for profit as a software product itself, nor may it be
+  included in or distributed with commercial products or otherwise
+  distributed by commercial concerns to their clients or customers without
+  written permission of the Office of Kermit Development and Distribution,
+  Columbia University.  This copyright notice must not be removed,
+  altered, or obscured.
+
+Welcome to MS-DOS Kermit 3.14: high-quality, full-function communication
+software for IBM and compatible PCs with DOS (any version) or Windows 3.x.
+
+  FOR WINDOWS 95 AND WINDOWS NT -- PLEASE USE KERMIT 95:
+
+    Native 32-bit communications software for Windows 95 and Windows NT
+    3.51 and later: Serial communication -- direct and dialed -- plus
+    TCP/IP (Telnet and Rlogin) over 32-bit Microsoft, FTP Software, or
+    Trumpet Winsock, plus DECnet LAT via Meridian Technology SuperLAT.
+    Kermit and XYZMODEM file transfer.  VT320/220/102/100/52 and ANSI
+    terminal emulation with key mapping, screen rollback, colors, mouse
+    functions, printer functions.  A directory preloaded with hundreds
+    of Internet and dialup entries.  Host mode, script programming,
+    character-set translation, and more.
+
+  For further information, contact the Kermit Project at Columbia University
+  at the address below.  On the Web see:
+
+    http://www.columbia.edu/kermit/k95.html
+
+DOCUMENTATION
+
+The documentation for MS-DOS Kermit is "Using MS-DOS Kermit", second edition,
+by Christine M. Gianone, published by Digital Press / Butterworth-Heinemann,
+Woburn, MA, 1992, 345 pages, ISBN 1-55558-082-3.  To order, call Columbia
+University at +1 212 854-3703 or Digital Press at:
+
+    +1 800 366-2665   (Woburn, Massachusetts office for USA & Canada)
+    +44 1865 314627   (Oxford, England distribution centre for UK & Europe)
+    +61 03 9245 7111  (Melbourne, Vic, office for Australia & NZ)
+    +65 356-1968      (Singapore office for Asia) 
+    +27 (31) 2683111  (Durban office for South Africa)
+
+If you do not have a copy of "Using MS-DOS Kermit", please purchase it.
+It shows you how to use and get the most out of your Kermit software, and
+sales of the manual are the primary source of income that pays for MS-DOS
+Kermit support and development.
+
+The KERMIT.UPD file on your diskette describes features added since
+publication of "Using MS-DOS Kermit".
+
+If you are installing MS-DOS Kermit for the first time:
+
+ 1. Place the Kermit diskette in drive A: (or B:).
+ 2. Create a KERMIT directory on your hard disk, e.g. MKDIR C:\KERMIT.
+ 3. XCOPY A:*.* C:\KERMIT /S  (substitute B: for A: if necessary).
+ 4. Edit the MSCUSTOM.INI file to suit your needs and preferences.
+ 5. Edit your AUTOEXEC.BAT file to insert the Kermit directory in your PATH.
+
+See the APPENDIX at the end of this file about how to edit files.
+
+If you are replacing an older version of MS-DOS Kermit (this illustration
+assumes it is in C:\KERMIT):
+
+ 1. Place the Kermit diskette in drive A: (or B:).
+ 2. Copy your old MSCUSTOM.INI and DIALUPS.TXT to a safe place.
+ 3. XCOPY A:*.* C:\KERMIT /S  (substitute B: for A: if necessary).
+ 4. Copy your old MSCUSTOM.INI and DIALUPS.TXT files back to C:\KERMIT.
+
+If you want to run MS-DOS Kermit from a RAM disk (to save startup time), you
+may copy KERMIT.EXE to the RAM disk, but please do not copy MSKERMIT.INI or
+the other Kermit files to the RAM disk, because (as of version 3.14), MS-DOS
+Kermit expects to find its subdirectories in the same directory where the
+MSKERMIT.INI file was found.
+
+To use Kermit in Microsoft Windows, also perform the following steps in
+Windows:
+
+ 1. Open the group window for the group you want to add Kermit to.
+ 2. Choose New from the File menu.  The New Program dialog box appears.
+ 3. Select Program Item and choose OK.
+ 4. Type "MS-DOS Kermit 3.14" in the Description text box.
+ 5. Type the pathname of the KERMIT.PIF file in the Command Line box,
+    e.g. "C:\KERMIT\WINDOWS\KERMIT.PIF" (without the quotes).
+ 6. Choose OK, and now you should have an MS-DOS icon that starts Kermit with
+    the right PIF settings.
+ 7. If you want to assign a special icon to Kermit, click on the "generic
+    MS-DOS" Kermit icon, then click on File, then Properties, then Change Icon,
+    and then pick a new one (like the VT or satellite dish from MORICONS.DLL).
+ 8. The PIF file assumes that KERMIT.EXE is in your PATH.  If you did not
+    store the KERMIT.EXE file in a directory that is in your PATH, you will
+    have to use the PIFEDIT program on the KERMIT.PIF file to specify the
+    full path name.
+ 9. If you plan to use networks, read about WINPKT in NETWORKS\SETUP.DOC.
+
+If you don't have a hard disk: (a) make a backup copy of the original Kermit
+diskette, (b) put the original aside, (c) remove unneeded files and directories
+from your backup copy (e.g. NETWORKS, CYRILLIC, HEBREW, etc) to make space for
+downloading files, etc, and (d) edit the MSCUSTOM.INI file to suit your
+requirements.
+
+For network installation, see "Using MS-DOS Kermit" Chapter 16 plus the
+supplementary material in NETWORKS\SETUP.DOC.
+
+The MS-DOS Kermit distribution diskette contains the following files in its
+top-level directory, plus several subdirectories that contain more files.
+Files marked as "(text)" are simple, plain, ordinary ASCII text.  You may view
+these files with the DOS or Kermit TYPE command, the DOS MORE command, a text
+editor (such as the DOS EDIT program) or word processing program in plain-text
+(ASCII) mode, or print them on your printer.  Files marked as "(binary)" can
+not be viewed or displayed.
+
+------------------------------
+Files in the TOP-LEVEL DIRECTORY:
+
+READ.ME (text)
+  This file.
+
+KERMIT.EXE (binary)
+  The MS-DOS Kermit program for the IBM PC family, the IBM PS/2, and
+  compatibles, full-featured, ready to run.
+
+KERMITE.EXE (binary)
+  A smaller version of MS-DOS Kermit, with networking and graphics terminal
+  capabilities removed, to be used on PCs with small memories if KERMIT.EXE
+  won't fit.
+
+KERLITE.EXE (binary)
+  A very small version of MS-DOS Kermit, with no networking and no terminal
+  emulator (and no CONNECT command), but including full file transfer and
+  scripting capabilities to be used as an external protocol and/or
+  script-execution engine.
+
+MSR314.PCH, MSRM314.PCH, MSRL314.PCH (text)
+  Patches, if any, for KERMIT.EXE, KERMITE.EXE, KERLITE.EXE, respectively.
+  Read the file for a description of each patch.
+
+MSKERMIT.INI (text)
+  The standard initialization file for MS-DOS Kermit.  Includes many of the
+  macro definitions from Chapter 14 of "Using MS-DOS Kermit", e.g. for setting
+  up your modem-dialing environment.  You should not make any changes to this
+  file.  If you want to override or undo any definitions made here, please do
+  it in MSCUSTOM.INI.
+
+MSCUSTOM.INI (text)
+  A SAMPLE customization file.  Read, then edit this file to suit your needs
+  and preferences.  Be sure to save it in text (ASCII) mode, and not in any
+  kind of word-processing format.  In particular, use this file to set your
+  modem type, startup communications parameters, preferred colors, any special
+  key mappings you might want, and so on.
+
+DIALUPS.TXT (text)
+  A sample dialing directory, for use with the DIAL command.  This file
+  does not contain any real phone numbers.  If you want to have a dialing
+  directory, edit this file to contain entries for the computers or services
+  that you actually use.  Read KERMIT.UPD for further information.
+
+KERMIT.UPD (text)
+  A supplement to "Using MS-DOS Kermit", describing the features that have
+  been added since MS-DOS Kermit version 3.11 was released.
+
+KERMIT.HLP (text)
+  A brief summary of the commands and functions of MS-DOS Kermit.
+
+KERMIT.BWR (text)
+  The MS-DOS Kermit 3.14 "Beware File".  Frequently asked questions, hints and
+  tips, limitations, problems, workarounds.  If you are having trouble using
+  MS-DOS Kermit, read this file.  You might find a solution or workaround.
+
+COLS132.BAT (text)
+  A DOS Batch file invoked automatically by Kermit if the host sends a "switch
+  to 132-column mode" escape sequence or if you give the SET TERMINAL WIDTH
+  132 command to MS-DOS Kermit, but only if Kermit does not already have
+  built-in knowledge of your video adapter.  As supplied, this batch file only
+  prints a message.  You must fill it in with the appropriate DOS commands to
+  put your screen into 132-column mode (as supplied by the manufacturer of
+  your video adapter).
+
+COLS80.BAT (text)
+  Like COLS132.BAT, but for changing from 132-column mode to 80-column mode.
+
+--------------
+SUBDIRECTORIES
+--------------
+PERFORM
+An article, PERFORM.DOC, from Kermit News #5, June 1993, discussing Kermit
+file transfer performance and benchmarking it against other popular protocols
+and software.
+--------------
+MODEMS
+Dialing scripts and information for various types of modems.  If you are using
+one of these modems rather than the default Hayes 1200 or 2400, follow the
+directions to use it for dialing.  All files in this subdirectory are text
+files.  Read the MODEMS\READ.ME file to get started.
+--------------
+NETWORKS
+Drivers and information that are useful with Kermit's built-in networking.
+See the NETWORKS\READ.ME file for further information.
+--------------
+KEYBOARD
+Keymaps and keyboard-related utilities.  See the KEYBOARD\READ.ME file for
+details.
+--------------
+UTILS
+General utility programs to be used with MS-DOS Kermit.  See UTILS\READ.ME.
+--------------
+WINDOWS
+Stuff for Windows: KERMIT.PIF file, icon, etc.
+--------------
+PCFONTS
+Different character sets for your PC -- Hebrew, Russian, etc.  See
+PCFONTS\READ.ME for details.
+--------------
+CYRILLIC
+Cyrillic character-set support and tables for MS-DOS Kermit. See
+CYRILLIC\READ.ME for further information.
+--------------
+HEBREW
+Hebrew character-set support and tables for MS-DOS Kermit. See
+HEBREW\READ.ME for further information.
+--------------
+ROMAN
+Roman-alphabet character-set tables.  See ROMAN\READ.ME for details.
+--------------
+
+Kermit software programs for hundreds of other kinds of computers are
+available on diskette or magnetic tape or cartridge from Kermit Distribution
+at Columbia University.  Contact:
+
+  Kermit Distribution
+  Columbia University Academic Information Systems
+  612 West 115th Street
+  New York, NY  10025-7721
+  USA
+  Phone: +1 212 854-3703
+  Fax:   +1 212 663-8202
+  Email: kermit@columbia.edu
+  Web:   http://www.columbia.edu/kermit/
+
+APPENDIX: EDITING FILES ON THE PC
+
+Your AUTOEXEC.BAT and CONFIG.SYS are "plain text" files.  The same is true of
+all Kermit command and initialization files.  You can modify such files using
+the DOS EDLIN or EDIT programs.  EDLIN and EDIT are documented in your DOS
+manual.  The recommended method for editing these files is to use the DOS EDIT
+program.  Let's suppose you want to modify your AUTOEXEC.BAT file.  First,
+make a backup copy in case something goes wrong:
+
+  cd c:\
+  copy autoexec.bat autoexec.bak
+
+And then start the editor:
+
+  edit autoexec.bat
+
+This brings up a screen showing the file.  You can move through the file with
+the arrow keys until you find the line you want to change, in our case the
+line that starts with "PATH=".  Use the End key to position the cursor at the
+end of the "PATH=" line, then type the text you want to add, such as
+";C:\KERMIT".
+
+To save the file, press Alt-f (hold down Alt, press f) to activate the File
+menu.  Then use the down-arrow key to highlight the Save item, and then press
+the Enter key.
+
+To exit from EDIT, press Alt-f again, use the arrow key to highlight Exit, and
+press Enter.
+
+If you are using a word processing program to create or modify a DOS or Kermit
+command file, do not include any special effects (bold, underline, italics),
+and be sure to save the file in text mode.  The method for doing this depends
+on the word processor.
+
+In Microsoft Word 5.0, for example, press the Esc key to get to the menu,
+press T to choose Transfer, press S to choose Save, type the filename, use the
+arrow keys to get to the "format" line, choose Text-Only, press Enter to save
+the file, and then leave the program by pressing the Esc key and then Q.
+
+In WordPerfect 5.1, use Ctrl-F5 (hold down the Ctrl key and press the F5 key)
+to save the file, press T to select DOS Text, 1 to Save, type the filename and
+press Enter, and quit from WordPerfect by pressing the F7 key.
+
+(End of MS-DOS Kermit 3.14 READ.ME)

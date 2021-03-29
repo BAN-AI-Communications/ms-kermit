@@ -1,0 +1,92 @@
+; FILE ROLM.SCR
+;
+; To be used with MS-DOS Kermit 3.11 or later.
+;
+; An MS-DOS Kermit script program for dialing from a ROLMphone DCM
+; (Data Communication Module).
+;
+; Stored in Kermit Distribution as MSIROLM.SCR; rename to ROLM.SCR if
+; necessary so the DIAL macro can find it.  Place this file in your current
+; directory, or any directory in your DOS PATH.
+;
+; Expects variable \%1 to contain the phone number or data group name.  This
+; is done by the DIAL macro defined in MSKERMIT.INI.  To make the DIAL macro
+; use this file instead of HAYES.SCR, add the following line to your
+; AUTOEXEC.BAT file:
+;
+;   SET MODEM=ROLM
+;
+; If you lack the DIAL macro definition, use this simple substitute:
+;
+;   DEFINE DIAL TAKE ROLM.SCR
+;
+; To use, just type "DIAL nnnnnnn" at the MS-Kermit> prompt, where "nnnnnnn"
+; is the desired phone number or Rolm data group name.
+;
+; Sets SUCCESS flag if dialing succeeds, sets FAILURE flag 
+; if it fails, for use with IF SUCCESS, IF FAILURE, \v(status).
+;
+; Author: Christine M. Gianone, September 1991.
+; Revised September 1992.
+
+; Fatal error macro.
+;
+def errfail if not def \%1 def \%1 Failed - try again later.,-
+  echo \%1, hangup, goto fail
+
+; Macro to check error messages.
+;
+def chkmsg reinput 0 \%1, if success errfail
+
+if < VERSION 311 errfail {MS-DOS Kermit 3.11 or later required.}
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE
+set input echo on               ; Let's watch what happens
+clear				; Clear out old stuff from INPUT buffer
+set count 3			; Try up to 3 times to get Rolm prompt
+
+:LOOP
+output \13	                ; Send carriage return
+input 3 MODIFY\63\13\10         ; ROLMphone says "CALL, DISPLAY OR MODIFY?"
+if success goto dial		; Got it.
+if count goto loop		; Didn't get it, try again.
+
+echo ROLMphone not responding on port \v(port) at speed=\v(speed).
+errfail {Please check your connection and try again.}
+
+:DIAL
+if def \%1 if equal "\%1" "=" end 0 ; Phone number "=" means initialize only.
+pause 1				; Wait a second
+output CALL \%1\13              ; Dial the number or datagroup name
+set count 12			; Try up to 12 times to read a known response
+
+:GETMSG
+input 40 \13			; Look for a carriage return.
+if fail errfail {No response to CALL command}
+reinput 0 CALL COMPLETE		; The response we wanted.
+if success goto gotit
+chkmsg {NOT A DATALINE}		; Check for error messages.
+chkmsg {FAILED}			; This lets us fail right away, rather
+chkmsg {BUSY}			; than waiting forever for CALL COMPLETE
+chkmsg {LACKS PERMISSION}	; not to show up...
+chkmsg {DOES NOT ANSWER}
+chkmsg {INVALID GROUP NAME}
+chkmsg {INVALID DATA LINE NUMBER}
+chkmsg {ABANDONED}
+reinput 0 NOT AVAILABLE		; This one needs a hint
+if fail goto again
+echo Failed - Most likely cause: \v(speed) bps can't be used with \%1.
+errfail {Please change your speed and try again.}
+:AGAIN
+if count goto getmsg		; None of these, wait for another message.
+errfail {Sorry - I don't understand these reponses.} ; Too many tries.
+
+:GOTIT
+echo \7				; Succeeded, beep
+define errfail			; Erase ERRFAIL definition
+define chkmsg			; CHKMSG definition too
+end 0				; Finished, return success code.
+
+:FAIL				; Dialing failed.
+define errfail			; Erase ERRFAIL definition
+define chkmsg			; CHKMSG definition too
+end 1				; Return failure code.

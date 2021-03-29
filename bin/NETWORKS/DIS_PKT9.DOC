@@ -1,0 +1,330 @@
+File DIS_PKT.DOC						     3 Nov 1991
+
+Joe R. Doupnik
+Utah State University
+Logan Utah 84322
+jrd@cc.usu.edu
+(801) 750-2982 voice
+(801) 750-2992 fax
+
+DIS_PKT.DOS is a "shim" to convert between an NDIS network board driver and an
+application that wants to talk to a packet driver.  It shares the board with
+other NDIS users.
+
+    Packet-Driver-flavored applications		NDIS-flavored applications
+		||					||
+	    -------------				||
+	    |  DIS_PKT  |				||
+	    -------------				||
+		||					||
+		------------------------------------------
+		|           main module			  |
+		|   NDIS    ........................      |
+		|	    board specific driver(s)	  |
+		-------------------------------------------
+				  ||
+			--------------------------------
+			| Ethernet/Token Ring board(s)	|
+			--------------------------------
+				  ||
+		=================================== Ethernet/Token Ring wire
+		
+
+Material added to version 1.09 (since v1.07) -
+
+ o Support for using old Novell 802.3 packets on the wire while using Type
+   8137 packets to the application. The BYU Packet Driver Novell shell
+   kit requires Type 8137 packets be used by the shell. The keyword "NOVELL="
+   in the section [pktdrv] determines whether or not conversion occurs. If a 
+   y is placed after the NOVELL= phrase then conversion occurs:
+	novell = y		(case independent)
+   This option provides the same feature as the "-n" option of a regular
+   Packet Driver from the Clarkson collection.
+   Conversion does not occur if the right hand side is not a y, nor if the 
+   entire line is omitted.
+   Conversion occurs only if the NDIS driver uses Ethernet 802.3 packets; this
+   also means dis_pkt provides a Packet Driver Class 1 interface to apps.
+
+ o Support for Ethernet 802.3 with 802.2 headers and Token Ring 802.5 NDIS 
+   drivers, as Packet Driver Class 11 and 3, respectively. The NOVELL= option
+   does not apply to these boards. Dan Lanciani of Harvard added this part.
+
+First sample PROTOCOL.INI file:
+
+[protocol manager]
+    drivername = PROTMAN$
+
+[pktdrv]			<-- name of this driver entry
+  drivername = pktdrv$		<-- formal driver name
+  bindings = wd8003xmac		<-- use your board's NDIS driver here
+  intvec = 0x60			<-- Packet Driver Int, 60h..7fh
+  chainvec = 0x66		<-- daisy chained Pkt Drvr Int, unused
+  novell = y			<-- Optional, if present and y(es) then
+				    convert between old Novell 802.3 pkts
+				    on the wire and Type 8137 for the app.
+				    Omitting this line or using any other
+				    response turns off the conversion; 
+				    default is no conversion.
+
+[attiso]
+  drivername = ATTISO$		<-- Another NDIS client
+  bindings = wd8003xmac		<-- bound to the same harware driver
+  nsess = 5
+  ncmds = 14
+  use_emm = n
+
+Western Digital EtherCard PLUS Family Adapter	<-- Ethernet board
+[wd8003xmac]					<-- its ndis driver
+    drivername = MACWD$
+    irq = 7
+    ramaddress = 0xCA00
+    iobase = 0x280
+    receivebufsize = 1536	<-- make this a full Ethernet pkt
+
+Sample section of CONFIG.SYS (StarGROUP material is not required):
+
+device=c:\lanman\protman.sys /i:c:\lanman	<-- must be first
+device=c:\lanman\macwd.dos			<-- WD8003E driver
+device=c:\lanman\dis_pkt.dos			<-- Pkt Driver (this program)
+device=c:\lanman.dos\drivers\attload.dos /Y	<-- StarGROUP NDIS 
+device=c:\lanman.dos\drivers\attiso\attiso.dos	<-- StarGROUP NDIS
+device=c:\qemm\loadhi.sys /r:1 e:\pctcp\ifcust.sys  <-- PC/TCP stuff
+device=c:\qemm\loadhi.sys /r:4 e:\pctcp\ipcust.sys  <-- etc
+
+A second, more elaborate example, with names easier to type.  We start with
+file PROTOCOL.INI.  Note that semicolons start comment lines.
+
+; This is a sample protocol.ini file listing three Ethernet boards:
+;	attcsma.dos is an AT&T StarLAN 10 EN100
+;	elnkii.dos  is a 3Com 3C503
+;	wd8003.dos  is a Western Digital WD8003E
+; Only one board will be selected but the other two are present.
+
+[protocol manager]
+    drivername = PROTMAN$
+
+; Packet Driver protocol users tie in here
+[pktdrv]
+	drivername = pktdrv$
+	bindings = attcsma
+;	bindings= elnkii
+;	bindings = wd8003
+	intvec = 0x60
+;	chainvec = 0x66		; chaining to another Packet Driver is unused
+	novell = no		; do not convert packet types this time
+
+; AT&T StarGROUP protocol stack ties in here via name ATTISO$
+[attiso]
+	drivername = ATTISO$
+	bindings = attcsma
+;	bindings = elnkii
+;	bindings = wd8003
+	nsess = 5
+	ncmds = 14
+	use_emm = n
+
+;Western Digital EtherCard PLUS Family Adapter, WD8003E in this case
+[wd8003]
+	drivername = MACWD$
+	irq = 7
+	ramaddress = 0xCA00
+	iobase = 0x280
+	receivebufsize = 1536
+;	maxtransmits = 6
+;	receivebuffers = 6
+;	receivechains = 6
+
+; 3Com Etherlink II, 3C503
+[elnkii]
+	drivername = ELNKII$
+	ioaddress = 0x350
+	interrupt = 5
+	transceiver = onboard
+	maxtransmits = 12
+	xmitbufs = 1
+
+; AT&T StarLAN 10 EN100
+[attcsma]
+	drivername = ATTCSMA$
+	board_type = 2
+	irq = 2
+	ioaddr = 0x360
+	daram = 0xD000
+
+; End of file protocol.ini
+
+Fragment of config.sys for the second example. Note three .dos board drivers.
+
+device=c:\system\ramdrive.sys 1024 512 128 /E
+device=c:\lanman\protman.sys /i:c:\lanman.dos\drivers\star10en
+device=c:\lanman\attcsma.dos
+device=c:\lanman\elnkii.dos
+device=c:\lanman\macwd.dos
+device=c:\lanman\dis_pkt.dos
+device=c:\lanman.dos\drivers\attload.dos /Y
+device=c:\lanman.dos\drivers\attiso\attiso.dos
+device=c:\qemm\loadhi.sys /r:1 e:\pctcp\ifcust.sys
+device=c:\qemm\loadhi.sys /r:4 e:\pctcp\ipcust.sys
+device=c:\qemm\loadhi.sys /r:4 c:\netdev.sys
+shell=c:\command.com  /p /e:800
+
+It seems to be necessary to run NETBIND.EXE to get all this to be active.
+Some Lan Manger network startup routines run Netbind implicitly.
+
+Copyright notice and disclaimer from the beginning of the source code
+file dis_pkt.asm:
+
+; DIS_PKT.ASM - Adapter provides Packet Driver v1.09 interface over NDIS.
+; Version 1.07  18 May 1991  by Joe R. Doupnik, Utah State Univ.
+; Version 1.08  9 Aug 1991 by Dan Lanciani, ddl@harvard.harvard.edu
+; Version 1.09  3 Nov 1991 by Joe R. Doupnik, Utah State Univ.
+; Copyright (C) 1988 - 1991 FTP Software, Inc.
+
+This unmodified source file and its executable form may be used and
+redistributed freely.  The source may be modified, and the source or
+executable versions built from the modified source may be used and
+redistributed, provided that this notice and the copyright displayed by the
+exectuable remain intact, and provided that the executable displays an
+additional message indicating that it has been modified, and by whom.
+
+FTP Software Inc. releases this software "as is", with no express or implied
+warranty, including, but not limited to, the implied warranties of
+merchantability and fitness for a particular purpose.
+
+USE AT YOUR OWN RISK.
+
+To build, using Microsoft MASM 5 or later, LINK 3.64 or later, and EXE2BIN:
+
+masm dis_pkt;
+link dis_pkt;
+exe2bin dis_pkt.exe dis_pkt.dos
+del dis_pkt.exe
+del dis_pkt.obj
+
+Here is an excerpt from the formal NDIS v2 specification document by 3Com
+and Microsoft concerning what goes into the PROTOCOL.INI file.
+ 
+PROTOCOL.INI
+
+The PROTOCOL.INI file stores configuration and binding information for all the
+protocol and MAC modules in the system.  The file uses the same general format
+as the LANMAN.INI file.  It consists of a series of named sections, where the
+section name is in fact the module name from a module characteristics table.
+Below the bracketed module name is a set of configuration settings for the
+module in name=value format.  For example:
+ 
+[MYNetBIOS]
+Drivername = NetBIOS$
+Bindings = ETHERCARD
+MaxNCBs = 16
+MaxSessions = 32
+MaxNames = 16
+ 
+The rules for PROTOCOL.INI contents are:
+ 
+ o Bracketed module name.  Must be the name of a protocol or MAC module, e.g.
+   [MYNetBIOS].  This is the name of the module as defined in that module's
+   characteristics table.  The name must be 15 characters or less (not
+   counting the brackets).  Mixed case may be used but the Protocol Manager
+   will convert it to uppercase when it reads the file into memory.
+ 
+ o Drivername = <device driver name>.  This parameter is required for all
+   device driver modules.  It defines the name of the OS/2 or DOS device
+   driver that the module is contained in.  Note that a single device driver
+   name may be mentioned by several sections of the PROTOCOL.INI file, if the
+   driver contains multiple logical modules.  The Drivername parameter is the
+   recommended method by which a module searches for its module section in the
+   PROTOCOL.INI file to get its configuration parameters.  This allows the
+   module to find all relevant module sections based on a single name
+   intrinisic to the module independent of the particular bracketed module
+   name used in the PROTOCOL.INI file.  This keyword is also required for DOS
+   dynamic modules like TSRs or transient application modules.  Although there
+   is no driver name instrinsically assigned to such modules it is required
+   that a unique name be assigned to this keyword for such modules anyway.  In
+   this way the same search mechanism used by device drivers can be used by
+   dynamic DOS modules to find their relevant module sections in PROTOCOL.INI.
+ 
+ o Bindings = <module name> | <module name>,<module name>, . . .
+   This parameter is optional for protocol modules.  It is not valid for MAC
+   modules.  If present, it is used by the protocol module to determine what
+   MAC modules it will ask to bind to.  (In other words, changing this
+   parameter in the PROTOCOL.INI file can reconfigure a protocol to bind to a
+   different MAC.).  The Bindings parameter may be omitted if the protocol
+   driver software is preconfigured to bind to a particular MAC, or if the
+   system will only contain one MAC and one static protocol module.  In the
+   latter case (only in static mode), the Protocol Manager by default will ask
+   the one static protocol to bind to the one MAC.
+ 
+ o Other keywords and parameters.  Any other keyword=value statements are
+   module specific.  Keyword names must be 15 characters or less.  They may be
+   mixed case but are converted to uppercase when read by the Protocol
+   Manager.  Note that keyword names are unique within the scope of each
+   <module name> section and can appear within the section in any order.
+ 
+ o Whitespace around the equals sign is not significant, nor is trailing white
+   space on the line.  Except for this leading and trailing white space, all
+   other characters of the value string are taken verbatim.
+ 
+ o A list of 0 or more parameters can appear to the right of the equals sign.
+   If there are no parameters the equals sign can be optionally omitted.  A
+   parameter is terminated by a space, tab, comma, or semicolon.  No
+   parameters are interpreted by the Protocol Manager.
+ 
+ o A parameter can either be up to a 31-bit signed numeric value or a string
+   of any length.
+ 
+ o A numeric parameter can be expressed either in decimal or hexadecimal
+   format.  All numeric parameters must start with the characters '0' through
+   '9' or by a + or - followed by the '0' to'9' character.  A hexadecimal
+   parameter must start with '0x' or '0X' and use valid hexadecimal digits.  A
+   non-hexadecimal numeric parameter is treated as decimal integer.  A
+   parameter not surrounded by quotes and starting with 0 to 9 or + and -
+   followed by 0 to 9 will be assumed to be a numeric parameter.
+ 
+ o A string is a parameter which either starts with a non-numeric character or
+   is surrounded with quotes ("....").  The string is preserved in the memory
+   image as it appears in PROTOCOL.INI.
+ 
+ o A line starting with a semicolon in column 1 is a comment and is ignored.
+   Blank lines are ignored too.
+ 
+ o Lines may be as long as required.  Continuation lines are not supported.
+   Lines end with CR LF.
+ 
+ o Tabs, formfeeds, and spaces are considered to be white space.
+
+The Protocol Manager supports an optional section with optional keywords
+defined below:
+ 
+[PROTMAN]
+Drivername = PROTMAN$
+Dynamic = YES or NO
+PRIORITY = prot1, prot2, ...
+Bindstatus = YES or NO
+  
+The bracketed module name can be any valid name as long as it is unique within
+this PROTOCOL.INI.  Drivername is required and must be assigned PROTMAN$,
+identifying the section as belonging to the Protocol Manager.  None of the
+entries are case-sensitive.
+
+The DYNAMIC keyword is optional.  It defaults to NO if not present.  If set to
+NO, the Protocol Manager operates only in the static mode and does not support
+dynamic protocol drivers.  If set to YES, the Protocol Manager operates in the
+dynamic mode and supports both static and dynamic binding.
+ 
+The PRIORITY keyword is optional.  If absent, then the VECTOR uses default
+demultiplexing priority if multiple protocol drivers are bound to the same MAC
+(see Vector Demultiplexing in Chapter 7).  If present, the parameters on the
+right-hand side are presumed to be a list of protocol module names, highest
+priority first.  The VECTOR prioritizes protocol drivers for demultiplexing
+(if necessary) according to their order in the list, and packets are offered
+to the first protocol driver listed first.  Protocol drivers not listed are
+assigned default priority AFTER those listed.  It is not necessary that a
+protocol driver ever bind for it to be listed here.
+ 
+The BINDSTATUS keyword is optional.  If absent, then the BindStatus command is
+not supported by the Protocol Manager.  If set to YES, then BindStatus is
+supported by the Protocol Manager.  The default disable condition is a memory
+optimization feature primarily for DOS environments.
+ 
+End of file DIS_PKT.DOC

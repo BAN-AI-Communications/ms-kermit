@@ -1,0 +1,132 @@
+; FILE SPORT.SCR (MSMSPORT.SCR)
+; 
+; An MS-DOS Kermit script program for dialing the US Robotics Sportster or
+; Courier 14400 or 28800 modem, to be used with MS-DOS Kermit 3.12 or later.
+; The modem is set for RTS/CTS flow control, fixed interface speed of 57600,
+; and to negotiate highest modulation, compression, with error correction
+; with all types of fallback.
+;
+; To use: SET MODEM=SPORT (in DOS, before starting Kermit)
+; or:     DEFINE _MODEM SPORT (in Kermit, before dialing)
+; or:     SET MODEM SPORT (in Kermit, v3.14 or later)
+; and:    Make sure Kermit executes the standard MSKERMIT.INI file.
+;
+; Authors: Christine M. Gianone, Frank da Cruz; Columbia U, June 1993
+; Modified 8 Aug 93 to fix typo (W1 is not a legal Sportster command).
+; 10 Nov 93 - eliminate DSR check.
+; 18 Jan 95 - update for version 3.14, SET CARRIER, etc.
+; 24 Mar 95 - update comments after testing with V.34 model.
+;
+def errfail echo \%1, hangup, goto fail ; Macro to handle failures.
+if < VERSION 312 errfail {MS-DOS Kermit 3.12 or later required.}
+
+define chkerr if fail stop 1 \%1
+define chkok input 3 OK, if fail stop 1 \%1
+
+if > VERSION 313 set carrier OFF ; Don't require carrier during dialing.
+
+set input echo on		; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore		; Use caseless string comparisons
+
+set parity none			; Avoid parity foulups
+set flow none			; Avoid flow control deadlocks
+hangup				; Begin by dropping DTR
+pause 1				; for one second
+
+; Speed.  Don't worry about modem, it autobauds up to 57600 bps.
+
+set speed 57600
+echo Configuring USR Sportster on \v(line).
+
+:INIT
+output ATQ0V1&S0I3\13		; Enable word result codes, turn on DSR
+chkok {Can't get modem's attention}
+output AT E1 X4 &A3 &D2\13	; Set echoing, result codes, etc.
+chkok {Can't initialize modem}
+output AT&B1\13			; Fixed interface speed
+chkok {Can't fix interface speed}
+output AT &H1&R2\13		; RTS/CTS hardware flow control
+chkok {Can't enable RTS/CTS}	; On modem
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts		; And in Kermit too, but only now
+output AT &N0\13
+chkok {Can't enable modulation fallback}
+output AT &K1&M4\13		; Compression and EC enabled
+chkok {Can't enable compression and EC}
+output AT &Y3\13		; Make modem pass BREAK transparently
+chkok {Can't become transparent to BREAK}
+
+if def \%1 if not equal "\%1" "=" goto BEGIN
+echo Modem initialization complete, no number to dial.
+end 0
+
+:BEGIN				; Now DIAL.
+clear				; Clear INPUT buffer.
+set count 5                     ; Dialing retry counter, 5 tries allowed.
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+pause 1
+goto dial                       ; 1st time, skip pause and Redialing message
+
+:REDIAL
+set alarm 30
+pause 30			; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number.
+set alarm 90			; (For detecting keyboard interruptions.)
+if > VERSION 312 clear input	; Clear echo from INPUT buffer.
+if < VERSION 313 clear
+input 30 \10                    ; Wait for the linefeeds...
+
+:GETMSG
+input 60 \10			; ...that surround the response message.
+if success goto gotmsg		; Got a message.
+if alarm errfail {No response from modem.} ; No response in 90 seconds.
+hangup				; User interrupted from keyboard,
+output \13			; cancel dialing by sending carriage return,
+goto again			; and go try again right away.
+
+:GOTMSG
+reinput 1 CONNECT               ; Got a message, was it CONNECT?
+if success goto done            ; If so, we're done.
+reinput 1 BUSY			; Line is busy.
+if success goto busy		; Go wait a while and then dial again.
+reinput 1 ERROR			; Command syntax error.
+if success errfail {Dialing command error}
+reinput 1 NO CARRIER		; Phone didn't answer or no carrier.
+if success errfail {No answer or no carrier}
+reinput 1 NO ANSWER		; No answer
+if success errfail {No answer - try again later}
+reinput 1 NO DIAL TONE		; No dialtone when phone taken off hook.
+if success errfail {No dialtone - Is your modem connected to the phone line\63}
+goto getmsg			; None of the above, get another message.
+
+:BUSY
+if < \v(count) 2 goto quit	; Don't wait 30 seconds if tries are used up.
+Echo Line is busy, will dial again in 30 seconds.
+echo Press any key to cancel...
+output \13			; CR cancels dialing
+hangup                          ; Hang up.
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+define errfail			; Erase local macro definitions...
+if > VERSION 313 set carrier on ; Require carrier from now on.
+end 0				; Finished, return success code.
+
+:FAIL				; Dialing failed, no beep.
+define errfail			; Erase local macro definitions...
+if > VERSION 313 set carrier off ; So they can CONNECT and see what's up...
+end 1				; Return failure code.
+
+; End of SPORT.SCR

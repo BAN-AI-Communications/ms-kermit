@@ -1,0 +1,113 @@
+File HEBREW.HLP      HEBREW KEY MAPPINGS FOR MS-DOS KERMIT        April 1994
+
+The HEBREW.INI file sets up MS-DOS Kermit 3.13 (or later) for Hebrew terminal
+emulation.  To use it, just type HEBREW at the MS-Kermit> prompt (assuming
+you have executed the standard MSKERMIT.INI file).  Or give a TAKE command
+for this file, e.g.:
+
+  take c:\kermit\hebrew\hebrew.ini
+
+If you always want to have Hebrew terminal emulation available, use a text
+editor like DOS EDIT to add the "hebrew" or "take hebrew.ini" command to your
+MSCUSTOM.INI file.
+
+The HEBREW.INI file defines two macros, HKEYS and EKEYS.  HKEYS puts your
+keyboard in Hebrew Mode; it sets up your keyboard so unshifted letter (and
+certain punctuation) keys send Hebrew characters.  EKEYS puts your keyboard
+back in English (Roman) mode, so that these same keys send their normal
+codes (Roman letters, etc).
+
+These macros can be invoked in three different ways:
+
+ 1. At the "MS-Kermit>" prompt, just type the name of the macro,
+    "hkeys" or "ekeys".
+
+ 2. During terminal emulation, press the F5 key to enter Hebrew mode;
+    press F6 to enter English mode.
+
+ 3. During terminal emulation, the host application can send special
+    VT-terminal escape sequences to switch Kermit between Hebrew and
+    English mode automatically.  (See the Hebrew section of the KERMIT.UPD
+    file for details).
+
+These macros make the following key assignments, which are compatible with the
+Hebrew-model IBM PC keytops, and with Hebrew WordPerfect and other popular
+Hebrew applications.  You may refer to the WordPerfect Hebrew key diagram for
+easy reference or, if you have a PostScript printer, you can print the
+KEYMAP.PS file from this diskette.
+
+The following are all valid Kermit commands, to make it easy for you to change
+them if you desire.  The HEBREW.INI file contains the same definitions, but in
+compressed form for rapid execution.
+
+; The following commands set up Hebrew keyboard mode.
+; This is what the HKEYS macro does.
+;
+SET KEY \113 /    ; q = slash (/)
+SET KEY \119 \39  ; w = apostrophe (')
+SET KEY \039 \44  ; ' = comma (,)
+SET KEY \047 .    ; / = period (.)
+SET KEY \116 \128 ; t = Hebrew letter aleph
+SET KEY \099 \129 ; c = Hebrew letter bet
+SET KEY \100 \130 ; d = Hebrew letter gimel
+SET KEY \115 \131 ; s = Hebrew letter dalet
+SET KEY \118 \132 ; v = Hebrew letter he
+SET KEY \117 \133 ; u = Hebrew letter waw
+SET KEY \122 \134 ; z = Hebrew letter zain
+SET KEY \106 \135 ; j = Hebrew letter chet
+SET KEY \121 \136 ; y = Hebrew letter tet
+SET KEY \104 \137 ; h = Hebrew letter yod
+SET KEY \108 \138 ; l = Hebrew letter terminal kaph
+SET KEY \102 \139 ; f = Hebrew letter kaph
+SET KEY \107 \140 ; k = Hebrew letter lamed
+SET KEY \111 \141 ; o = Hebrew letter terminal mem
+SET KEY \110 \142 ; n = Hebrew letter mem
+SET KEY \105 \143 ; i = Hebrew letter terminal nun
+SET KEY \098 \144 ; b = Hebrew letter nun
+SET KEY \120 \145 ; x = Hebrew letter samech
+SET KEY \103 \146 ; g = Hebrew letter ayin
+SET KEY \059 \147 ; ; = Hebrew letter terminal pe
+SET KEY \112 \148 ; p = Hebrew letter pe
+SET KEY \046 \149 ; . = Hebrew letter terminal zade
+SET KEY \109 \150 ; m = Hebrew letter zade
+SET KEY \101 \151 ; e = Hebrew letter qoph
+SET KEY \114 \152 ; r = Hebrew letter resh
+SET KEY \097 \153 ; a = Hebrew letter shin
+SET KEY \044 \154 ; , = Hebrew letter taw
+
+; The following commands set up English keyboard mode.
+; This is what the EKEYS macro does.
+; 
+SET KEY \113 \113 ; q
+SET KEY \119 \119 ; w
+SET KEY \047 \047 ; /
+SET KEY \039 \039 ; '
+SET KEY \116 \116 ; t
+SET KEY \099 \099 ; c
+SET KEY \100 \100 ; d
+SET KEY \115 \115 ; s
+SET KEY \118 \118 ; v
+SET KEY \117 \117 ; u
+SET KEY \122 \122 ; z
+SET KEY \106 \106 ; j
+SET KEY \121 \121 ; y
+SET KEY \104 \104 ; h
+SET KEY \108 \108 ; l
+SET KEY \102 \102 ; f
+SET KEY \107 \107 ; k
+SET KEY \111 \111 ; o
+SET KEY \110 \110 ; n
+SET KEY \105 \105 ; i
+SET KEY \098 \098 ; b
+SET KEY \120 \120 ; x
+SET KEY \103 \103 ; g
+SET KEY \059 \059 ; ;
+SET KEY \112 \112 ; p
+SET KEY \046 \046 ; .
+SET KEY \109 \109 ; m
+SET KEY \101 \101 ; e
+SET KEY \114 \114 ; r
+SET KEY \097 \097 ; a
+SET KEY \044 \044 ; ,
+
+; End of HEBREW.HLP

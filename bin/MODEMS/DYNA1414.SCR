@@ -1,0 +1,213 @@
+; FILE DYNA1414.SCR (MSMDYNA.SCR)
+;
+; An MS-DOS Kermit script program for dialing the Dynalink 1414 modem, to be
+; used with MS-DOS Kermit 3.12 or later.  The modem is set up for compression,
+; error correction, all types of fallback, RTS/CTS flow control, maximum
+; interface speed of 57600.
+; The Dynalink 1414(VE) is a V.32bis FAX/DATA modem with the Rockwell 144
+; CLASS 1/2 chipset.
+;
+; Authors: Christine M. Gianone, Frank da Cruz; Columbia U, June 1993
+; Modified from ULTRA144.SCR and other scripts by Xander Jansen, SURFnet bv,
+;          October 1994
+;
+def errfail echo \%1, hangup, goto fail ; Macro to handle failures.
+if < VERSION 312 errfail {MS-DOS Kermit 3.12 or later required.}
+
+define chkerr if fail stop 1 \%1
+define chkok input 5 OK, if fail stop 1 \%1
+
+; Macro to try to get attention of modem's command processor
+; at the given speed, or if no speed given, at the current speed.
+; Q0 = Enable result codes, V1 = display result codes as words.
+; The dynalink modem sometimes is a bit slow with the OK so input
+; will wait 5 seconds for it.
+;
+define atok -
+ if not def \%1 assign \%1 \v(speed), -
+ set speed \%1, -
+ echo Trying \%1..., -
+ output ATQ0V1\13, -
+ input 5 OK, -
+ end \v(status)
+
+set input echo on               ; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore           ; Use caseless string comparisons
+
+set parity none                 ; Avoid parity foulups
+set flow none                   ; Avoid flow control deadlocks
+hangup                          ; Begin by dropping DTR
+pause 1                         ; for one second
+
+; Speed.  Don't worry about modem, it autobauds up to 57600 bps.
+;
+set speed 57600                 ; If computer can be set to 57600 bps, use it.
+if fail set speed 38400         ; If not, use 38400.
+
+echo Configuring Dynalink 1414 on \v(line).
+
+atok                            ; Autobaud at current speed
+if fail atok 38400
+if fail atok 19200
+if fail atok 9600
+if fail atok 2400
+if fail stop 1 Can't get modem's attention.
+
+:OK
+;
+; Initialize the modem.
+;
+; &C1    Use actual state of carrier for DCD
+; &D2    Hangup if DTR drops, so Kermit's HANGUP command will work
+; E1     Commands are to be echoed
+; W1     Enable dialing progress messages
+; X4     Enable full range of result codes
+;
+output AT &C1 &D2 E1 W1 X4 S95=46\13  ; Init string
+chkok {Can't initialize modem}
+;
+; S37=11 Begin modulation negotiations at V.32bis = 14400 bps
+; N1     Negotiate highest common modulation
+;
+echo Enabling modulation negotiation...
+output AT S37=11 N1\13          ; Start modulation speed negotiation at 14400
+chkok {Can't enable modulation speed negotiation}
+;
+; Enable hardware flow control
+;
+echo Enabling hardware flow control...
+output AT &K3\13                ; Enable RTS/CTS hardware flow control
+chkok {Can't enable RTS/CTS}    ; On modem
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts                ; And in Kermit too, but only now
+
+; Specify treatment of BREAK signal
+;
+echo Configuring modem to ignore BREAK...
+output AT \92K5\13              ; Make modem pass BREAK transparently
+chkok {Can't become transparent to BREAK}
+
+; Enable error correction and compression
+;
+; &Q5       Enable error correction
+; S36=7     LAPM (V.42) => MNP => ASB (automatic speed buffering)
+; S38=1     When DTR from PC goes off, hang up after 1 second
+; S46=138   Enable compression (%C1)
+; S48=7     EC and compression negotiation enabled
+;
+echo Enabling error correction and data compression...
+output AT &Q5 S36=7 S38=1 S46=138 S48=7\13
+chkok {Can't enable compression and EC}
+
+; The Dynalink modem is very noisy with the default volume set to L2.
+; The volume can be set to low (L1) but the difference is minimal.
+; Add M0 to the output statement below if L1 is still too loud.
+;
+; L1       Low volume
+; M0       Speaker off
+echo Silencing modem...
+output AT L1\13         ; Add M0 to shut down the speaker
+;; chkok {Can't silence the modem}
+
+if def \%1 if not equal "\%1" "=" goto BEGIN
+;
+; User only wanted to initialize the modem.
+; Display configuration. The settings take up a whole 24 rows screen.
+;
+echo Dynalink 1414 initialized OK:
+output AT&V\13
+input 10 OK
+end 0
+
+:BEGIN
+;
+; User wants to dial.
+;
+clear                           ; Clear INPUT buffer.
+set count 5                     ; Dialing retry counter, 5 tries allowed.
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+pause 1
+goto dial                       ; 1st time, skip pause and Redialing message
+
+:REDIAL
+set alarm 30
+pause 30                        ; Wait 30 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...               ; Message for redialing.
+pause 1
+
+:DIAL
+output ATD\%1\13                ; Dial the number.
+set alarm 90                    ; (For detecting keyboard interruptions.)
+if > VERSION 312 clear input    ; Clear echo from INPUT buffer.
+if < VERSION 313 clear
+
+:GETMSG
+input 90 \10                    ; Wait for linefeed
+if success goto gotmsg          ; Got a message.
+if alarm errfail {No response from modem.} ; No response in 90 seconds.
+hangup                          ; User interrupted from keyboard,
+output \13                      ; cancel dialing by sending carriage return,
+echo Dialing interrupted, will dial again in 30 seconds.
+echo Press any key to cancel...
+goto again                      ; and go try again right away.
+
+:GOTMSG
+reinput 1 CONNECT               ; Got a message, was it CONNECT?
+if success goto done            ; If so, we're done.
+reinput 1 BUSY                  ; Line is busy.
+if success goto busy            ; Go wait a while and then dial again.
+reinput 1 ERROR                 ; Command syntax error.
+if success errfail {Dialing command error}
+reinput 1 CARRIER               ; Connection rate (DCE-DCE)
+if success goto getmsg          ; no action
+reinput 1 PROTOCOL              ; Error correction type (NONE/LAP-M/ALT)
+if success goto getmsg          ; no action
+reinput 1 COMPRESSION           ; Compression type (CLASS 5/V.42BIS/NONE)
+if success goto getmsg          ; no action
+reinput 1 NO ANSWER             ; No answer
+if success errfail {No answer, please try again later}
+reinput 1 NO CARRIER            ; Phone didn't answer or no carrier.
+if success goto nocarrier
+reinput 1 NO DIALTONE           ; No dialtone when phone taken off hook.
+if success errfail {No dialtone - Is your modem connected to the phone line\63}
+reinput 1 RING                  ; Phone is ringing
+if success errfail {Somebody is calling this number}
+goto getmsg                     ; None of the above, get another message.
+
+:BUSY
+if < \v(count) 2 goto quit      ; Don't wait 30 seconds if tries are used up.
+echo Line is busy, will dial again in 30 seconds.
+echo Press any key to cancel...
+:AGAIN
+if count goto redial            ; Then go redial.
+:QUIT
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+define errfail                  ; Erase local macro definitions...
+define chkerr
+define ckok
+define atok
+end 0                           ; Finished, return success code.
+
+:NOCARRIER
+echo
+echo Connection failed, S86 contains the reason code:
+echo
+output ATS86\63\13
+input 2 \10
+input 2 \10
+
+:FAIL                           ; Dialing failed, no beep.
+define errfail                  ; Erase local macro definitions...
+define chkerr
+define ckok
+define atok
+end 1                           ; Return failure code.
+
+; End of DYNA1414.SCR

@@ -1,0 +1,9 @@
+sprintnet  7654321      2400   mark
+oofanet    6543210      1200   odd    This entry has a comment.
+tymnet     93,876-5432  2400   even   You can put punctuation in the phone #.
+hometone   T5551212     1200   none   T in number forces tone dialing
+homepulse  P5551212     1200   none   P in number forces pulse dialing
+anyspeed   999-9999     =      none   Use current speed, whatever it is.
+anyparity  888-8888     9600   =      Use current parity, whatever it is.
+whocares   777-7777     =      =      Use current speed and parity.
+defaults   987-6543

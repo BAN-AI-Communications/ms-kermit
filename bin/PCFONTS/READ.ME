@@ -1,0 +1,84 @@
+PC FONTS FOR MS-DOS KERMIT
+
+This directory contains public domain "fonts" that are equivalent to the code
+pages used by IBM and compatible PCs (with 256K EGA or better), but which can
+be loaded any time you want, without having to edit your AUTOEXEC.BAT file and
+reboot your PC.  These fonts, and the accompanying utility programs, are from
+Joseph (Yossi) Gil (Yogi) at the Technion in Haifa, Israel, host
+ssl.cs.technion.ac.il, directory /pub/DOS/Yogi.  Many others are also
+available from the same source.
+
+This directory contains the following font utilities:
+
+LOADFONT.COM, LOADFONT.HLP
+  The utility that loads a font.
+
+WITHFONT.COM
+  TSR that loads a font and runs a program in such a way that the program
+  will use the font, even if the video mode changes (e.g. between 80 and
+  132 columns).
+
+CHARSET.COM
+  A utility that displays all the characters in the current font.
+
+The following fonts are included.  The filetype (.F16 or .F08) tells how many
+vertical dots the font contains.  The .F16 files are suitable for the normal
+25-row by 80-column screen, and the .F08 files are suitable for most of the
+larger screen dimensions, such as 53x80.
+
+CP437.F16 and .F08
+  A font for IBM Code Page 437, the default (hardware) code page on all PCs.
+
+CP850.F16 and .F08
+  A font for IBM Code Page 850, the "multilingual code page" that can
+  represent most Western European languages.
+
+CP852.F16 and .F08
+  A font for IBM Code Page 852, for Eastern European languages that are
+  written in the Roman Alphabet.
+
+CP861.F16 and .F08
+  A font for IBM Code Page 861, Icelandic.  CP850 can also be used for
+  Icelandic, but CP861 predates CP850 and is still in wide use in Iceland.
+
+CP862.F16 and .F08
+  A font for IBM Code Page 862, containing the Hebrew alphabet, used by
+  Kermit's Hebrew support (see the HEBREW subdirectory).
+
+CP866.F16 and .F08
+  A font for IBM Code Page 866, containing the Cyrillic alphabet, used by
+  Kermit's Cyrillic support (see the CYRILLIC subdirectory).
+
+SCRAWL.F16
+  Just for fun :-)
+
+The standard MS-DOS Kermit 3.14 MSKERMIT.INI file includes the following
+macros that load the .F16 versions of these fonts:
+
+  AFONT  - Default (CP437)
+  CFONT  - Cyrillic
+  EFONT  - East European
+  HFONT  - Hebrew
+  IFONT  - Icelandic (CP861)
+  MFONT  - Mutlilingual (West European)
+  SCRAWL - ???
+
+The CHARSET macro runs the CHARSET program.
+
+These macro names can be given as commands at the MS-Kermit> prompt if you
+have installed MS-DOS Kermit in the normal way.  If you are not using a long
+screen length, like 43 or 55 lines, you will have to modify the macros to use
+the .F08 fonts instead of the .F16 ones.  If you will be switching between
+80 and 132 columns, you should start Kermit like this:
+
+  c:\kermit\pcfonts\withfont c:\kermit\pcfonts\cpxxx.f16 kermit
+
+(where xxx is the code page number) or, equivalently:
+
+  c:
+  cd \kermit\pcfonts
+  withfont cpxxx kermit
+
+Other fonts and sizes are available from the Technion FTP site.
+
+(End of PCFONTS\READ.ME)
