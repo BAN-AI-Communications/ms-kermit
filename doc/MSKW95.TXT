@@ -1,0 +1,65 @@
+MS-DOS Kermit and Windows 95/98/ME/NT/2000/XP/Vista/7/8/10
+
+     +--------------------------------------------------------+
+     | Can I Use MS-DOS Kermit in 32-bit (or 64-bit) Windows? |
+     +--------------------------------------------------------+
+
+   MS-DOS Kermit is a 16-bit DOS program for MS-DOS, PC-DOS, DR-DOS, etc,
+   that also can be used (with some extra setup work) in Windows 3.1 and
+   earlier.
+
+   MS-DOS Kermit was not designed for and was never intended to run under
+   32-bit or 64-bit Windows operating systems such as Windows 95, Windows 98,
+   Windows Millenium Edition, Windows NT, Windows 2000, Windows XP, Windows
+   2003, Windows Vista, Windows 7, etc etc. Although you might be able to
+   start MS-DOS Kermit on these platforms, it will not be able to access all
+   of their devices and features:
+
+     * For serial communications, MS-DOS Kermit accesses the COM port
+       hardware directly. Therefore it can use only Windows communication
+       ports whose drivers perfectly emulate 8250 or 16550A UART hardware. It
+       can not use TAPI devices, Winmodems, RPI modems, ISDN modems, nor in
+       most cases PCMCIA, USB, or Plug-n-Play devices, which are accessible
+       only through 32-bit Windows drivers to which MS-DOS Kermit (as a
+       16-bit application) does not have access. Nor can it access true COM
+       ports if they are owned by TAPI, unless you release them from TAPI
+       first, which you must do outside of MS-DOS Kermit, since MS-DOS Kermit
+       can not access TAPI.
+
+     * MS-DOS Kermit can not use 32-bit Windows network stacks. It can't use
+       its own built-in TCP/IP network stack either because only one network
+       stack can be active at a time on a given adapter.
+
+     * MS-DOS Kermit can not access long file or directory names, or file or
+       directory names containing spaces.
+
+     * MS-DOS Kermit can not access windows printer queues.
+
+     * MS-DOS Kermit does its own memory management, which is liable to
+       collide with that done by Windows, resulting in "out of memory" or
+       other errors.
+
+   Nowadays new PCs tend to have Windows XP or higher preinstalled, plus a
+   Winmodem and/or USB serial port, and the Microsoft TCP/IP stack. MS-DOS
+   Kermit can not use the Winmodem, nor can it use the TCP/IP stack, nor USB
+   ports, etc. Thus it is not appropriate or recommended for, nor supported
+   on, Windows 95 and later; that is, any 32-bit or 64-bit version of
+   Windows.
+
+   If you wish to try MS-DOS Kermit under 32- or 64-bit Windows (or OS/2),
+   you may do so at your own risk. If you have any trouble, the remedy is to
+   use Kermit 95 instead, which is the native, recommended, and supported
+   32-bit Windows Kermit software for Windows 95 and above, and which has
+   none of the limitations listed here. It "just works" out of the box with
+   any Windows communications device or network stack, gives you full access
+   to Windows features, and is fully supported in Windows 95, 98, ME, NT,
+   2000, XP, 2003, Vista, and Windows 7, as well as in IBM OS/2, and it has
+   loads of features that MS-DOS Kermit doesn't have, including XYZMODEM
+   protocols built in, an SSH client, an FTP client, Kerberos and
+   SSL/TLS security, Unicode, and much more.
+
+   --------------------------------------------------------------------------
+
+    The Kermit Project
+	Columbia University
+    kermit@kermitproject.org

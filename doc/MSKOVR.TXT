@@ -1,0 +1,72 @@
+                          MS-DOS Kermit Specifications
+
+Requirements
+
+   IBM PC 8088 or above, or compatible, running DOS 2.0 or later or Microsoft
+   Windows 3.x or earlier, with a serial port, modem, or network adapter.
+   Requires between about 160K and 400K to run, depending on options
+   selected.
+
+   MS-DOS Kermit is a Windows-aware DOS program. It has a text-mode, not
+   graphical, user interface. Under Windows, it can run in a window or
+   full-screen and it can execute in the background; for example,
+   transferring files while you are using some other application in the
+   foreground. While it is recommended for Windows 3.x or earlier, it is not
+   recommended for Windows 95 or NT, for a which a native Kermit program is
+   available, Kermit 95.
+
+Communication Methods
+
+   Serial connections are supported for COM1-COM4 at speeds up to at least
+   57,600 bps; RTS/CTS hardware flow control is available for use with
+   high-speed modems. Support for buffered UARTs, Hayes ESP, and Fossil
+   drivers. Automatic modem dialing scripts are included for Hayes, Telebit,
+   US Robotics, Practical Peripherals, and many other modems, and there is an
+   easy-to-use dialing directory.
+
+   Network connections include TCP/IP (built-in, with up to six concurrent
+   sessions), AT&T StarLAN / StarGROUP, DEC PATHWORKS (LAT and CTERM
+   connections), NETBIOS, IBM LANACS, Novell NASI/NACS, Novell LWP TELAPI,
+   3COM BAPI, Beame & Whiteside TCP/IP, Intel OpenNET, Ungermann Bass
+   Net/One, Interconnections TES, Meridian Technology SuperLAT, as well as
+   BIOS Interrupt 14 support for externally-established network connections.
+   TCP/IP connections require a packet driver (Ethernet or SLIP class) or an
+   ODI driver, and can coexist with Novell IPX connections. NOTE: MS-DOS
+   Kermit is not a Winsock client.
+
+   --------------------------------------------------------------------------
+
+Terminal Emulation
+
+   MS-DOS Kermit's terminal emulations include DEC VT320 and VT220
+   (international models), VT102, VT100, VT52, Data General DASHER D463 and
+   D470 (and D217 in version 3.15), Wyse-50, Heath/Zenith-19, plus Tektronix
+   4014 and Sixel graphics. Terminal emulation features include screen
+   rollback, capture, copy, and print; 132-column mode; horizontal scrolling;
+   key mapping and macros; comprehensive character-set support; a compose key
+   for entering accented letters; color text and graphics; much more.
+
+   --------------------------------------------------------------------------
+
+File Transfer
+
+   MS-DOS Kermit offers the fastest and most advanced Kermit file transfer
+   protocol implementation available for DOS or Windows 3.x. It also provides
+   easy access to external protocols, and allows unguarded capture and
+   transmission of text files.
+
+   Kermit Protocol features include long packets, sliding windows, dynamic
+   packet length, locking shifts, control-character "unprefixing," and
+   international character-set conversion for Western and Eastern European
+   languages, Cyrillic, Hebrew, and Japanese. And, new to version 3.14, file
+   transfer recovery for interrupted binary-mode transfers.
+
+   --------------------------------------------------------------------------
+
+Automation Features
+
+   Automation features include autodownload and autoupload, command macros,
+   command files, and a powerful, easy-to-use script programming language
+   complete with variables, functions, loops, and so on.
+
+   --------------------------------------------------------------------------

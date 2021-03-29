@@ -1,0 +1,436 @@
+MS-DOS Kermit 3.15
+
+   CLICK HERE to download MS-DOS Kermit 3.15.
+
+   The following is a brief description of the changes since version 3.14.
+
+  ERROR CORRECTIONS
+
+    1. All patches issued for MS-DOS Kermit version 3.14 are incorporated
+       into version 3.15
+
+    2. Unpatchable problem with ARP affecting some remote hosts is fixed in
+       version 3.15
+
+    3. Unpatchable bug which prevented communications between LAN adapters
+       from the same vendor (the first three octets of the hardware address
+       were the same), fixed in version 3.15
+
+    4. Correction of a fatal bug when using internal TCP/IP over ARCnet ODI
+       drivers.
+
+    5. Failure to act upon 8-bit control codes SS2 and SS3 in VT220/320
+       terminal emulation, even though their 7-bit equivalents were
+       implemented.
+
+   --------------------------------------------------------------------------
+
+  COMMUNICATIONS IMPROVEMENTS
+
+     * DHCP support (in addition to BOOTP and RARP, which were already there)
+       for automatic downloading of TCP/IP configuration.
+
+     * Improved timing of IP packets within the internal TCP/IP stack, to
+       deal with today's steadily deteriorating Internet performance.
+
+     * Improvement of TCP keepalive probe detection techniques, to keep
+       Telnet connections alive forever even if no user activity occurs.
+
+     * Other TCP/IP bolstering and tuning, including congestion avoidance
+       strategies, improved timing and recovery mechanisms,
+       connection-debugging features.
+
+     * Standard configuration as a PPP client.
+
+     * On serial connections, new support for 8 data bits plus parity.
+
+   --------------------------------------------------------------------------
+
+  FILE TRANSFER IMPROVEMENTS
+
+   Kermit file transfer protocol and TCP/IP internal protocol stack:
+
+    1. Dynamic Kermit packet retry timing, based on measured round trip
+       times. This should provide faster recovery from lost packets.
+
+    2. Congestion avoidance strategy during packet transmission.
+
+    3. Optional announcement in Kermit packets of the kind of operating
+       system so that two alike systems would exchange files in BINARY mode
+       automatically, and without filename conversion. The new command:
+
+   SET TRANSFER MODE { AUTOMATIC, MANUAL }
+
+       controls this feature, with the default being MANUAL for no
+       announcement. If the "sysid" mode is used it overrides user choice of
+       binary or text mode file transfers when like systems converse. Works
+       with C-Kermit 6.0, Kermit 95 1.1.5 or later, IBM Mainframe Kermit
+       4.3.2 (soon to be announced), and of course MS-DOS Kermit 3.15 itself.
+
+    4. Automatic recognition of Kermit packets while in terminal emulation
+       mode. See next section.
+
+    5. MOVE, RETRIEVE, REGET commands added.
+
+   --------------------------------------------------------------------------
+
+  TERMINAL EMULATION IMPROVEMENTS
+
+    1. ANSI emulation now allows 25-line screens.
+
+    2. DG 217 emulation added.
+
+    3. Built-in Cyrillic terminal emulation supporting ISO Latin/Cyrillic,
+       "Old" KOI8, and Short-KOI (KOI7) on the host and CP866 on the PC.
+
+    4. New \Kdebug verb (on Alt-D by default) allows easy switching into and
+       out of session-debugging mode.
+
+    5. Kermit can now use extended memory (raw memory above 1MB) in place of
+       expanded memory for screen rollback space. The command below has been
+       enhanced to include choices EXTENDED and EXPANDED.
+
+   SET TERMINAL EXPANDED-MEMORY { OFF, EXPANDED, EXTENDED, ON }
+
+       The default is ON, which means try expanded memory first, and if that
+       fails then try extended. With Extended in use Kermit does not need an
+       expanded memory page frame (located in UMB memory). The default ON
+       results in operation the same as for version 3.14 of MS-DOS Kermit.
+
+    6. Automatic recognition of incoming Kermit packets while in terminal
+       emulation mode. The new command:
+
+   SET TERMINAL AUTODOWNLOAD { ON, OFF }
+
+       controls this feature, with the default being ON. When the remote host
+       sends a Kermit "I" or "S" packet to initiate a file transfer in either
+       direction (via a SEND or GET command) then MS-DOS Kermit switches to
+       file transfer mode, performs the file transfer, then returns to
+       CONNECT mode.
+
+       To download a file, just tell the remote Kermit to send it, e.g. (for
+       C-Kermit on the remote end):
+
+   kermit -s filespec          ; To download in text mode
+   kermit -is filespec         ; To download in binary mode
+
+       or (at the Kermit prompt):
+
+   C-Kermit> set file type text  ; (or "binary")
+   C-Kermit> send filespec
+
+       To upload a file, tell the remote Kermit to GET it, e.g.:
+
+   kermit -g pc-filespec       ; To upload in text mode
+   kermit -ig pc-filespec      ; To upload in binary mode
+
+       or:
+
+   C-Kermit> set file type text  ; (or "binary")
+   C-Kermit> get pc-filespec
+
+    7. The Compose Key (verb \Kcompose, assigned by default to Alt-c) now
+       works not only for Latin-1 (Western European) character sets, but also
+       Latin-2 (Eastern European) character sets. Latin-2 compose sequences
+       are accepted when your local code page is CP852 and your terminal
+       character-set is Latin-2; otherwise, Latin-1 sequences are used, as
+       before. See Appendix I.
+
+   --------------------------------------------------------------------------
+
+  SCRIPT PROGRAMMING IMPROVEMENTS
+
+    1. New command functions, \fname(arguments):
+
+ \frindex(pattern,string,position)
+
+                    Right Index. Returns 1-based position of first occurrence
+                    of pattern in string, looking from right to left,
+                    starting "position" bytes from from the right (default
+                    position is 0). Returns 0 if pattern not found.
+
+ \feval(expression)
+
+                    Returns the numerical result of evaluating a math
+                    expression. Expressions may contain numbers or variables
+                    that have numeric values. Numbers are 32-bit signed
+                    integers in calculations. Math operators are:
+
+ +, -, *, /  Add, subtract, multiply, divide
+ + and - are also unary operators
+
+ %  modulo, remainder
+ ^  exponent, to power of
+ !  factorial
+ ~  logical bit-wise NOT, one's complement
+ &  bit-wise AND
+ |  bit-wise OR
+ #  bit-wise Exclusive-OR
+ @  Greatest Common Divisor
+ ( ) Clustering symbols, to 8 deep.
+
+ \fipaddr(string)
+
+                    Returns IP address in dotted decimal form found within
+                    string. Can be used with \v(input) to obtain IP address
+                    during SLIP login.
+
+ \ftod2secs(hh:mm:ss)
+
+                    Converts hours:minutes:seconds to seconds.
+
+ \fverify(pattern, string, offset)
+
+                    Checks that all characters in string are in pattern,
+                    starting search at offset of string. Returns 0 if all
+                    match, else 1-based position of first mismatch in string.
+
+                    Function names may be abbreviated to uniqueness, such as
+                    \fmin().
+
+    2. Mathematical expressions, such as (1992+3*3-5), can be used almost
+       everywhere to represent a single numerical value. The rules of what is
+       an expression are the same as for \feval() and follow common usage. If
+       spaces occur then use ( ) around the entire expression.
+
+       Numbers can be expressed as implicit decimal, 1996, or have a base
+       associated with them such as \x1b for hexadecimal (27 dec). Numbers
+       may be signed and results are retained to 32-bits.
+
+       Single byte numerical values, \x1b, are permitted in text strings and
+       represent one byte. To use backslash as itself double it, \\. Note
+       that a number may terminate from its value filling a byte. For
+       example:
+
+   ECHO testing \12345
+
+       produces:
+
+   testing {45
+
+       because \123 makes a full byte (visually a left curly brace).
+
+    3. To assist the CD, DIR, and RUN commands single byte \number conversion
+       no longer occurs. Thus one may now safely say CD \4DOS.
+
+    4. Command word spelling may be composed on the fly from substitution
+       variables, such as
+
+   define \%a minal
+   set ter\%a type vt320
+
+       This concept is extended to spelling of \function names, labels, and
+       even the names of substitution variables themselves.
+
+    5. Substitution variables now support the notion of arrays of strings:
+
+            DECLARE \&character[size]
+                    Allocates space for "size" number of strings. If size is
+                    0 then the structure becomes undefined.
+
+            \&character[index]
+                    Is member index of the array character. Use DEFINE or
+                    ASSIGN to create the array member. Index starts at 1 and
+                    should not exceed the declared "size." Strings are
+                    limited in length to 1KB which is the limit of a Kermit
+                    command. Not all members need be created, only the ones
+                    you wish. An empty definition removes that member.
+
+    6. Multiple match patterns for script INPUT statements, via new command
+
+   MINPUT timeout pattern1 patttern2 pattern3...
+
+       This behaves the same as INPUT except each of the patterns is examined
+       and the first match terminates the command. Patterns containing spaces
+       should be placed within curly braces, e.g. {three word pattern}. The
+       pattern which is matched is revealed in new variable \v(minput): 1 if
+       the first one was matched, two if the second, and so on, or 0 if none
+       were matched.
+
+    7. New variables:
+
+            \v(instatus)
+                    Status of most recent INPUT or MINPUT command:
+
+  -1 for not initialized yet
+   0 for success
+   1 for timed out
+   2 for user level Control-C interrupt
+   4 for connection lost
+
+            \v(minput)
+                    Shows which search pattern was matched by the MINPUT
+                    command, which is a script INPUT command with one or more
+                    match patterns. The variable is 0 if no match was
+                    obtained.
+
+            \v(return)
+                    The text string given by a "RETURN string" command. See
+                    RETURN below.
+
+            \v(input)
+                    This is the contents of the INPUT command buffer, but
+                    with two changes from version 3.14. Now \v(input) is the
+                    entire buffer rather than up to the first Carriage
+                    Return, and control codes are retained intact (and thus
+                    are invisible). To see the control codes visually use
+                    command SHOW SCRIPT where controls are displayed in
+                    "caret-character" notation such that null is ^@, 1 is ^A,
+                    2 is ^B and so on.
+
+            \v(filespec)
+                    File specification from most recent file transfer.
+
+    8. Program control functions FOR, WHILE, SWITCH, XIF, ELSE. They are:
+
+   FOR variable-name start end increment { command, ... }
+   WHILE logical-test { command, ... }
+   SWITCH variable { case-list }
+   XIF logical-test { command, ... } ELSE { command, ... }
+
+   IF logical-test
+   ELSE command
+
+       where:
+
+            variable-name
+                    Is a substitution variable, \%character, which holds the
+                    loop index; start, end, and increment are numbers, and
+                    yes, loops can run backward by using negative increments.
+
+            command
+                    Is any MS-DOS Kermit command.
+
+            { command, ... }
+                    Is curly braces surrounding one or more Kermit commands,
+                    with commands separated by commas to represent end of
+                    line, or multiple lines of Kermit commands where the
+                    physical end of line acts automatically as a command
+                    terminator. A side effect of this is commands using {
+                    will be continued automatically by the next line until a
+                    closing } is encountered; each input line will have a
+                    comma prepended.
+
+            logical-test
+                    is any of the IF statement tests.
+
+       XIF may have the ELSE word in the middle of a command line, but ELSE
+       must not be a separate command line. Only the IF statement uses ELSE
+       as a separate command line (see below).
+
+       The IF statement has been extended to allow an optional second line of
+       ELSE Kermit command. ELSE must be at the start of the next line rather
+       than on the same line as the IF main body.
+
+       BREAK terminates a FOR or WHILE loop or a SWITCH case. Control resumes
+       at the next outer statement, if any.
+
+       CONTINUE continues FOR and WHILE statements the at the bottom,
+       skipping statements between itself and the bottom of the loop.
+
+       These statements may be nested.
+
+    9. RETURN string
+
+       Used by macros to return "string" to new variable \v(return) and then
+       terminate the macro. Termination is otherwise the same as by POP or
+       END.
+
+   10. SET INPUT FILTER-ECHO { ON, OFF }
+       Lets you choose which way to display INPUT material when INPUT ECHO is
+       ON. With FILTER-ECHO OFF, all incoming characters processed by the
+       INPUT command are sent to the screen. When OFF, escape sequences are
+       filtered out.
+
+   11. . SETENV name=string
+
+       Puts NAME=string into the DOS master environment. Example script
+       sequence:
+
+   input 10 Your IP number today is
+   input 10 Please record it now.
+   setenv myip=\fipaddr(\v(input))
+
+       where the remote machine sends "Your IP number today is
+       123.111.222.123. Please record it now." The DOS master environment
+       would have the new line "MYIP=123.111.222.123" at the end.
+
+       Note that changing the master environment does not affect the copy
+       existing within Kermit nor any processes launched while in Kermit.
+
+   --------------------------------------------------------------------------
+
+  APPENDIX I: LATIN-2 COMPOSE SEQUENCES
+
+ Accented Letters.
+ Enter in the desired case (upper or lower).
+ Key 1 (K1) and Key 2 (K2) can be entered in either order.
+
+ Character Name          K1   K2
+
+ A acute                 A    '
+ A breve                 A    %
+ A circumflex            A    ^
+ A diaeresis             A    "
+ A ogonek                A    =
+ C acute                 C    '
+ C caron                 C    &
+ C cedilla               C    ,
+ D caron                 D    &
+ D stroke                D    -
+ E acute                 E    '
+ E caron                 E    &
+ E diaeresis             E    "
+ E ogonek                E    =
+ I acute                 I    '
+ I circumflex            I    ^
+ L acute                 L    '
+ L caron                 L    &
+ L with stroke           L    /
+ N acute                 N    '
+ N caron                 N    &
+ O acute                 O    '
+ O circumflex            O    ^
+ O diaeresis             O    "
+ O double acute          O    #
+ R acute                 R    '
+ R caron                 R    &
+ S acute                 S    '
+ S caron                 S    &
+ S cedilla               S    ,
+ T caron                 T    &
+ T cedilla               T    ,
+ U acute                 U    '
+ U diaeresis             U    "
+ U double acute          U    #
+ U ring                  U    *
+ Y acute                 Y    '
+ Z acute                 Z    '
+ Z caron                 Z    &
+ Z dot above             Z    .
+
+ ss (German sharp s)     s    s  (lowercase only)
+
+ Accents and special characters; enter K1 and K2 in the order shown:
+
+ Character Name          K1   K2
+
+ Acute accent            '    '   (two apostrophes)
+ Breve                   %    %   (two percent signs)
+ Caron                   &    &   (two ampersands)
+ Cedilla                 ,    ,   (two commas)
+ Currency sign           X    0   (or X O, or x 0, or x o)
+ Degree sign             0    ^   (zero and circumflex)
+ Diaeresis               :    :   (two colons)
+ Division sign           -    :   (hyphen and colon)
+ Dot above               .    .   (two periods)
+ Double acute            #    #   (two number or pound signs)
+ Multiplication sign     X    X   (or x x)
+ Ogonek                  =    =   (two equal signs)
+ Paragraph sign          S    !   (or S 0 or S O, upper or lower case)
+ Soft hyphen             -    -   (two hyphens)
+
+   --------------------------------------------------------------------------
+
+    Kermit - MS-DOS Kermit 3.15 / Columbia University /
+    kermit@kermitproject.org / 15 September 1997

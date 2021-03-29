@@ -1,0 +1,262 @@
+ Date: Thu, 18 Jan 1995 17:45:00 EST
+ From: Christine M Gianone <cmg@columbia.edu>
+ Subject: MS-DOS Kermit 3.14 Released
+
+   This is to announce MS-DOS Kermit 3.14 for the IBM PC, PS/2, and
+   compatibles with DOS or Windows. The new MS-DOS Kermit release was
+   prepared, as always, by Professor Joe R. Doupnik of Utah State University.
+
+Quick Start
+
+   MS-DOS Kermit 3.14 ZIP file.
+           Click to retrieve the disk-image ZIP file. Unzip with "pkunzip -d
+           msvibm.zip" as it has many subdirectories. Read the top-level
+           READ.ME file for installation instructions.
+
+Highlights
+
+   File transfer recovery allows interrupted binary-mode transfers to be
+   continued from the point of failure. Can be used with C-Kermit 5A(190) on
+   UNIX, VMS, OS/2, AOS/VS, Stratus VOS, and the Commodore Amiga, and with
+   the forthcoming IBM Mainframe 4.3.1.
+
+   ANSI and Wyse terminal emulation add two popular terminal types to
+   Kermit's repertoire. ANSI emulation, not quite the same as VT100
+   emulation, is used to access most BBSs, and Wyse emulation is required by
+   certain applications and services.
+
+   Workarounds for buggy UART simulators on Pentium motherboards and other
+   new processors allows MS-DOS Kermit 3.14 to work on these systems, where
+   earlier versions might not have. Also: support for the Hayes ESP serial
+   communications board in 16550A mode; support for Fossil drivers; dialing
+   scripts for more and more new kinds of modems (many of them with X and/or
+   Z in their names -- all the popular brands!).
+
+   Numerous additions to the script programming language, including a full
+   selection of built-in functions compatible with C-Kermit's: \fsubstring(),
+   etc.
+
+   Complete Hebrew and Cyrillic support packages are now included, and Kanji
+   terminal emulation is now available for DOS/V on IBM and compatible PCs.
+
+   Network, printer, keyboard, font, and other support support utilities are
+   now included in the basic package.
+
+   New smaller versions are available for those who don't need (or can't fit)
+   all the features of the full version.
+
+   Here is a more detailed list of the changes in version 3.14:
+
+     * ANSI terminal emulation
+     * Wyse-50 terminal emulation
+     * Data General DASHER and DEC VT terminal emulation improvements
+     * Kanji character-set translation during terminal emulation
+     * HP-Roman8 terminal character-set
+     * Control over timeslicing method in Windows, DesqView, OS/2, NT
+     * Control over automatic video-mode switching
+     * Selectable fore- and background colors for underline simulation
+     * Additional scan codes for Alt/Ctrl/Shift - SpaceBar/EscKey
+       combinations
+     * DEC User Definable Keys (UDKs) now supported
+     * Revised printer support for better interoperation with Novell CAPTURE
+     * Additional control over TCP/IP and TELNET protocol features
+     * Debugging display of TELNET options negotiation
+     * Networking support for Telebit PPP
+     * TCP/IP fixes, speedups, and refinements
+     * Multiple TCP/IP sessions to the same host now allowed
+     * Support for Artisoft Int14 redirector
+     * Support for Meridian Technology SuperLAT network connections
+     * Workarounds for buggy SMC FDC37C665 UART simulator on Pentium
+       motherboards
+     * Support for Hayes ESP serial communications board in 16550A mode
+     * Support for Fossil Drivers
+     * SET SPEED 28800
+     * User control over treatment of carrier signal on serial connections
+     * Binary-mode file transfer recovery
+     * Ability to send partial files manually
+     * Control of run-length encoding
+     * Improved client/server operation
+     * Prompt string value now evaluated each time prompt is issued
+     * ASK/ASKQ responses now taken literally
+     * New APC command sends APC strings
+     * Incoming APC strings ignored by default for safety
+     * Revised CONNECT-mode status line for additional information
+     * Separate CONNECT-mode help and one-character command menus
+     * New script programming commands
+     * Improved consistency of backslash-quoting in commands
+     * New built-in string, file, and numeric functions
+     * Additional built-in variables
+     * Revised command line handling of substitution variables
+     * Transaction log of file transfers now records detailed rejection
+       reason if based on file attributes
+     * Available also in special reduced forms for limited memory, e.g. for
+       use on 256K systems, or as an external protocol on BBSs, etc.
+
+   The organization of the files and the manner in which we are distributing
+   them as been improved. We are now distributing Kermit on a high-density
+   1.44MB 3.5-inch diskette, which is pretty universally accepted these days,
+   and on the network in a ZIP file that mirrors this diskette. This allows
+   us to organize and name the files more sensibly and to include material
+   that previously would not fit. Here is a brief synopsis:
+
+   READ.ME
+           Brief overview of what's on the disk (in the ZIP file)
+
+   KERMIT.EXE
+           Full-function MS-DOS Kermit 3.14 (about 230K)
+
+   KERMITE.EXE
+           A smaller version (about 160K - no networks, no graphics)
+
+   KERLITE.EXE
+           A very small version (105K - scripting and file transfer only)
+
+   MSR*314.PCH
+           Patch files (currently empty)
+
+   MSKERMIT.INI
+           Standard initialization file
+
+   MSCUSTOM.INI
+           Sample (note: -> SAMPLE <-) customization file
+
+   DIALUPS.TXT
+           Sample dialing directory
+
+   KERMIT.UPD
+           Documentation for new features
+
+   KERMIT.HLP
+           Brief synopsis of commands
+
+   KERMIT.BWR
+           "Beware" file - hints and tips, etc
+
+   COLS80.BAT
+           Too hard to explain in one line, see READ.ME...
+
+   COLS132.BAT
+           Ditto
+
+   KERMITE.EXE can be used on PCs with small memories, e.g. on old XTs, where
+   the full-featured version might not fit. It can also be used if you simply
+   do not need Kermit's networking or graphics terminal emulation
+   capabilities, in which case you can run bigger programs "under" Kermit in
+   the extra free memory.
+
+   Of particular interest to BBS proprietors, KERLITE.EXE is an "extra-lite"
+   version which is like the "lite" version, but also eliminates the terminal
+   emulator (and the CONNECT command) entirely, but still includes the full
+   script programming language, weighing in at only 105K - perfect for use as
+   an external protocol and script execution engine.
+
+   With Kermit Lite plus Fossil and ESP support, there is every reason to
+   upgrade the Kermit support in BBSs to the most advanced and fastest Kermit
+   protocol implementation available for DOS. For further information, see
+   the new BBS OPERATORS GUIDE section in the KERMIT.UPD file. (Vendors of
+   BBS software who want to include Kermit with their product should contact
+   us for further information.)
+
+   Now come the subdirectories. Each one has a READ.ME file that explains its
+   contents.
+
+   PERFORM
+           An article on Kermit file transfer protocol performance.
+
+   MODEMS
+           Dialing scripts for 19 different modems, including most popular
+           high-speed, error-correcting, data-compressing models.
+
+   NETWORKS
+           Everything you need for MS-DOS Kermit TCP/IP networking except the
+           specific driver for your network board, including all the famous
+           "shims" that convert between one "standard" and another, such as
+           the latest version of Dan Lanciani's ODIPKT, plus Joe Doupnik's
+           DIS_PKT9, plus the WINPKT shim to be used when Windows is
+           involved, and a SLIP driver in case you don't have a network
+           board, all of which have been verified to work with this version
+           of Kermit and other popular software. Plus a new overview document
+           to help you make sense of this ever-more-confusing tangle.
+
+   KEYBOARD
+           Complete key mappings for DEC VT220/320 and DG DASHER emulation.
+           The "Gold key" TSR, for making Num Lock work like the F1 key.
+           LK250 drivers (for DEC keyboards that plug into IBM PCs). A little
+           TSR for swapping the Caps Lock and Ctrl keys and Esc and tilde.
+
+   UTILS
+           General utilities, like the famous XSEND program for transferring
+           entire directory trees, plus various printer items. (Did you know
+           Kermit could transfer directory trees intact?)
+
+   WINDOWS
+           Windows Program Information File for Kermit.
+
+   PCFONTS
+           This is something new -- public domain fonts (code pages) for your
+           PC that are easy to load dynamically -- no more endless and
+           fruitless wandering through the corridors of IBM or Microsoft to
+           track down a Hebrew or Cyrillic code page; no more editing
+           AUTOEXEC.BAT (DISPLAY.SYS, NLSFUNC blah blah, MODE CON CP PREPARE
+           blah blah, MODE CON CP SELECT blah blah) and then rebooting to
+           install a new code page, no more limit to four "prepared" code
+           pages. Now you can just "loadfont" whatever code page you want,
+           any time you want. This directory includes code pages for Western
+           and Eastern European languages (CP437, 850, and 852), Icelandic
+           (861), Hebrew (862) and Cyrillic (863), plus utilities to load and
+           display them. Our thanks to Joseph (Yossi) Gil at The Technion in
+           Haifa, Isreal, for this wonderful collection (and this is only a
+           small part of it -- look in kermit.columbia.edu:pcfonts for
+           more, and maybe find even more (and newer) at the Technion).
+
+   CYRILLIC
+           Also new. Key mapping and screen translation setups to be used
+           with the Cyrillic font, plus Cyrillic character-set tables. Use
+           MS-DOS Kermit for Russian terminal emulation (and Ukranian,
+           Bielorussian, etc), using any of the popular host encodings: ISO,
+           KOI-8, or Short KOI. Now you can read those Russian newsgroups!
+           Thanks to Konstantin Vinogradov of ICSTI in Moscow, Russia, for
+           the .INI files.
+
+   HEBREW
+           Also new. The files in this directory give MS-DOS Kermit full
+           Hebrew terminal emulation capability, including the standard (i.e.
+           WordPerfect :-) key map for entering Hebrew letters on the PC
+           keyboard, complete with automatic English/Hebrew switching
+           directed by the host, everything you get on a real Hebrew-model
+           VT420 terminal. Thus the standard MS-DOS Kermit distribution now
+           replaces the various "Hebrewized" offshoots of MS-DOS Kermit that
+           have been in circulation for some years, e.g. for use with the
+           ALEPH bibliographic software. You even get a PostScript picture of
+           the key map.
+
+   ROMAN
+           Character-set tables for Roman-based character sets used by MS-DOS
+           Kermit.
+
+How to Get It
+
+   The ZIP file is available via anonymous ftp from Columbia University as
+   kermit/archives/msvibm.zip. Transfer it in binary mode, unzip it using
+   the "-d" switch to preserve the directory structure, read the top-level
+   READ.ME file, and go from there.
+
+   By the way, do not unzip the ZIP file over your old Kermit directory, or
+   you will lose your old MSCUSTOM.INI file and your old dialing directory!
+   Either make a new directory for MS-DOS Kermit 3.14, or copy your
+   MSCUSTOM.INI and DIALUPS.TXT files to a safe place before wiping out your
+   old one, for example:
+
+   cd \kermit
+   copy mscustom.ini mscustom.old
+   copy dialups.txt dialups.old
+   pkunzip -d msvibm.zip
+   copy mscustom.old mscustom.ini
+   copy dialups.old dialups.txt
+
+   Our deepest thanks, as always, to Joe Doupnik for bringing another new
+   version of MS-DOS Kermit to us.
+
+   --------------------------------------------------------------------------
+
+    MS-DOS Kermit 3.14 / Columbia University / kermit@kermitproject.org

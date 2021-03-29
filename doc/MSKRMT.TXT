@@ -1,0 +1,142 @@
+           The Kermit Project
+           New York City USA
+		   kermit@kermitproject.org
+           …since 1981
+
+MS-DOS Kermit for DOS and Windows 3.x
+
+     Effective 1 July 2011, MS-DOS Kermit should be considered Open Source
+     software under the Revised 3-Clause BSD License, even though the
+     software itself and associated files may carry the old copyright and
+     licensing information.
+
+     MS-DOS Kermit is not designed or intended for use in Windows 95, 98, ME,
+     NT, 2000, XP, Vista, Windows 7 or later, or IBM OS/2. The recommended,
+     supported, native, and (still) current Kermit software for these
+     operating systems is Kermit 95.
+
+   MS-DOS Kermit 3.14 is a compact and efficient communications software
+   package for IBM PCs and compatibles with MS-DOS or PC-DOS offering a wide
+   range of faithful text and graphics terminal emulations, an
+   astonishing variety of serial and network communication methods, a vast
+   array of international character-set conversions, exceptionally flexible
+   and powerful key mapping, a powerful, easy-to-use script programming
+   language, and advanced Kermit file transfer.
+
+   MS-DOS Kermit supports communication through serial ports, a wide variety
+   of local networking methods (like NetBIOS, BAPI, DECnet, NASI, SuperLAT,
+   TELAPI, and TES, plus it has its own built-in TCP/IP stack and Telnet
+   client. Modem dialing is accomplished with modem-specific dialing
+   scripts
+
+   It includes faithful emulation of the DEC VT52,100,102,220,320 terminals;
+   ANSI, Heath-19, Wyse50, various Data General DASHER models, and the
+   Tektronix 4010 Graphics terminal, as well as DG terminals in graphics
+   mode.
+
+   MS-DOS Kermit runs directly under DOS 2.0 and later and under Microsoft
+   Windows 3.11 or earlier. MS-DOS Kermit is not supported in Windows 95
+   and later.
+
+                           MS-DOS Kermit 3.14 is packaged on diskette with
+                           the book Using MS-DOS Kermit by Christine M.
+                           Gianone, Digital Press (1992)
+
+  MS-DOS Kermit Version 3.14
+
+   MS-DOS Kermit 3.14, 21 May 1995, is the most recent complete distribution.
+
+  MS-DOS Kermit Version 3.15
+
+   MS-DOS Kermit 3.15, 15 September 1997, issued as an update to version 3.14.
+
+  MS-DOS Kermit Version 3.16
+
+   MS-DOS Kermit 3.16 is an even later release with a lot of improvements in
+   the script language to make it almost the same as that of C-Kermit and
+   Kermit 95. You can install this one on top of 3.14 or 3.15.
+
+   Also see:
+
+   ftp://ftp.kermit.columbia.edu/kermit/a/msbaaa.txt
+           A guide to "bootstrapping" MS-Kermit when you don't have it on a
+           diskette and your PC is not on a network.
+
+   ftp://ftp.kermit.columbia.edu/kermit/a/tcomtxt.asm
+           TCOMTXT, a tiny bootstrapping program that can be used to load
+           programs onto a DOS PC through the serial port starting with only
+           a diskette with the minimum system files.
+
+  History
+
+   MS-DOS Kermit was one of the original Kermit programs, first released in
+   1982, shortly after the IBM PC was announced, following just behind the
+   Kermit programs for the DECSYSTEM-20, CP/M-80, and the IBM mainframe.
+   It was written in response to overwhelming demand to make this PC, which
+   was very soon to dominate the universe, communicate with other kinds of
+   computers, including IBM's own (a service that not even IBM could offer at
+   the time).
+
+   The prototype was done by Bill Catchings of the Kermit project in a single
+   EMACS editing session (the early pre-GNU TECO-based EMACS) using
+   macros to convert his CP/M-80 Kermit from 8080 assembly language to Intel
+   8088 assembler. "PC Kermit", as it was called at first, was turned over to
+   Daphne Tzoar who polished it sufficiently for general use and maintained
+   it for some time, and later to Jeff Damens who produced several major new
+   releases through version 2.28. There were separate releases for the IBM
+   PC, the DEC Rainbow, the HP-150, the Heath-Zenith 100, the Victor
+   9000, the NEC APC, and many other of the DOS machines of mid-1980s that
+   were not code- or disk-compatible with each other.
+
+   In 1985 MS-DOS Kermit was taken over by Professor Joe R. Doupnik of Utah
+   State University, who added more improvements than can be listed in a
+   short web page, but most notable among them:
+
+     * A script programming language compatible with that of C-Kermit.
+     * VT100, 220, and 320 terminal emulation; "ANSI" emulation for BBSs;
+       Wyse50, Data General DASHER (under contract with DG), and Tektronix
+       graphics terminal emulation, making MS-DOS Kermit the only Kermit
+       program ever to emulate any graphics terminal, and in fact it emulated
+       two since the DASHER was also a graphics terminal.
+
+     * Sliding Windows transport protocol for file transfers, which in itself
+       required hardware-specific memory management support for acquiring the
+       necessary buffer space on the earlier PC generations.
+
+     * Conversion of international character sets in both terminal emulation
+       and file transfer, including Russian and Hebrew (with right-to-left
+       screen-writing support).
+
+     * Most notably of all, a full TCP/IP network stack built in to MS-DOS
+       Kermit itself, supporting DNS, BOOTP, and DHCP connections via
+       Ethernet, SLIP, or PPP, and over that the ARPANET TELNET protocol.
+       Plus support for many other long-forgotten PC networking methods:
+       3COM, Novell, NetBIOS, LAT, etc. Among these were IBM's LANACS, a
+       product that included MS-DOS Kermit under license to the Kermit
+       Project, and AT&T STARLAN, which also included a licensed copy of
+       MS-DOS Kermit.
+
+   All this in a program that fit on a floppy disk, together with its
+   documentation and supporting files (dialing scripts, keymaps, fonts for
+   Hebrew and Cyrillic, utilities, packet drivers, and so on). For about 15
+   years, MS-DOS Kermit was mass-market software, found on practically every
+   desktop PC on earth. New releases were big news in the trade press. The
+   manual, Using MS-DOS Kermit, by Christine M. Gianone of the Kermit
+   Project, is a masterpiece of user-friendly technical writing, and went
+   through two best-selling editions, was also published in German and in
+   French, and was also the basis for a Japanese edition. MS-DOS Kermit was
+   so popular in the USSR and Eastern Europe (because of its ability to do
+   Cyrillic terminal emulation) that an International Kermit Conference
+   in Moscow in 1989 was attended by representatives of 35 countries.
+
+   MS-DOS Kermit's popularity waned as DOS was phased out in favor of
+   Window 95 and its successors, where MS-DOS Kermit could not be fully
+   functional. However, to this day, MS-DOS Kermit remains one of
+   Kermit's "Greatest Hits".
+
+   --------------------------------------------------------------------------
+
+    MS-DOS Kermit
+	Columbia University
+	kermit@kermitproject.org
+	Updated: 9 September 2020

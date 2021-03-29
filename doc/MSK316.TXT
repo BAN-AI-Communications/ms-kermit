@@ -1,0 +1,111 @@
+MS-DOS Kermit 3.16 Beta
+
+   CLICK HERE to download MS-DOS Kermit 3.16 Beta.
+
+   Current Level: Beta.07 4 May 1999.
+
+   MS-DOS Kermit communications software is for DOS and Windows 3.x.
+
+   The following is a brief description of the changes since version 3.15.
+
+     * Separate DISABLE FINISH and DISABLE BYE (this required sacrificing
+       DISABLE SPACE, which is still accepted as a command but does nothing).
+
+     * Write the extra Line Feed to the session log when SET TERMINAL
+       CR-DISPLAY is CR/LF (CR arrives, act as if CR/LF had arrived).
+
+     * Correct bug in IF statements within SWITCH statements that read too
+       many bytes for the IF statement command and hence confused SWITCH too.
+
+     * Correct bug in command SWITCH which resulted in loss of \%1..\%9.
+
+     * Stop a memory leak with keyboard macros.
+
+     * Correct bug whereby command REMOTE QUERY KERMIT would not permit
+       \%char variables to be replaced with their definition in the command
+       argument.
+
+     * Add command REMOTE SET TRANSFER MODE {AUTOMATIC, MANUAL}.
+
+     * Correct a serious problem of sending incomplete Kermit packets over a
+       serial port connection.
+
+     * Add display of optional message on the QUIT and EXIT commands.
+
+     * Correct bug in IP intruder detection (conflicting IP addresses).
+
+     * Correct bug which times out active TCP/IP Listen connections.
+
+     * Correct bug which disabled use of macro on_exit.
+
+     * Add TCP delayed ACKs to reduce network traffic on busy links. The
+       delay is nominally 50ms. This heuristic may be removed later.
+
+     * Extend TCP reply timeout to several minutes, for especially slow
+       links.
+
+     * Turn off Kermit packet level timing during file transfers over
+       internal TCP/IP. This heuristic is subject to modification later.
+
+     * Add granularity to command SET TCP DEBUG {OFF, STATUS, TIMING, ON}.
+       ARP packets and round trip timing appears only with TIMING and ON. TCP
+       states and normal operating messages appear with STATUS and ON. ON
+       means both STATUS and TIMING.
+
+     * Add an 8KB autocache for reading disk files during file transfers.
+
+     * Add fast block-mode byte transfers while reading Kermit packet data
+       field bytes, as a speed improvement on fast comms links.
+
+     * Allow binary 0 to appear as an unprefixed code in Kermit packets.
+
+     * Enforce prefixing of codes 127, 255, packet start of header (normally
+       1, Control-A), packet end of line (normally 13, Carriage Return), and
+       3 (Control-C).
+
+     * Revise SHOW CONTROL-PREFIXING to display both prefixed and unprefixed
+       control codes.
+
+     * Add Kermit protocol streaming mode. SET STREAMING {ON, OFF}, default
+       is OFF. Works in conjunction with C-Kermit 7.0, or later, Kermit
+       95 1.1.16 or later, or MS-DOS Kermit 3.16 itself. Heuristics are still
+       being adjusted. STATISTICS command has a new field saying streaming
+       was used on last file transfer. Formatted file transfer screens show
+       streaming rather than windowing information. Fastest transfers use SET
+       DISPLAY QUIET (reduces per-packet overhead) and the file sender uses
+       SET CONTROL UNPREFIX on as many codes as the comms channel will
+       support (but always prefix Control-C (3) and packet start (1) and end
+       (13) codes and their high-bit-set counterparts, plus Telnet 127 and
+       255. In short form: set control unprefix all, set control prefix 1, 3,
+       13, 127, 129, 131, 141, 255).
+
+     * Remove command SET RECEIVED IGNORE-CHAR for being obsolete and
+       awkward.
+
+     * Add command SET TRANSFER CRC {ON, OFF}, default is off, and variable
+       \v(crc). This calculates the CCITT-16-CRC checksum across all files
+       sent or received in a group.
+
+     * Add new options /RECURSIVE and /NONRECURSIVE to the SEND and GET
+       commands to send or request files from directory trees. Works in
+       conjunction with C-Kermit 7.0 or later, Kermit 95 1.1.16 or
+       later, or MS-DOS Kermit 3.16 itself. Default is /NONRECURSIVE. MS-DOS
+       Kermit Server mode also supports recursive requests. Directories are
+       created as needed. Recursive requests can be rooted or relative to the
+       current location depending on the filename pattern given. The syntax
+       is SEND /RECURSIVE filespec and so on; the /RECURSIVE switch is
+       optional.
+
+     * Add functions \frdirectories() and \frfiles() to support recursive
+       tree walking. \frdirectories(pattern) yields the number of directory
+       names in the tree fitting the pattern, and \frfiles(pattern) does the
+       same for filenames. Function \fnextfile() remembers whether the
+       recursive or plain file counting functions, \frfiles() or \ffiles(),
+       were invoked and it produces a new filename accordingly on each call.
+
+     * Add variables \v(day) and \v(nday)
+
+   --------------------------------------------------------------------------
+
+    Kermit - MS-DOS Kermit 3.16 / Columbia University /
+    kermit@kermitproject.org / 4 May 1999

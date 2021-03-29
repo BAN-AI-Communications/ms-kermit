@@ -1,0 +1,398 @@
+   Date: Mon, 06 Oct 1997 16:04:30 -0500
+   From: samg@mtn.org (Sam Gauthier)
+   Organization: IATSE Local 13; Mpls, MN
+   Subject: Order for "Using MS-DOS Kermit:
+
+   Dear Kermit Project:
+
+   Thank you for producing one of the finest pieces of software I have ever
+   used. It truly belongs in the category of "timeless & bulletproof", along
+   with such software as PKZIP and...well, it's hard to think of others that
+   belong in that category!
+
+   As I compose this mail, it is the first time I've used Netscape since I
+   downloaded MS-DOS Kermit 3.15. My ISP uses C-Kermit 5A(189), which makes
+   for incredibly fast, error-free file transfers. Of course, I'm urging them
+   to upgrade to 6.0.
+
+   It's a travesty that Kermit (the protocol) has developed a reputation of
+   "slow-but-sure". My experience has shown Kermit to be "fast-AND-sure". I
+   run the FAST macro from MSCUSTOM.INI and have yet to encounter *any*
+   errors when retrieving files from my server. (I assure you that I am *not*
+   connected to my server via null-modem ;)
+
+   I could go on for days (as I'm sure I will *anyway*), but I'll leave you
+   with this: I am able to run MS-Kermit (medium) off of a 720KB boot disk
+   (with MORE.COM and FIND.EXE being the only additional DOS components
+   necessary, and the freeware TED.COM (2KB) as my default text editor). This
+   is truly portable. This is truly freedom. This is cool.
+
+   Sam Gauthier
+   Minneapolis, MN
+
+   --------------------------------------------------------------------------
+
+   Date: Thu, 11 Sep 1997 19:47:22 -0400
+   From: jameskel@erols.com (James Kellndorfer)
+   To: kermit-support@columbia.edu
+   Subject: Re: Confused!
+
+   Thank you so much for answering my email.
+
+   BTW, I've read the Using MS-DOS Kermit. I found the section on diagnosing
+   connections clear and concise. I also found your explanations of error
+   correcting modes and compression quite useful and for the first time
+   understand them and the differences between. No other source has been able
+   to teach me these concepts as clearly.
+
+   Thanks again.
+
+   --------------------------------------------------------------------------
+
+FROM REVIEWS OF "USING MS-DOS KERMIT"...
+
+   "Ms. Gianone has acquired considerable experience and expertise in guiding
+   users around the world through the various trials and pitfalls of
+   installing and using this surprisingly powerful and capable software
+   package. The results of that accumulated wisdom are contained in one of
+   the finest user guides, commercial, shareware, or otherwise, that this
+   reviewer has had the pleasure of reading."
+
+     Tom Nichol, Link-Up, July/August 1990 (p.8)
+
+   --------------------------------------------------------------------------
+
+   "An excellent introduction to computer communications, [Using MS-DOS
+   Kermit] explains in simple but intelligent language how to set up and get
+   going." "Must-read for PC buffs..."
+
+     Anne M. Russell, Working Woman, September 1990 (p.94)
+
+   --------------------------------------------------------------------------
+
+   "[In her] book, 'Using MS-DOS Kermit' [Christine Gianone] explains in
+   simple, lighthearted prose how to set up and use Version 3.0 of the
+   full-function communication tool for the entire IBM PC and PS/2 family and
+   compatibles. ... I thought a basic comm program ought to cost at least
+   $150, or else it might be too buggy to be effective... I thought shareware
+   like Kermit probably is lots more difficult to learn than its commercial
+   cousins. Well, I've been wrong on both counts. ... Is Kermit easy to use?
+   Yes. As an experiment, I popped my copy into the B drive of my 80386 PC
+   clone after scanning Gianone's book for about 10 minutes. Within five
+   minutes I had programmed it to connect with MCI Mail, which I'm using to
+   send this column to GCN."
+
+     J.B. Miles, Government Computer News, April 30, 1990 (pp.29,32)
+
+   --------------------------------------------------------------------------
+
+   "One of [Kermit's] problems has always been that the documentation ... has
+   been difficult for the novice to comprehend. 'Using MS-DOS Kermit' has
+   come to the rescue. This [is an] extremely readable book... Christine
+   Gianone manages to reach out to the absolute novice ... [and also] appeals
+   to the more experienced user. For those who have been using Kermit this
+   book contains a lot of useful information ... about how to use this
+   program more effectively. For those who have not used Kermit, this book
+   will open a new door and, unlike so many software manuals, will encourage
+   you to cross the threshold. I strongly recommend this book..."
+
+     - Trevor Cradduck, Newsletter of the American Association of Physicists
+     in Medicine, May/June 1990, pp.12-13.
+
+   --------------------------------------------------------------------------
+
+   "[Using MS-DOS Kermit] is exceptionally well written and it explains all
+   of the necessary technical terms so [nontechnical] readers will not feel
+   intimidated. ... The presentation style and format are quite good,
+   particularly given that the book is aimed at nontechnical readers who
+   hesitate to even look at software manuals. ... While the book is aimed at
+   nontechnical readers, I highly recommend it to all technical personnel in
+   the computing field, particularly those who abhore software manuals. Also,
+   those in data communications who get lots of requests for help from their
+   nontechnical colleagues may want to direct them to this book."
+
+     William Oblitey, ACM Computing Reviews, V32 #6, June 1991, pp.283-284
+
+   --------------------------------------------------------------------------
+
+   "Yow! Here's all you need to connect your PC to the world of networks,
+   modems, and mainframes. Solid software with plenty of help, for both the
+   novice and the expert.
+
+   Kermit moves your files to distant computers, lets you talk over bulletin
+   boards, send electronic mail and even runs by remote control. You'll find
+   Kermit wherever computers communicate -- it's truly the universal language
+   for computers."
+
+     Clifford Stoll, author of the best-seller, The Cuckoo's Egg.
+
+   --------------------------------------------------------------------------
+
+   "Using MS-DOS Kermit covers all the topics needed to start new users
+   easily, and it does so in a natural progression . . . The pace is a lot
+   faster than readers will realize, mostly because the writing is skillfully
+   done--crisp, often entertaining, and always to the point. This is a
+   terrific book!"
+
+     Professor Joe R. Doupnik
+     Utah State University
+
+   --------------------------------------------------------------------------
+
+   This book is an excellent introduction for the novice, and this second
+   edition is a complete reference for the expert. The Second edition
+   describes all the new features of version 3.11, including everything that
+   was added in versions 3.01, 3.02 and 3.10. It has a new chapter on local
+   area networks (including TCP/IP); a new appendix with a complete technical
+   description of Kermit's terminal emulator with tables of all the escape
+   sequences recognized and sent by Kermit in both text and graphics mode;
+   and expanded descriptions of many of Kermit's features, including
+   instructions on programming scripts. There are also instructions for
+   running Kermit under Windows and DesqView.
+
+     Computing and Communications Services Office
+     University of Illinois at Urbana-Champaign
+     User Guide 402, March 1994
+
+   --------------------------------------------------------------------------
+
+   "... Falls Sie mehr über Kermit wußen wollen, sollten Sie das sehr
+   empfehlenswerte Standardwerk von Christine M. Gianone beschaffen.
+
+     B. Bußhardt
+     Rechenzentrum
+     Universität Freiburg
+
+   --------------------------------------------------------------------------
+
+   Newsgroups: alt.books.technical
+   Subject: "Using MS-DOS Kermit" by Gianone
+   Date: 8 Oct 1993 14:49:21 -0500
+   From: roberts@decus.arc.ab.ca (Rob Slade)
+
+   Digital Press / Butterworth-Heinemann
+   225 Wildwood Street
+   Woburn, MA 01801
+   Voice: 1-800-366-BOOK
+   Fax: 1-617-933-6333
+   Using MS-DOS Kermit, Gianone, 1992
+   cmg@columbia.edu
+
+   On the one hand, I don't like this book. It is responsible for the fact
+   that the full Kermit documentation isn't included with the standard MS-DOS
+   Kermit distribution any more. On the other hand, I like this book. It is
+   responsible for the wider acceptance Kermit is having these days, and
+   Kermit is an excellent protocol, system and program.
+
+   Frank da Cruz can't exactly be seen as a disinterested bystander regarding
+   all things "Kermit", so his praise of the book and its author in the
+   Foreword are a bit suspect. By the end of chapter one, however, I was
+   willing to suspend disbelief. It is one of the best general descriptions
+   of the terminal emulation and file transfer processes I have ever read,
+   pitched at just the right level for the non-technical reader. Chapter two
+   is a quick look at getting started with Kermit on MS-DOS, and three is a
+   quick look at MS-DOS, itself. Again, chapter three is about all most
+   people need to know to use DOS on a hard disk, presented in admirable
+   form.
+
+   Chapter four deals fully with connection of modems, serial cables and
+   phone jacks. Five covers testing of the setup, and some troubleshooting
+   tests. Unlike most commercial communications program manuals, who want you
+   to call their own BBS (long distance), the author has found an 800 number
+   service to try out. (And it even works from Canada.)
+
+   The process of using the program starts with chapter six. In proper
+   pedagogical style, the user is introduced to the invocation and
+   termination of the program, and the help system, along with some examples
+   of the command structure. Chapter seven, entitled, "Getting Online",
+   discusses communications parameters, not simply in terms of the commands
+   needed, but describes what each parameter is, and what might result from
+   an error. There is a brief discussion of MNP (Microcom Networking
+   Protocol), which provides error correction and data compression in modern
+   modems), and, although I have no right to expect it, I wish there was a
+   bit on modem commands and settings here.
+
+   Chapters eight to twelve cover the basics of communications commands.
+   Terminal emulation is discussed thoroughly, and leads to key reassignment.
+   File transfer, in chapter nine, leads to Kermit server operations: on the
+   host in chapter ten, and the PC as server in chapter eleven. Chapter
+   twelve covers non-protocol ASCII transfers.
+
+   Chapter thirteen revisits terminal emulation with character sets and
+   translations. This, of course, also covers character translations in file
+   transfer. Chapter fourteen is the longest except for the command
+   reference: it deals with macros and scripts. Even here the book does not
+   become too technical; the intelligent novice should be quite comfortable
+   in writing some fairly advanced scripts. Chapter fifteen is cute: it
+   covers features for the physically, auditorily or visually challenged--and
+   jumps from the previous ten point type up to fourteen point in order to do
+   it. Network connections are discussed in chapter sixteen and, as promised,
+   the command reference is in seventeen. The command reference also covers
+   non-standard environments and devices.
+
+   The glossary that Gianone has put together is of the same quality. Quite
+   complete in terms of both data communications and the MS-DOS platform, the
+   entries are clear and accessible to the intelligent novice.
+
+   Three appendices round out the book. One is a set of tables of
+   information, ranging from RS-232 pin assignments through selected "Hayes
+   compatible" AT commands to ASCII codes. The second is a set of terminal
+   "escape" sequences, while the third is a description of the files on the
+   Kermit distribution diskette. At first I was a bit taken aback at the
+   technical level of these appendices. These are the type of tables that I
+   have been collecting for years while doing communications disgnostics and
+   consulting. On the other hand, all it proves is that this book is for
+   techies, too. I'll certainly be using it for reference in place of some of
+   my well thumbed old tattered pages.
+
+   Buy this book. If you are thinking of using MS-Kermit, buy this book. It
+   is excellent documentation, and you get a free copy of MS-Kermit with it.
+   If you are thinking of using Kermit on various platforms, buy this book.
+   It is excellent documentation on Kermit as a whole, since the various
+   versions at least make an attempt to present a consistent interface. If
+   you are happy with another communications package, won't consider using
+   non-commercial software, use a Mac and would never be caught dead using a
+   command line interface, buy this book. It is an excellent presentation of
+   data communications, and explains the functions, and not merely which keys
+   to press. The material is broadly based, and is applicable to many systems
+   of terminal emulation and file transfer.
+
+   And who knows, you may just end up using Kermit after all ...
+
+     Copyright Robert M. Slade, 1993
+     BKUMSKMT.RVW 930831
+
+     Vancouver Institute for Research into User Security, Canada V7K 2G6
+     Robert_Slade@sfu.ca / ROBERTS@decus.ca / rslade@cue.bc.ca / Fidonet
+     1:153/733
+
+   --------------------------------------------------------------------------
+
+   From Log in -- Informatik und Computer in der Schule,
+
+     Jahrgang 13, Heft 3'93, pp. 67-68.
+     Redaktion LOG IN -- FU Berlin
+     Habelschwerdter Allee 45
+     D-14195 Berlin, Germany
+
+     Translation from the original German by Frank da Cruz
+
+   "The best things in life are free", sang the Rolling Stones some thirty
+   years ago. This line frequently occurs to me when I get steamed about
+   commercial software that is so often distributed according to the "Banana
+   principle" (let it ripen with the customer). In contrast to this there are
+   truly astounding featureful and bug-free software packages that are freely
+   available to anybody who is interested. Without a doubt, programs of the
+   famous Kermit family belong in this category: in the truest sense,
+   "vine-ripened" products that reliably do what one expects.
+
+   The main uses of Kermit programs are in two different yet related areas:
+   safe data transfer from computer to computer ("uploading" and
+   "downloading") using the Kermit protocol and -- in the desktop versions --
+   terminal emulation.
+
+   By now, Kermit programs exist for almost every kind of computer, and are
+   freely available from Columbia University. For micros (PC or Macintosh)
+   the program comes in executable form with startup, help, and example
+   files, and for UNIX and VMS systems it comes in C source code form with a
+   makefile.
+
+   For two classes of users, it's useful to get further information in
+   printed form: for beginners in the field of data transfer, more precise
+   information than they would get from short help files. On the other hand,
+   if one wants to take fullest advantage of the comprehensive features of
+   MS-DOS Kermit, it is helpful to have a reference work by your PC. Both
+   needs are eminently fulfilled by the book Using MS-DOS Kermit by
+   Christine M. Gianone.
+
+   The book is not free, but at 79 Marks, in a hardbound edition with over
+   400 pages, it is a good bargain. It includes a diskette with the latest
+   version of MS-DOS Kermit, so all you need to get started in the world of
+   data transfer is a PC, a modem, and a telephone connection with the right
+   cables. It even works on old PC/XTs with at least 190KB free memory and
+   DOS 2.0 or later, a diskette drive, and a serial port.
+
+   In the early chapters you get instructions for installation and a short
+   introduction to MS-DOS, valuable information on the tricky topics of
+   cables, connections, and modems (chapter 4), Testing the Connection (Ch
+   5), Running MS-DOS Kermit (Ch 6) and a discussion of the connection,
+   including how to set the right communications parameters (Ch 7). In these
+   70 pages, the beginner gets concrete help with the first steps. These
+   initial steps are eased by the well-written, readable, and amusing text,
+   painstakingly translated into German, and numerous illustrations.
+
+   Terminal emulation turns a PC into a terminal to a host. The connection
+   can be direct through a serial cable, via modem and phone connection, or
+   through a local area network -- all these connection methods are supported
+   by MS-DOS Kermit; a whole chapter (16) is dedicated to using Kermit on
+   LANs. Using Kermit to emulate a terminal on diverse hosts (VMS, UNIX, IBM
+   mainframe) is explained step-by-step in chapter 8. MS-DOS Kermit supports
+   DEC VT52, VT100, VT102, VT220, and VT320 as well as Tektronix 4010/4014
+   graphics terminals. In addition to the native capabilities of these
+   terminals, Kermit lets you roll the screen back -- very handy since one
+   frequently wants to read something that has just scrolled off the screen.
+   Graphics images can be saved in TIFF files so other programs can import
+   them.
+
+   With only these capabilities one can readily accomplish trivial types of
+   data transfer from mainframe to PC, by displaying the desired information
+   and logging it to a file. We use these capabilities almost daily at our
+   school, e.g. to get the latest mail from the CAMPUS 2000 BBS in London to
+   our school's computer.
+
+   In many cases, however, this type of data transfer is not sufficient; when
+   we must go through double digital/analog conversion and through bad phone
+   connections, signals can get crossed. This is a particular problem when
+   transferring binary data. For these reasons, the Kermit protocol was
+   developed in 1981 at Columbia University in New York by Bill Catchings and
+   Frank da Cruz. The basic idea of this protocol is for the sender to break
+   up the data into packets. The receiving computer then checks each packet
+   to make sure it came through all right or must be resent. In this way, one
+   can transfer data correctly even over very bad connections. Although there
+   are other important protocols like XMODEM, Kermit is so widespread that
+   many communication programs support it.
+
+   Chapter 9 of the book describes the process of data transfer step by step
+   from the user's point of view. Here we also learn how to send groups of
+   files with the help of wildcards. Kermit's server mode (ch 10) is
+   especially convenient. Chapter 11 describes how to set up MS-DOS Kermit
+   for PC-to-PC data transfer. The topic of data transfer is capped off with
+   an overview of how to transfer data without the Kermit protocol (ch 12).
+
+   Today, all major types of computers have the ability to represent "special
+   characters" like a-diaeresis, ess-zet, e-circumflex, n-tilde, etc. If one
+   transfers files between different kinds of computers, however, one
+   frequently experiences unpleasant surprises: "For example, a food
+   importer's order for pâté composed on the PC might appear on the screen of
+   the supplier's Macintosh as peta, and a delivery of pocket bread shows up
+   instead of goose liver."
+
+   The cause of this confusion is revealed in Chapter 13 (International
+   Character Sets): Unfortunately, computer manufacturers have neglected to
+   settle on a binding standard for 8 bit characters. Kermit offers an escape
+   from this 8-bit chaos, for both file transfer and terminal emulation:
+   appropriate translation tables can ensure that (e.g.) pâté remains pâté on
+   the PC and the Macintosh or UNIX. I don't know of any other communications
+   program that offers anywhere near comparable features in the support of
+   international character sets.
+
+   Of course, Kermit is also programmable. Chapter 14 describes the ways to
+   automate -- through macros, command files, and scripts -- dialing
+   procedures, login procedures, etc, and even file transfer.
+
+   In contrast to most other communications programs, MS-DOS Kermit includes
+   enhancements that enable the "disabled" to use the programm (Ch 15).
+
+   A command overview (reference, ch 17), appendices with tables and escape
+   sequences for its various terminal emulations, and a glossary-cum-buzzword
+   list round out this book, which I can recommend to anyone who is looking
+   to enter the world of data transfer or wants to use PCs as terminals.
+
+     Helmut Witten
+
+   --------------------------------------------------------------------------
+
+    Kermit Documentation
+	Columbia University
+	kermit@columbia.edu
+	6 Oct 97
