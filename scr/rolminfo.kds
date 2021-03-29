@@ -1,0 +1,388 @@
+; INFO.SCR
+;
+; Christine M. Gianone, CUCCA/AcIS, October 1991.
+;
+; An MS-DOS Kermit script for easy access to Columbia University's
+; CUNIXF system.  It navigates through ROLMphone and terminal server
+; and logs the user in.  In addition, if the variable APPL is 
+; defined, this script will start up an application automatically.
+; For example, if APPL is defined to be EMAIL, MM is started.
+;
+; You can run this script from within Kermit by typing TAKE INFO.SCR,
+; but it is designed for more convenient use by running Batch files
+; from the DOS command line, for example EMAIL.BAT:
+;
+;   EMAIL myuserid
+;
+; In this example, e-mail userid and password can be given
+; on the DOS command line, for example:
+;
+;   C:\>email myuserid mypassword
+;
+; The "email" DOS command requires the following EMAIL.BAT file to
+; reside in the user's PATH:
+;
+;   @echo off
+;   kermit def userid %1, def passwd %2, def appl email, take info.scr, stay
+;
+; INFO.SCR prompts for CUNIXF (INFO) ID and password if these are not 
+; already defined, then connects through the CBX, automatically detecting 
+; either a regular DCM phone or a 244PC, logs in to CUNIXF.  If the EMAIL
+; application is selected, INFO.SCR issues brief instructions, then starts
+; MM, and a function is assigned to Alt-Q to get out of MM, log out, and
+; hang up the data connection.
+;
+; IMPORTANT: INFO.SCR assumes user's shell prompt is "$ " or "% ".
+;
+; Requires MS-DOS Kermit 3.11 or later.
+
+if not < version 311 goto OK
+echo Sorry, version 3.11 or later of MS-DOS Kermit is required.
+stop
+
+:OK
+
+;;; NOTE: If your CUNIXF system prompt is not "$ " or "% ",
+;;; you must define the "myprompt" variable to say what it is, as in the
+;;; following commented-out command for a "cunixf: " prompt:
+;
+; define myprompt {cunixf: }
+
+; Define GETOUT macro to log out from UNIX, hang up, and exit Kermit.
+;
+define getout out \13,-
+ inp 8 \m(prompt),-
+ if succ out exit \59 exit\13,-
+ hangup,-
+ exit
+
+set key \2320 {\Kgetout}		; Assign GETOUT macro to Alt-Q. 
+
+; Define ERRSTOP macro to issue an error message and stop.
+;
+define errstop echo \%1, hangup, stop
+
+; Action starts here
+; If they typed their password on the DOS command line,
+; clear the screen now.
+;
+if def passwd cls			; for security...
+def \%9					; "Thank you" flag.
+if def userid goto askpw
+
+:XUID
+;
+; User ID wasn't specified on command line, so prompt for it.
+;
+ask \%8 {Please type your e-mail user ID, then press the Enter key: }
+if not def \%8 goto XUID
+assign userid \%8
+def \%9 Thank you.
+
+:ASKPW
+if def passwd goto thanks
+:XPWD
+;
+; Password wasn't specified on command line, so prompt for it.
+;
+askq \%8 -
+  {Please type your password (it won't echo), then press the Enter key: }
+if not def \%8 goto XPWD
+assign passwd \%8
+def \%9 Thank you.
+
+:THANKS
+def \%8				; Erase password from memory
+if def \%9 echo \%9		; Be polite
+def \%9
+echo
+
+; Communication and script settings
+;
+; Note: we don't override any settings from the user's MSKERMIT.INI file
+; that are not necessary for this script.  User's speed, key settings,
+; screen colors, etc, remain in effect.
+;
+set parity none			; Don't use parity.
+set display 7			; But don't display it either.
+set flow xon/xoff		; Use Xon/Xoff flow control.
+set handsh none			; No handshake.
+set duplex full			; Full duplex, remote echo.
+set input timeout proceed	; This enables IF SUCCESS and IF FAILURE.
+set input case ignore		; Don't care about alphabetic case.
+hangup				; Hang up any current data connection. 
+pause
+
+; Try 3 times to get Rolmphone's attention.
+;
+:LOOP
+output \13			; Output a carriage return.
+:CBX				; Assume DCM with CALL, DISPLAY OR MODIFY?
+input 6 MODIFY?			; Look for CBX prompt.
+if failure goto RP244PC		; If not found, go try 244PC.
+echo \13CBX dialing...		; It's the CBX, tell the user.
+output CALL INFO\13		; Dial INFO.
+input 30 COMPLETE		; Get CALL COMPLETE message
+if failure errstop -
+  {Sorry, INFO does not answer.  Please try again later.}
+goto good			; Got connected, go login
+
+:RP244PC                        ; Let's see if it's a 244PC
+output \13AT\13			; Give the Hayes modem AT command
+input 5 OK			; Look for Hayes OK response.
+if failure goto RETRY		; Not found, try again.
+echo 244PC dialing...		; It's 244PC, tell the user.
+output ATDT[INFO]\13		; Make a data call to "[INFO]".
+input 30 CONNECT                ; Look for modem's confirmation.
+if success goto GOOD
+
+:RETRY
+if count goto LOOP
+
+; Get here when there is no communication after 3 tries.
+;
+echo
+echo {  Sorry, I can't seem to communicate with your ROLMphone.}
+echo {  Your port is \v(port), your speed is \v(speed).}
+echo {  If these parameters are not correct, use Kermit's SET PORT}
+echo {  and SET SPEED commands to correct them and try again.}
+echo {  Otherwise, please check the data cable between your PC}
+echo {  and the ROLMphone and try again.}
+echo
+hangup
+stop
+
+:GOOD
+; We got through, one way or the other.
+; Send carriage returns for speed recognition.
+; Try up to 5 times to get Info terminal server prompt, "CU-Info>".
+;
+set count 5			; Loop counter.
+
+:AGAIN
+output \13			; Send CR for speed recognition.
+input 3 CU-Info>		; Look for prompt.
+if success goto INFO		; If found, proceed with login process,
+if count goto again		; otherwise continue the loop.
+errstp {Failure to get "CU-Info>" prompt, please try again later.}
+
+:INFO
+;
+; Got CU-Info> prompt, select M(ail) and wait for login: prompt.
+;
+output m\13			; Select "M" (mail).
+input 20 login:
+if fail errstop {Failure to get login prompt, please try again later.}
+
+:LOGIN
+;
+; Got "login:" prompt, send user ID and look for "Password:" prompt.
+;
+output \m(userid)\13		; Send user ID, followed by CR.
+input 20 Password:		; Wait up to 5 seconds for "Password:" prompt.
+if fail errstop {Failure to get password prompt, please try again later.}
+
+; Send user's password, then wait for shell prompt.
+; Here we must figure out whether it is "$ " or "% ".
+; If it is anything else, such as "cunixf:", that must be
+; predefined (see top of this file).
+;
+output \m(passwd)\13		; Send password.
+define passwd			; Erase from memory.
+
+; Now try to get the shell prompt.
+;
+if not def myprompt goto GUESS	; No custom prompt, must guess.
+
+assig prompt \m(myprompt)	; Custom prompt defined.
+input 60 \m(prompt)		; Look for it.
+if success goto TERM		; Got it.  Go start application.
+output \26			; Didn't get it, try to Ctrl-Z out of notes.
+input 10 \m(prompt)		; Look for prompt again.
+if success goto TERM		; Got it...
+output \26			; Didn't get it, try one more Ctrl-Z.
+input 10 \m(prompt)		; Look again.
+if success goto TERM		; Got it...
+errstop {Sorry, the system is too busy.  Please try again later.}
+
+:GUESS
+;
+; No custom prompt.  Look for standard sh, ksh, or csh prompt.
+;
+input 60 \13\10$\32		; Look for "$ " (ksh or sh).
+if success goto TERMD		; Got it.  Go start application.
+reinput 1 \13\10%\32		; Try for "% " C-Shell prompt.
+if success goto TERMP
+output \26			; Didn't get it, try to Ctrl-Z out of notes.
+input 10 \13\10$\32		; Look for prompt again.
+if success goto TERMD		; Got it...
+reinput 1 \13\10%\32		; Try for "% " C-Shell prompt.
+if success goto TERMP
+output \26			; Didn't get it, try one more Ctrl-Z.
+input 10 \13\10$\32		; Look again.
+if success goto TERMD		; Got it...
+reinput 1 \13\10%\32		; Try for "% " C-Shell prompt.
+if success goto TERMP
+errstop {Sorry, the system is too busy.  Please try again later.}
+
+:TERMD
+assig prompt \13\10$\32
+goto TERM
+:TERMP
+assig prompt \13\10%\32
+:TERM
+;
+; User is logged in and has system prompt.  Now set terminal type.
+; The tset command should work for any shell.
+;
+set input echo off
+set terminal type vt320
+output eval `tset -sQ vt300` \59 echo Hi!\13
+input 30 \m(prompt)
+
+; Define top and bottom box border
+;
+assign \%9 \205\205\205\205\205\205\205\205\205\205\205\205\205\205\205\205
+assign \%9 \%9\%9\%9\%9\205\205\205
+
+; Now start an application if one has been selected.
+;
+if not def appl goto NOAPP		; No application, just CONNECT.
+
+; Table of known applications.
+; Add more below.
+;
+if eq \m(appl) email goto EMAIL
+if eq \m(appl) info goto NOAPP
+if eq \m(appl) calendar goto CAL
+echo Unknown application: \m(appl).
+goto noapp
+
+:EMAIL
+;
+; Redefine EXIT macro to get out of MM, then log out, then hang up.
+;
+define getout out \3,-
+inp 5 MM\63 [y/n]\32,-
+if succ goto xa,-
+out \3,-
+inp 5 MM\63 [y/n]\32,-
+if fail goto xx,-
+:XA,-
+out y\13,-
+inp 5 ing\63 [y/n]\32,-
+if fail goto xx,-
+out y\13,-
+:XX,-
+out \13,-
+inp 8 \m(prompt),-
+if succ out exit \59 exit\13,-
+hangup,-
+exit
+
+
+; Start up MM and give instructions, packaged in a nice-looking box.
+;
+ec \201\%9\187
+ec \186                                                                   \186
+ec \186 You will now be connected to the E-Mail program, MM.              \186
+ec \186   Type a question mark for a list of commands.                    \186
+ec \186   Type HELP followed by <Enter> for a help message.               \186
+ec \186 When you are finished with your MM session, use Alt-q to logout.  \186
+ec \186 Use Alt-x to return to Kermit without logging out.                \186
+ec \186                                                                   \186
+ec \200\%9\188
+echo
+echo Press any key to start your MM session...
+echo
+pause 9999			; Wait for them to type something.
+
+; Here we go...
+;
+set terminal clear		; Clear terminal screen.
+output mm\13			; Start MM.
+connect                         ; Start terminal emulation.
+;
+; If they escaped back, check the carrier detect signal to see if they
+; logged out, issue appropriate messages in each case.
+;
+wait 1 CD
+if succ goto WARN
+echo
+ec \201\%9\187
+ec \186                                                                   \186
+ec \186  Your connection to the E-Mail system is broken.                  \186
+ec \186  Type EXIT (then Enter) to leave Kermit and go back to DOS.       \186
+ec \186                                                                   \186
+ec \200\%9\188
+echo
+stop
+
+:WARN
+echo
+ec \201\%9\187
+ec \186                                                                   \186
+ec \186 Back at PC but your E-Mail connection might still be active.      \186
+ec \186  Type CONNECT (then press the Enter key) to go back to E-Mail.    \186
+ec \186  Type HANGUP (then Enter) to cancel your E-Mail session.          \186
+ec \186  Type EXIT (then Enter) to leave Kermit and go back to DOS.       \186
+ec \186                                                                   \186
+ec \200\%9\188
+echo
+stop
+
+:CAL
+;
+; Columbia Calendar data entry people.
+;
+echo 
+ec \201\%9\187
+ec \186                                                                   \186
+ec \186 Press any key to begin your calendar data entry session...        \186
+ec \186                                                                   \186
+ec \200\%9\188
+echo
+pause 9999
+output enter\13
+connect
+goto xwarn
+
+:NOAPP
+echo 
+ec \201\%9\187
+ec \186                                                                   \186
+ec \186 You are logged in to the Info system (CUNIXF).                    \186
+ec \186 Press any key to start...                                         \186
+ec \186                                                                   \186
+ec \200\%9\188
+echo
+
+pause 9999
+output \13
+connect
+
+:XWARN
+wait 1 CD
+if succ goto WARN2
+echo 
+ec \201\%9\187
+ec \186                                                                   \186
+ec \186 Your connection to CUNIXF is broken.                              \186
+ec \186 Type EXIT (then Enter) to leave Kermit and go back to DOS.        \186
+ec \186                                                                   \186
+ec \200\%9\188
+echo
+stop
+
+:WARN2
+echo
+ec \201\%9\187
+ec \186                                                                   \186
+ec \186 Back at PC but your CUNIXF connection might still be active.      \186
+ec \186                                                                   \186
+ec \186  Type CONNECT (then press the Enter key) to go back to CUNIXF.    \186
+ec \186  Type HANGUP (then Enter) to cancel your CUNIXF session.          \186
+ec \186  Type EXIT (then Enter) to leave Kermit and go back to DOS.       \186
+ec \186                                                                   \186
+ec \200\%9\188
+stop

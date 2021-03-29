@@ -1,0 +1,194 @@
+; 7171.SCR
+;
+; Christine M. Gianone, CUCCA/AcIS, October 1991
+;
+; An MS-DOS Kermit script for easy access to Columbia University's
+; VM/CMS systems and CLIO.  It navigates through ROLMphone and 7171
+; and logs the user in.
+;
+; You can run this script from within Kermit by typing TAKE 7171.SCR,
+; but it is designed for more convenient use by running Batch files
+; from the DOS command line, for example SIMB.BAT:
+;
+;   simb myuserid
+;
+; In this example, userid and password can be given on the DOS command line,
+; for example:
+;
+;   C:\>sima myuserid mypassword
+;
+; The "simb" DOS command requires the following SIMB.BAT file to
+; reside in the user's PATH:
+;
+;   @echo off
+;   kermit def userid %1, def passwd %2, def host sima, take 7171.scr, stay
+;
+; 7171.SCR prompts for CMS ID and password if these are not 
+; already defined, then connects through the CBX, automatically detecting 
+; either a regular DCM phone or a 244PC, logs in.
+;
+; Requires MS-DOS Kermit 3.11 or later.
+
+if not < version 311 goto OK
+echo Sorry, version 3.11 or later of MS-DOS Kermit is required.
+stop
+
+:OK
+
+; Macro to issue an error message and stop.
+;
+define errstop echo \%1, hangup, stop
+
+; Action starts here
+;
+set input case ignore			; Don't care about alphabetic case.
+if eq \m(host) CLIO goto setup		; No login for CLIO.
+if def passwd cls			; For security...
+def \%9					; "Thank you" flag.
+
+if def host goto ASKUID
+:XHOST
+ask \%8 {Which CMS system (simb, simc, siml): }
+if not def \%8 goto XHOST
+assign host \%8
+def \%9 Thank you.
+
+:ASKUID
+if def userid goto askpw
+
+:XUID
+ask \%8 {Please type your CMS user ID, then press the Enter key: }
+if not def \%8 goto XUID
+assign userid \%8
+def \%9 Thank you.
+
+:ASKPW
+if def passwd goto thanks
+:XPWD
+askq \%8 -
+  {Please type your password (it won't echo), then press the Enter key: }
+if not def \%8 goto XPWD
+assign passwd \%8
+def \%9 Thank you.
+
+:THANKS
+def \%8				; Erase password from memory
+if def \%9 echo \%9		; Be polite
+def \%9
+echo
+
+:SETUP
+;
+; Communication and script settings
+;
+take 7171.ini			; Parameters and key settings.
+define getout hangup, exit	; Define GETOUT macro.
+set key \2320 {\Kgetout}	; Assign GETOUT macro to Alt-Q. 
+set terminal type vt320		; Use VT320 terminal emulation.
+set input timeout proceed	; This enables IF SUCCESS and IF FAILURE.
+hangup				; Hang up any current data connection. 
+pause
+
+; Try 3 times to get Rolmphone's attention.
+;
+:LOOP
+output \13			; Output a carriage return.
+:CBX				; Assume DCM with CALL, DISPLAY OR MODIFY?
+input 6 MODIFY?			; Look for CBX prompt.
+if failure goto RP244PC		; If not found, go try 244PC.
+echo \13CBX dialing...		; It's the CBX, tell the user.
+output CALL \m(host)\13		; Dial desired 7171.
+input 30 COMPLETE		; Get CALL COMPLETE message
+if failure errstop -
+  {Sorry, INFO does not answer.  Please try again later.}
+goto good			; Got connected, go login
+
+:RP244PC                        ; Let's see if it's a 244PC
+output \13AT\13			; Give the Hayes modem AT command
+input 5 OK			; Look for Hayes OK response.
+if failure goto RETRY		; Not found, try again.
+echo 244PC dialing...		; It's 244PC, tell the user.
+output ATDT[\m(host)]\13	; Make a data call to desired 7171.
+input 30 CONNECT                ; Look for modem's confirmation.
+if success goto GOOD
+
+; Get here when there is no communication after 3 tries.
+;
+echo
+echo {  Sorry, I can't seem to communicate with your ROLMphone.}
+echo {  Your port is \v(port), your speed is \v(speed).}
+echo {  If these parameters are not correct, use Kermit's SET PORT}
+echo {  and SET SPEED commands to correct them and try again.}
+echo {  Otherwise, please check the data cable between your PC}
+echo {  and the ROLMphone and try again.}
+echo
+hangup
+stop
+
+:GOOD
+
+pause 1				; Now connect to 7171
+set count 3			; Try 3 times to get its prompt
+set input echo off		; Don't show, too confusing.
+
+:TSLOOP
+out \13				; Send CR
+inp 3 INAL TYPE:		; Get prompt	
+if succ goto TSOK
+if count goto TSLOOP
+errstp {Can't get \m(host) prompt}
+
+:TSOK
+out vt-100\13
+
+if eq \m(host) CLIO goto READY		; No login necessary for CLIO
+
+:LOGIN
+;
+; Now log in to VM/CMS
+;
+inp 20 RUNNING
+if fail errstp {Can't get VM status}
+pau 1
+out \m(userid)\9
+pau 1
+out \m(passwd)\13
+def passwd
+pau 1
+out \13\13
+
+; User should be logged in.
+
+:READY
+echo
+echo {  You are now logged in to the IBM mainframe via \m(host).}
+echo {  To end your mainframe session, enter the LOGOUT command,}
+echo {  then hold down the Alt key and press q to get back to DOS.}
+echo {  To return Kermit without ending your mainframe session,}
+echo {  hold down the Alt key and press x to get back to DOS.}
+echo
+echo {  Press any key to start your \m(host) session...}
+echo
+pause 9999			; Wait for them to type something.
+
+; Here we go...
+;
+set terminal clear		; Clear terminal screen.
+out \12				; Send a Ctrl-L.
+connect                         ; Start terminal emulation.
+wait 1 CD
+if succ goto WARN
+echo
+echo {  Your connection to \m(host) is broken.}
+echo {  Type EXIT (then Enter) to leave Kermit and go back to DOS.}
+stop
+
+:WARN
+echo
+echo Warning: back at PC, but connection to \m(host) might still be active.
+echo
+echo {  Type CONNECT (then press the Enter key) to go back to \m(host).}
+echo {  Type HANGUP (then Enter) to cancel your \m(host) session.}
+echo {  Type EXIT (then Enter) to leave Kermit and go back to DOS.}
+echo
+stop

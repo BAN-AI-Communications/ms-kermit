@@ -1,0 +1,125 @@
+; FILE MEGAHERTZ.SCR
+; 
+; An MS-DOS Kermit script program for dialing the Megahertz X-Jack 3144 or
+; CC6144 modem, to be used with MS-DOS Kermit 3.15 or later.  The modem is set
+; for RTS/CTS flow control, fixed interface speed of 57600, and to negotiate
+; highest modulation, compression, with error correction with all types of
+; fallback.
+;
+; To use: SET MODEM=MEGAHERTZ (in DOS, before starting Kermit)
+; or:     SET MODEM MEGAHERTZ (in Kermit)
+; and:    Make sure Kermit executes the standard MSKERMIT.INI file.
+;
+; Variables - define these prior to dialing if desired;
+; they can be either Kermit variables or DOS environment variables:
+;   DIALPORT    - COM port to use for dialing (COM1, COM2, BIOS1, BIOS2, ...)
+;   DIALSPEED   - Speed for dialing (57600 by default)
+;   DIALMETHOD  - TONE or PULSE (modem's default method is used by default)
+;   DIALRETRIES - Maximum times to redial the call
+;
+if < VERSION 315 errfail {MS-DOS Kermit 3.15 or later required.}
+def ERRFAIL echo \%1, forward FAIL
+def CHKOK input 3 OK, if fail stop 1 \%1
+
+local __dm __parity __retries	; Local variables
+
+set carrier off                 ; Don't require carrier during dialing.
+set input echo on		; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore		; Use caseless string comparisons
+
+:PORT
+if not def DIALPORT if def \$(DIALPORT) asg DIALPORT \$(DIALPORT)
+if not def DIALPORT forward SPEED
+set port \m(DIALPORT)
+if success forward SPEED
+echo SET PORT \m(DIALPORT) failed 
+end 1
+
+:SPEED
+asg __parity \v(parity)		; Save parity setting
+set parity none			; Switch to none while dialing
+set flow none			; Avoid flow control deadlocks
+hangup				; Begin by dropping DTR
+
+if not def DIALSPEED if def \$(DIALSPEED) asg DIALPORT \$(DIALSPEED)
+if not def DIALSPEED asg DIALSPEED 57600
+set speed \m(dialspeed)
+echo Configuring Megahertz modem on \v(line).
+
+:INIT
+output ATQ0V1&S0\13		; Enable word result codes, turn on DSR
+chkok {Can't get modem's attention}
+output ATE1X4&D2&C1\13		; Set echoing, result codes, etc.
+chkok {Can't initialize modem}
+output AT &K3\13		; RTS/CTS hardware flow control
+chkok {Can't enable RTS/CTS}	; On modem
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts		; And in Kermit too, but only now
+output AT \\N3\13		; Enable modulation fallback
+chkok {Can't enable modulation fallback}
+output AT &Q5%C3\13		; Compression and EC enabled
+chkok {Can't enable compression and EC}
+output AT S82=128\13		; Make modem pass BREAK transparently
+chkok {Can't become transparent to BREAK}
+mpause 500
+clear input			; Clear INPUT buffer.
+clear device			; Clear device buffer.
+
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+xif numeric \fsubstr(\%1,1,1) {
+    if eq "\m(DIALMETHOD)" "TONE" asg __dm T
+    if eq "\m(DIALMETHOD)" "PULSE" asg __dm P
+}
+asg __retries \m(DIALRETRIES)
+if not def __retries asg __retries \$(DIALRETRIES)
+if not def __retries asg __retries 5
+
+for \%i 1 \m(__retries) 1 {
+    xif > \%i 1 {
+        echo Redialing...       ; Message for redialing.
+        hangup			; Hang up first
+    }
+    pause 1			; Wait a sec for modem to settle
+    output ATD\m(__dm)\%1\13    ; Dial the number.
+    minput 90 -
+      CONNECT BUSY ERROR {NO CARRIER} {NO ANSWER} {NO DIALTONE} -
+      DELAYED RING BLACKLISTED FAX
+    xif fail { echo Call timed out, hangup, out \13, continue }
+    switch \v(minput) {
+      :1, forward done
+      :2, Echo Line is busy - will dial again in 30 seconds.
+          echo Press any key to cancel...
+          output \13
+          pause 30
+          if fail errfail Canceled
+          break
+      :3, errfail {Dialing command error}
+      :4, errfail {Call failed - no carrier}
+      :5, errfail {No answer - try again later}
+      :6, errfail {No dialtone - is your modem connected to the phone line?}
+      :7, errfail {Call delayed - try again later}
+      :8, errfail {Call failed - your phone is ringing}
+      :9, errfail {Call failed - blacklisted}
+      :10, errfail {Call failed - answered by fax}
+      :default, break
+    }    
+}
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+set carrier on			; Require carrier from now on.
+set parity \m(__parity)		; Restore host parity setting
+undef errfail			; Erase local macro definitions...
+end 0				; Finished, return success code.
+
+:FAIL
+undef errfail			; Erase local macro definitions...
+set carrier off			; Let them reconnect to see what's up.
+hangup
+end 1				; Return failure code.
+
+; End of MEGAHERTZ.SCR

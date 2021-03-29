@@ -1,0 +1,107 @@
+; FILE GENERIC.SCR
+;
+; An MS-DOS Kermit script program for dialing a generic high-speed modem
+; that uses the AT command set and supports RTS/CTS flow control.  Tone
+; dialing is used -- change the ATDT command if ncecessary.
+;
+; To use: SET MODEM=GENERIC (in DOS, before starting Kermit)
+; or:     DEFINE _MODEM GENERIC (in Kermit, before dialing)
+; and:    Make sure Kermit executes the standard MSKERMIT.INI file.
+;
+; Authors: Christine M. Gianone, Frank da Cruz; Columbia U, October 1997.
+;
+if < VERSION 315 stop 1 Sorry - MS-DOS Kermit 3.15 or later required.
+
+define errfail hangup, stop 1 \%1 ; Macro to handle failures.
+define chkerr if fail stop 1 \%1
+define chkok input 3 OK, if fail stop 1 \%1
+
+set carrier OFF                 ; Don't require carrier during dialing.
+
+declare \&s[7]			; Array of speeds to try.
+def \&s[1] 57600		; 115200 is not reliable so we don't try it.
+def \&s[2] 38400
+def \&s[3] 19200
+def \&s[4] 9600
+def \&s[5] 2400
+def \&s[6] 1200
+def \&s[7] 300
+assign \&s[0] \%1
+
+set input echo on		; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore		; Use caseless string comparisons
+
+set parity none			; Avoid parity foulups
+set flow none			; Avoid flow control deadlocks
+hangup				; Begin by dropping DTR
+pause 1				; for one second
+
+echo Configuring Generic high-speed modem on \v(line).
+
+for \%i 1 7 1 {			; Find a speed it recognizes
+    echo Trying \&s[\%i]...
+    set speed \&s[\%i]
+    if fail continue
+    output ATV1Q0\13
+    input 2 OK
+    if success forward INIT
+}
+stop 1 No response from modem - is it turned on and plugged in?
+
+:INIT
+;
+; Command to reset modem.  Substitute AT&F, AT&F0, AT&F1, etc,
+; if ATZ doesn't work.  The idea is to enable high-speed modulation,
+; protocols, and fallback, as well as RTS/CTS hardware flow control.
+;
+output ATZ\13                   ; Reset modem
+msleep 500
+input 5 OK
+
+:BEGIN				; Now DIAL.
+clear				; Clear INPUT buffer.
+echo Dialing \&s[0] on \v(line) at \v(speed) bps, wait...
+set count 10                    ; How many times to redial
+forward dial                    ; 1st time, skip pause and Redialing message
+
+:REDIAL
+output \13
+hangup
+set alarm 5
+pause 5 			; Wait 5 seconds before redialing.
+if not alarm errfail {Dialing canceled.}
+echo Redialing...
+pause 1
+
+:DIAL
+echo Press any key to cancel...
+output ATDT\&s[0]\13            ; Dial the number.
+clear input                	; Clear echo from INPUT buffer.
+minput 90 CONNECT BUSY ERROR {NO DIAL} {NO CARRIER} {NO ANSWER}
+
+switch \v(minput) {
+  :0, end 1 Dialing canceled.
+  :1, break
+  :2, echo Line is busy - will redial in 5 seconds.
+      if count goto REDIAL
+      stop 1 Too many redials - please try again later.
+  :3, stop 1 Modem command error - Fatal.
+  :4, stop 1 No dialtone.  Is your phone connected to your modem?
+  :5, stop 1 No carrier.  Did you dial the right number?
+  :6, echo No answer - will dial again in 5 seconds.
+      if count goto REDIAL
+      stop 1 Too many redials - please try again later.
+}
+wait 1 CTS                      ; We have a connection
+xif success {
+    set flow rts/cts
+    echo Hardware flow control enabled.
+    msleep 250
+} else {
+    echo WARNING: CTS signal from modem not detected.
+    echo Hardware flow control NOT enabled - expect data loss.
+}
+end 0
+
+; End of GENERIC.SCR

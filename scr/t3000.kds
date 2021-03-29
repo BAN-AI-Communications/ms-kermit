@@ -1,0 +1,176 @@
+; FILE T3000.SCR
+; 
+; An MS-DOS Kermit script program for dialing the Telebit T3000 and similar
+; modems (e.g. T1600, QBlazer), to be used with MS-DOS Kermit 3.15 or later.
+; The modem is set for RTS/CTS flow control, fixed interface speed, and to
+; negotiate highest modulation, error correction, compression, and all types
+; of fallback.
+;
+; Authors: C. Gianone & F. da Cruz, Columbia U, December 1996
+;
+; To use: SET MODEM=T3000 (in DOS, before starting Kermit or in AUTOEXEC.BAT)
+; or:     SET MODEM T3000 (in Kermit, or in MSCUSTOM.INI)
+; and:    Make sure Kermit has executed the standard MSKERMIT.INI file,
+;         and then DIAL the desired number.
+;
+; Variables - define these prior to dialing if desired; they can be either
+; Kermit variables or DOS environment variables:
+; 
+;   DIALPORT    - COM port to use for dialing (COM1, COM2, etc)
+;   DIALSPEED   - Speed for dialing (57600 by default)
+;   DIALMETHOD  - TONE or PULSE (modem's default method is used by default)
+;   DIALRETRIES - Maximum times to redial the call (default 5)
+;   DIALTIMEOUT - How long to wait for result from modem (default 90 seconds)
+;
+if < VERSION 315 stop 1 MS-DOS Kermit 3.15 or later required.
+def ERRFAIL echo \%1, forward FAIL
+def CHKOK input 3 OK, if fail stop 1 \%1
+
+local __dm __parity atok max_speed s51 \%i \%j
+ 
+define max_speed 57600		; T3000 interface speed
+define s51 7			; T3000 S51 register setting for this speed
+
+define ATOK {
+    if not def \%1 assign \%1 \v(speed)
+    set speed \%1
+    echo Trying \%1...
+    output \B
+    output \17
+    output ATQ0V1\13
+    input 3 OK
+    if success end 0
+    end 1
+}
+
+set carrier off                 ; Don't require carrier during dialing.
+set input echo on		; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore		; Use caseless string comparisons
+
+:PORT
+if not def DIALPORT asg DIALPORT \$(DIALPORT)
+if not def DIALPORT forward SPEED
+set port \m(DIALPORT)
+if success forward SPEED
+echo SET PORT \m(DIALPORT) failed 
+end 1
+
+:SPEED
+asg __parity \v(parity)		; Save parity setting
+set parity none			; Switch to none while dialing
+set flow none			; Avoid flow control deadlocks
+hangup				; Begin by dropping DTR
+
+; Dial method, retry limit, and timeout...
+
+xif numeric \fsubstr(\%1,1,1) {
+    if eq "\m(DIALMETHOD)" "TONE" asg __dm T
+    if eq "\m(DIALMETHOD)" "PULSE" asg __dm P
+}
+if not def DIALRETRIES asg DIALRETRIES \$(DIALRETRIES)
+if not def DIALRETRIES asg DIALRETRIES 5
+
+if not def DIALTIMEOUT asg DIALTIMEOUT \$(DIALTIMEOUT)
+if not def DIALTIMEOUT asg DIALTIMEOUT 90
+
+; Begin the modem dialog...
+
+echo Configuring Telebit T3000 on \v(line)...
+
+clear input			; Clear input buffer
+clear device
+if > \v(speed) \m(max_speed) set speed \m(max_speed)
+atok			; Try to connect at current speed, whatever it is.
+if success forward gotok
+atok 9600	 	; Try to connect at 9600.
+if success forward gotok
+atok 19200		; 19200...
+if success forward gotok
+atok 2400		; etc...
+if success forward gotok
+atok 38400		; ...
+if success forward gotok
+atok 57600		; Last resort for T3000.
+if fail stop 1 Can't get modem's attention
+
+:GOTOK
+output ATE1&C1&D2S59=15X12\13	; Set echoing, result codes, etc.
+chkok {Can't initialize modem}
+output ATS51=\m(s51)\13
+chkok {Can't fix interface speed}
+set speed \m(max_speed)
+
+for \%i 1 3 1 {
+    msleep 500
+    output AT\13
+    input 3 OK
+    if success break
+}
+if > \%i 3 stop 1 Can't communicate with modem at \m(max_speed)
+
+output AT S58=2 S68=255 &R3\13	; Tell modem to use RTS/CTS
+chkok {Can't enable RTS/CTS}
+wait 5 cts
+if fail errfail {Modem is not asserting CTS!}
+set flow rts/cts		; Tell Kermit to use RTS/CTS
+output AT S50=0 S94=1\13	; Enable modulation speed negotiation
+chkok {Can't enable modulation speed negotiation}
+output AT S60=0 S61=0 S63=0\13	; Make modem ignore break
+chkok {Can't be transparent to BREAK}
+output AT S180=2 S181=1 S190=1\13 ; Enable error correction & compression
+chkok {Can't enable compression EC and fallback}
+
+mpause 500
+clear input			; Clear INPUT buffer.
+clear device			; Clear device buffer.
+
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+
+for \%i 1 \m(DIALRETRIES) 1 {	; Redial loop
+    xif > \%i 1 {
+        echo Redialing...       ; Message for redialing
+        hangup			; Hang up first
+    }
+    pause 1			; Wait a sec for modem to settle
+    output ATD\m(__dm)\%1\13    ; Dial the number.
+    for \%j 1 10 1 {
+        minput \m(DIALTIMEOUT) -
+          CONNECT BUSY ERROR {NO CARRIER} {NO ANSWER} {NO DIALTONE} RRING RING
+        xif fail { echo Call timed out, hangup, out \13, continue }
+        if not = \v(minput) 7 break
+    }
+    switch \v(minput) {
+      :1, forward done
+      :2, Echo Line is busy - will dial again in 30 seconds.
+          echo Press any key to cancel...
+          output \13
+          pause 30
+          if fail errfail Canceled
+          break
+      :3, errfail {Dialing command error}
+      :4, errfail {Call failed - no carrier}
+      :5, errfail {No answer - try again later}
+      :6, errfail {No dialtone - is your modem connected to the phone line?}
+      :7, errfail {Call failed - too many rings}
+      :8, errfail {Call failed - your phone is ringing}
+      :default, break
+    }    
+}
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+echo \7                         ; Celebrate with a beep.
+set carrier on			; Require carrier from now on.
+set parity \m(__parity)		; Restore host parity setting
+undef errfail			; Erase local macro definitions...
+end 0				; Finished, return success code.
+
+:FAIL
+undef errfail			; Erase local macro definitions...
+set carrier off			; Let them reconnect to see what's up.
+hangup
+end 1				; Return failure code.
+
+; End of T3000.SCR

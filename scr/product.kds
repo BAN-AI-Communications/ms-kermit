@@ -1,0 +1,101 @@
+; Editor's note: This script was written before MS-DOS Kermit had its own
+; arithmetic capabilities -- it stands as a testament to human ingenuity.
+;------------------------------
+;
+; Arithmetic for MS-DOS-Kermit!
+; Gisbert W. Selke, Aug 1991.
+; Share and enjoy.
+;
+; This collection of macro definitions for MS-DOS Kermit 3.10 (or later)
+; was prompted by Chris Gianone's remark:
+; "Meanwhile, creative Kermit users will no doubt find their own uses for
+; [the PRODUCT macro]". (Using MS-DOS Kermit, 2nd ed., p 182)
+;
+; Having done some math, I think I *know* what a product is...
+; Given that Joe D. has made Kermit with its script language a universal
+; Turing machine...  There you are.
+;
+; TAKE this file from the MS-Kermit> prompt; then, you can do calculations:
+; tadd  <number1> <number2> <...> : show sum of numbers
+;                                   ex: tadd  15 17    yields 32
+;                                   ex: tadd  15 17 19 yields 51
+; tmult <number1> <number2> <...> : show product of numbers
+;                                   ex: tmult 11 13    yields 143
+;                                   ex: tmult 2 3 4 5  yields 120
+; tfact <number>                  : show factorial of number
+;                                   ex: tfact 5        yields 120
+; Macros used internally are explained below.
+;
+; More importantly, when you're in CONNECT mode and your host sends a
+; sequence like "ESC [ 15;7 ~", the product of the two numbers will
+; appear on your screen.
+;
+; Remark: Multiplication can be implemented more efficiently. This is
+;         left as an exercise for the reader. So are FFT and primality
+;         testing for large integers.
+;
+; Uses variables \%a..\%e as arithmetic registers and for passing results.
+;
+; Elementary operations:
+; Increment one-digit number (\%1) by 1; result in \%r, overflow in \%o:
+def inc1  def \%o 0,if = \%1 0 def \%r 1,if = \%1 1 def \%r 2,-
+if = \%1 2 def \%r 3,if = \%1 3 def \%r 4,if = \%1 4 def \%r 5,-
+if > \%1 4 inc1b \%1
+; internal macro for inc1:
+def inc1b if = \%1 5 def \%r 6,if = \%1 6 def \%r 7,if = \%1 7 def \%r 8,-
+if = \%1 8 def \%r 9,if = \%1 9 def \%r 0,if = \%1 9 def \%o 1
+; Increment the number in registers \%a..\%e by 1:
+def inc5  inc1 \%e, ass \%e \%r,if = \%o 0 go e,inc1 \%d, ass \%d \%r,-
+if = \%o 0 go e,inc1 \%c, ass \%c \%r, if = \%o 0 go e,inc1 \%b,-
+ass \%b \%r, if = \%o 0 go e,inc1 \%a, ass \%a \%r,:e
+
+; Split multi-digit number into digits, result in \%a..\%e:
+def split def \%a 0,def \%b 0,def \%c 0,def \%d 0,def \%e 0,-
+if = \%1 0 go e,set cou \%1,:l,inc5 \%a \%b \%c \%d \%e,if cou go l,:e
+
+; Add \%1 to number in \%a..\%e:
+def add1  if = \%1 0 go e,set cou \%1,:l,inc5 \%a \%b \%c \%d \%e,-
+if cou go l,:e
+; Add two numbers; result in \%a..\%e:
+def add0  split 0,if > \v(argc) 1 split \%1,if > \v(argc) 2 add1 \%2,-
+if > \v(argc) 3 add1 \%3,if > \v(argc) 4 add1 \%4,-
+if > \v(argc) 5 add1 \%5,if > \v(argc) 6 add1 \%6,-
+if > \v(argc) 7 add1 \%7,if > \v(argc) 8 add1 \%8,-
+if > \v(argc) 9 add1 \%9
+
+; Multiply number in \%a..\%e by \%1; result in \%a..\%e:
+def mult1 set cou \%1,ass \%9 \%a\%b\%c\%d\%e,if > \%1 0 go s,split 0,-
+go e,:l,add1 \%9,:s,if cou go l,:e
+; Multiply two numbers; result in \%a..\%e:
+def mult  split 1,if > \v(argc) 1 split \%1,if > \v(argc) 2 mult1 \%2,-
+if > \v(argc) 3 mult1 \%3,if > \v(argc) 4 mult1 \%4,-
+if > \v(argc) 5 mult1 \%5,if > \v(argc) 6 mult1 \%6,-
+if > \v(argc) 7 mult1 \%7,if > \v(argc) 7 mult1 \%8,-
+if > \v(argc) 9 mult1 \%9
+
+; Time-honoured practice: a factorial routine:
+def fact  split 1,if = \%1 0 go e,set count \%1,:l,mult1 \v(count),-
+if cou go l,:e
+
+; user interface macros: calls for macros above, plus display of result:
+def fatal echo Error: \%1\13, def \%1, stop      ; error handler
+def tinc1  inc1 \%1,echo \%o\%r                  ; ex: tinc1  5
+def tinc5b inc5b \%1 \%2 \%3 \%4 \%5,echo \%a\%b\%c\%d\%e
+                                                 ; ex: tinc5b 1 2 3 9 9
+def tinc5  split \%1,inc5 \%a \%b \%c \%d \%e,echo \%a\%b\%c\%d\%e
+                                                 ; ex: tinc5 99
+def tsplit split \%1,echo \%a\%b\%c\%d\%e        ; ex: tsplit 12399
+def tadd   add0 \%1 \%2 \%3 \%4 \%5 \%6 \%7 \%8 \%9,echo \%a\%b\%c\%d\%e
+def tadd1  add1 \%1,echo \%a\%b\%c\%d\%e         ; ex: split 17, tadd1 15
+def tmult1 mult1 \%1,echo \%a\%b\%c\%d\%e        ; ex: split 13, tmult1 7
+def tmult  mult \%1 \%2 \%3 \%4 \%5 \%6 \%7 \%8 \%9,echo \%a\%b\%c\%d\%e
+def tfact  if not = \v(argc) 2 fatal {TFact takes exactly 1 numeric -
+argument},fact \%1,echo \%a\%b\%c\%d\%e
+; Multiplication per PRODUCT macro:
+def product   mult \%1 \%2 \%3 \%4 \%5 \%6 \%7 \%8 \%9,-
+askq \%9 Result is \%a\%b\%c\%d\%e\59 hit RETURN:,connect
+; Factorial:
+def factorial if not = \v(argc) 2 fatal {Factorial takes exactly 1 -
+numeric argument},fact \%1,askq \%9 Result is \%a\%b\%c\%d\%e\59 -
+hit RETURN:,connect
+; End of MS-DOS-Kermit arithmetic routines.

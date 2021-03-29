@@ -1,0 +1,153 @@
+; FILE HAYES.SCR
+; 
+; An MS-DOS Kermit script program for dialing a Hayes 1200 or 2400 SmartModem.
+;
+; Authors: C. Gianone & F. da Cruz, Columbia U, December 1996
+;
+; To use: SET MODEM=HAYES (in DOS, before starting Kermit or in AUTOEXEC.BAT)
+; or:     SET MODEM HAYES (in Kermit, or in MSCUSTOM.INI)
+; and:    Make sure Kermit has executed the standard MSKERMIT.INI file,
+;         and then DIAL the desired number.
+;
+; Variables - define these prior to dialing if desired; they can be either
+; Kermit variables or DOS environment variables:
+; 
+;   DIALPORT    - COM port to use for dialing (COM1, etc, default current port)
+;   DIALSPEED   - Speed for dialing (the port's current speed by default)
+;   DIALMETHOD  - TONE or PULSE (modem's default method is used by default)
+;   DIALRETRIES - Maximum times to redial the call (default 5)
+;   DIALTIMEOUT - How long to wait for result from modem (default 90 seconds)
+;
+if < VERSION 315 stop 1 MS-DOS Kermit 3.15 or later required.
+
+local __dm __parity spdchg errfail ; Local variables
+
+def ERRFAIL echo \%1, forward FAIL
+def SPDCHG echo Changing speed to \%1..., set speed \%1
+
+set carrier off                 ; Don't require carrier during dialing.
+set input echo on		; So we can watch what happens.
+set input timeout proceed       ; Allow IF SUCCESS, IF FAILURE.
+set input case ignore		; Use caseless string comparisons
+
+:PORT
+if not def DIALPORT asg DIALPORT \$(DIALPORT)
+if not def DIALPORT forward SPEED
+set port \m(DIALPORT)
+if success forward SPEED
+echo SET PORT \m(DIALPORT) failed 
+end 1
+
+:SPEED
+asg __parity \v(parity)		; Save parity setting
+set parity none			; Switch to none while dialing
+set flow none			; Avoid flow control deadlocks
+hangup				; Begin by dropping DTR
+
+if not def DIALSPEED asg DIALSPEED \$(DIALSPEED)
+if not def DIALSPEED asg DIALSPEED \v(speed)
+set speed \m(DIALSPEED)
+if fail end 1 \m(DIALSPEED) - Speed not supported
+
+; Dial method, retry limit, and timeout...
+
+xif numeric \fsubstr(\%1,1,1) {
+    if eq "\m(DIALMETHOD)" "TONE" asg __dm T
+    if eq "\m(DIALMETHOD)" "PULSE" asg __dm P
+}
+if not def DIALRETRIES asg DIALRETRIES \$(DIALRETRIES)
+if not def DIALRETRIES asg DIALRETRIES 5
+
+if not def DIALTIMEOUT asg DIALTIMEOUT \$(DIALTIMEOUT)
+if not def DIALTIMEOUT asg DIALTIMEOUT 90
+
+; Begin the modem dialog...
+
+echo Configuring Hayes SmartModem \v(line)...
+if not def DIALSPEED asg DIALSPEED \$(DIALSPEED)
+if not def DIALSPEED asg DIALSPEED \v(speed)
+if eq \m(DIALSPEED) 2400 forward S2400
+if eq \m(DIALSPEED) 1200 forward S1200
+
+echo Trying \v(speed)...
+output ATQ0V1\13		; Try at current speed
+input 3 OK
+if success forward gotok
+set speed 2400
+:S2400
+echo Trying \v(speed)...
+clear
+output ATQ0V1\13		; Try at 2400
+input 3 OK
+if success forward gotok
+set speed 1200
+:S1200
+echo Trying \v(speed)...
+clear
+output ATQ0V1\13		; Try at 1200
+input 3 OK
+if fail stop 1 {No response from modem - is it turned on and connected?}
+
+:GOTOK
+mpause 500
+clear input			; Clear INPUT buffer.
+clear device			; Clear device buffer.
+
+if not > \v(speed) 2400 echo Hayes \v(speed) detected.
+echo Dialing \%1 on \v(line) at \v(speed) bps, wait...
+echo
+
+xif not < \v(speed) 2400 {	; Enable CONNECT <speed> result codes
+    out ATX4\13
+    inp 3 OK			; But don't fail if there's an error
+}
+for \%i 1 \m(DIALRETRIES) 1 {	; Redial loop
+    xif > \%i 1 {
+        echo Redialing...       ; Message for redialing
+        hangup			; Hang up first
+    }
+    pause 1			; Wait a sec for modem to settle
+    output ATD\m(__dm)\%1\13    ; Dial the number.
+    minput \m(DIALTIMEOUT) -
+      CONNECT BUSY ERROR {NO CARRIER} {NO ANSWER} {NO DIALTONE} RING
+    xif fail { echo Call timed out, hangup, out \13, continue }
+    switch \v(minput) {
+      :1, forward done
+      :2, Echo Line is busy - will dial again in 30 seconds.
+          echo Press any key to cancel...
+          output \13
+          pause 30
+          if fail errfail Canceled
+          break
+      :3, errfail {Dialing command error}
+      :4, errfail {Call failed - no carrier}
+      :5, errfail {No answer - try again later}
+      :6, errfail {No dialtone - is your modem connected to the phone line?}
+      :7, decr \%i, break
+      :8, errfail {Call failed - your phone is ringing}
+      :default, break
+    }    
+}
+errfail {It never answers!  I give up.} ; Too many tries.
+
+:DONE                           ; Connected.
+xif > \v(speed) 1200 {
+    minput 2 1200 2400		; Change speed if necessary.
+    xif success {
+	if = \v(minput) 1 if not = \v(speed) 1200 spdchg 1200
+	if = \v(minput) 2 if not = \v(speed) 2400 spdchg 2400
+    }
+}
+
+:BEEP
+echo \7                         ; Celebrate with a beep.
+set carrier on			; Require carrier from now on.
+set parity \m(__parity)		; Restore host parity setting
+end 0				; Finished, return success code.
+
+:FAIL
+set carrier off			; Let them reconnect to see what's up.
+hangup
+end 1				; Return failure code.
+
+; End of HAYES.SCR
