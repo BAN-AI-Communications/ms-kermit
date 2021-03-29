@@ -1,0 +1,93 @@
+MSBAAA.HLP         MS-DOS KERMIT 3.0 "BOOTSTRAPPING"              June 1990
+
+MS-DOS Kermit 3.0 is distributed on diskette in binary executable form on a
+5.25-inch IBM DOS-format diskette in the book "Using MS-DOS Kermit", by
+Christine M.  Gianone, published by Digital Press, Bedford, MA, 1990, order
+number EY-C204E-DP (phone 1-800-343-8321).  It is also available from Kermit
+Distribution at Columbia University and wherever computer books are sold.
+The MSB*.* files are for people who cannot get MS-DOS Kermit on diskette.
+
+MS-DOS Kermit (and many other Kermit programs) are often distributed using a
+special encoding called "boo" (short for "bootstrap") format, developed
+especially for distribution of MS-DOS Kermit over networks, e-mail, and
+communication lines.  MS-DOS Kermit has grown to have so many features that
+the binary program image (the .EXE file) has become quite large.  But binary
+files are generally not compatible with the common labeled tape formats (e.g.
+ANSI D), electronic mail, or raw downloading -- methods commonly used for
+Kermit software distribution.
+
+A common practice is to encode .EXE and other binary files into printable
+characters, such as hexadecimal digits, for transportability.  A simple "hex"
+encoding results in two characters per 8-bit binary byte, plus CRLFs added
+every 80 (or less) hex characters to allow the file to pass through
+card-oriented networks like BITNET.  A hex file is therefore more than twice
+as large as the original binary file.
+
+A .BOO file is a more compact, but somewhat more complicated, encoding.  Every
+three binary bytes (24 bits) are split up into four 6-bit bytes with 48 (ASCII
+character "0") added to each, resulting in four ASCII characters ranging from
+"0" (ASCII 48) to "o" (ASCII 111), with CRLFs added at or near "column 76".
+The resulting file size would therefore be about 4/3 the .EXE file size.  This
+is still quite large, so .BOO files also compress consecutive null (zero)
+bytes.  Up to 78 consecutive nulls are compressed into two characters.  Tilde
+("~") is the null-compression lead-in, and the following character indicates
+how many nulls are represented (subtract 48 from this character's ASCII
+value).  For instance "~A" means 17 consecutive nulls; "~~" means 78 of them.
+Repeated nulls are very common in .EXE files.
+
+4-for-3 encoding combined with null compression reduces the size of the
+encoded file to approximately the same size as the original .EXE file, and
+sometimes even smaller.  The first line of a .BOO file is the name (in plain
+text) of the original file.  Here's what the first few lines of a typical .BOO
+file look like:
+
+  MSVIBM.EXE
+  CEYP0Id05@0P~3oomo2Y01FWeP8@007P000040HB4001`W~28bL005\W~2JBP00722V0ZHPYP:
+  \8:H2]R2V0[`PYP:68>H2S23V0YHPiP:Xg800;Qd~2UWD006Yg~2Ogl009]o~2L8000;20~~~~
+  ~~~~~~~:R2H008TV?P761T410<H6@P40j4l6RRH0083l17@PP?`1M@?YSP20o0Ee0nUD0h3l
+  1WD3jO@3]0VjW03=8L?X4`N0o01h1\H6~20l>0i7n0o1]e7[@2\PO=8LH60@00Raj>04^97Xh0
+
+
+PROGRAMS FOR HANDLING .BOO FILES
+
+Kermit Distribution includes several useful .BOO-file programs:
+
+MSBPCT.BAS
+    This Microsoft BASIC program can be used on any PC or PS/2 that has BASIC 
+    to decode a .BOO file into an .EXE file.  It's about 50 lines, so it can 
+    be typed in.
+
+MSBPCT.BOO
+    BASIC programs run rather slowly, so .BOO-file decoders have also been
+    written in high-level languages like C.  The MSBPCT.EXE file that was
+    produced by compiling MSBPCT.C is encoded into MSBPCT.BOO, which can be
+    decoded back into MSBPCT.EXE using MSBPCT.BAS.  Once you've done that, you
+    don't need to run the slow BASIC version any more, which is a blessing,
+    because the MS-DOS Kermit .BOO file takes up to half an hour to decode 
+    using the BASIC version (depending on the system), but only seconds using
+    MSBPCT.EXE.
+
+MSBPCT.*
+    There are .BOO-file decoders written in other languages too, like
+    assembler, Turbo Pascal, Fortran, etc.  Take your pick.  They all do the
+    same thing.
+
+MSBMKB.*
+    This is the program for encoding an .EXE file into a .BOO file.  It is
+    written in C, compiled, and translated (by itself) into .BOO format,
+    suitable for decoding back into .EXE form by any of the MSBPCT programs.
+    Also in other languages, including Fortran and Turbo Pascal.
+
+MSBPCG.*
+    MSBPCG.ASM is an assembly language program that compiles into a very
+    short executable program that consists entirely of printable ASCII
+    characters (MSBPCG.COM).  This program can be used, like the MSBPCT
+    programs, to decode BOO files.
+
+MSBRCV.BAS
+    This is a receive-only Kermit program in Microsoft Basic for the IBM PC
+    and PS/2, short enough to type in, usable for downloading a real Kermit 
+    from a host that has Kermit to a PC that doesn't.  See "Kermit, A File
+    Transfer Protocol" by Frank da Cruz for a detailed explanation.
+
+MSBHEX.* are C programs for producing and decoding straight hex files.
