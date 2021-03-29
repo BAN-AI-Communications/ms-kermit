@@ -1,0 +1,466 @@
+COLUMBIA UNIVERSITY                           CENTER FOR COMPUTING ACTIVITIES 
+NEW YORK, NY  10025                                   (212) 854-8543 or -3508
+
+NEWS RELEASE                 JULY 1, 1989                FOR USE UPON RECEIPT
+
+
+
+  THE FIRST INTERNATIONAL KERMIT CONFERENCE, MOSCOW, USSR, MAY 29-31, 1989
+
+"Kermit" is a protocol developed at Columbia University that has become a
+worldwide de-facto standard for transferring files between computers.  A brief
+history and description of the Kermit file transfer protocol is given in
+Appendix A.
+
+Columbia University has always made a point of sharing its Kermit software.
+Several years ago, Kermit programs found their way into the Soviet Union via
+the European Space Agency.  In March 1986, Kermit was used to transfer data
+gathered by the Soviet VEGA spacecraft to the European Space Operations Center
+in West Germany in a cooperative East-West effort to study Halley's comet at
+close range.  Soon thereafter, Soviet computer specialists began to develop
+Kermit programs for their own computers.
+
+As the popularity of Kermit grew in the USSR, Soviet scientists made contact
+with Columbia's Kermit Development and Distribution Center, managed by
+Christine M. Gianone, for clarifications about the protocol and updates to
+the software.  In the discussions which followed, it became clear that there
+was great interest in Kermit not only in the Soviet Union, but also in the
+other Eastern Bloc countries, and the idea of an international conference
+was born.
+
+The First International Kermit Conference was sponsored by the International
+Center for Scientific and Technical Information (ICSTI), Moscow, through the
+efforts of Dr. Juri Gornostaev, Head of ICSTI's Computer Department, and
+Professor A. Butrimenko, Director of ICSTI.  ICSTI is an information resource
+center for the USSR and ten other Easter Bloc countries.  It was the first
+international gathering devoted entirely to Kermit.
+
+The conference was attended by more than 70 computer specialists from Eastern
+Bloc countries including Hungary, East Germany, Poland, Bulgaria, Mongolia,
+Czechoslovakia, Cuba, and many parts of the USSR.  The conference was
+conducted by:
+
+    Christine Gianone
+    Manager, Kermit Development and Distribution, Columbia University
+
+    Frank da Cruz
+    Manager, Network Planning, Columbia University
+
+Gianone and da Cruz lectured in English, which was translated into Russian.
+There were lively question-and-answer sessions after each lecture, followed by
+practice in the computer laboratory.  Hundreds of pages of lecture notes were
+printed by ICSTI and distributed to the conference participants.
+
+On May 29, Gianone and da Cruz discussed the history and philosophy of Kermit,
+and gave a detailed introduction to the use of Kermit programs, including
+advanced features such as the Kermit script programming language, which allows
+users to create automated, unattended file transfer sessions.  The attendees
+proved very familiar with Kermit, some at the user level, others at the
+implementation and theory level.  The discussions which followed showed that
+Kermit plays a key role in data communications in the Soviet Union and Eastern
+Bloc countries.
+
+On May 30, Gianone and da Cruz explained the Kermit prococol itself,
+concentrating on the design decisions which have made it adaptable to nearly
+every kind of computer, file system, or communication environment, and on
+Kermit's extensibility mechanisms which allow new features to be added to the
+protocol without introducing incompatibilities with older Kermit programs.
+Detailed analysis of Kermit's performance options -- data compression, long
+packets, and sliding windows -- gave the audience tools for evaluating and
+predicting the performance of Kermit programs in various communication
+environments.
+
+On May 31, Gianone presented a Kermit protocol extension for international
+character sets.  This is the first major extension to the Kermit protocol
+since 1985, and it is designed to address the increasing internationalization
+of inter-computer communications.  The mechanisms of this extension, which are
+summarized in Appendix B, will allow text written in languages other than
+English to be transferred between unlike computers and still retain its
+original appearance.  Gianone's presentation was followed by a series of
+presentations from other conference attendees (See Appendix C for complete
+program).
+
+Gianone and da Cruz also visited other computing installations in Moscow,
+including:
+
+. VNIIPAS, the All-Union Institute of Automated Systems of the National
+  Centre for Automated Data Exchange.  Programmers here have developed an
+  integrated software system that includes electronic mail, conferencing, data
+  search & retrieval, etc, with Kermit as its communication mechanism.
+
+. INION, the Institute of Scientific Information for Social Science, where
+  Kermit is used extensively.
+
+
+RESULTS OF THE CONFERENCE
+
+The international character set extension was discussed.  It emerged that at
+least five different codes are in use for representing Cyrillic characters on
+Soviet computers: KOI-7, KOI-8, DKOI, EBCDIC, and ECMA-113.  Without the
+extension to Kermit, each Soviet Kermit program would have to know its own
+codes plus all the others in order to transfer Cyrillic text files.  Multiply
+this situation by all the world's languages, and all the different ways that
+computers have of representing them, to appreciate the difficulties
+encountered when trying to transfer text in any language between any two
+computers.
+
+The Kermit extension reduces this problem to manageable size by specifying a
+small set of standard codes and the means by which one Kermit program can
+identify them to the other.  After some discussion, the basic ideas of the
+international character set extension were endorsed by the conference.
+
+Gianone presented ICSTI with a complete, up-to-date set of Kermit programs and
+documentation on magnetic tape and diskette.  By agreement, ICSTI in Moscow
+will join other regional Kermit Distribution centers that have been set up by
+Gianone on previous trips to Japan, France, and Switzerland, as well as those
+in England, the Netherlands, Australia, and other parts of the world that
+receive Kermit materials from Columbia by network or by post.
+
+ICSTI's Kermit Distribution will serve the Soviet Union and other Eastern-Bloc
+countries, and ICSTI will become a center for coordinating Kermit program
+development in those countries.  The link between Columbia University and
+ICSTI considerably augments the worldwide pool of Kermit programming
+expertise, and for the first time the Eastern-Block countries will have
+convenient access to the vast body of current Kermit program source and
+documentation.  ICSTI has already published Russian-language translations of
+Gianone's Kermit manuals for several popular computers, as well as for their
+own home-grown versions.
+
+ICSTI presented Columbia with a version of Kermit it had developed for IBM's
+CICS MVS subsystem, which is already being studied by Western computer experts
+for inclusion in the broader IBM mainframe Kermit family of programs which,
+until now, did not support IBM's CICS subsystem.
+
+Perhaps the greatest benefit of the conference was the face-to-face meeting of
+people from from different worlds: East meets West.  The problems of data
+communications are remarkably similar in all parts of the world, and the
+computer specialists from the widely scattered countries represented at the
+conference shared a large body of common experience.
+
+
+APPENDIX A: THE KERMIT FILE TRANSFER PROTOCOL
+
+The world is populated with many millions of computers -- PCs, minicomputers,
+mainframe computers, supercomputers -- used for academic, research, business,
+medical, manufacturing, and many other purposes, and increasingly also in the
+home.
+
+The need for these computers to communicate with each other -- to share
+information -- has become increasingly commonplace.  Yet the means to do this
+is not always readily apparent.  The manufacturers may offer:
+
+  . Magnetic media, such as disks or tapes.  But these are usually incompatible
+    between computers of different manufacture.  Even when possible, data
+    transfer by this method can be impractical if the computers are separated
+    by long distances or national boundaries.
+
+  . Computer networks.  But these are usually expensive, often
+    vendor-specific, and always difficult to install and manage.  And usually
+    impractical if long distances or national boundaries are involved.
+    
+But there is one communication mechanism that almost all computers have in
+common: the asynchronous serial communication port that is commonly used with
+a modem.  This is standard equipment on almost every computer.
+
+By connecting their serial ports, two computers can transfer data.  If the
+computers are close by, then a simple cable provides the necessary connection.
+If they are far apart, then modems may be used to make the connection through
+the telephone system.  Potentially any two computers in the world can transfer
+data.
+
+But data transfer is not necessarily information transfer.  Before information
+can be successfully transferred, several problems must be overcome:
+
+  1. Incompatibility of data format.  Different computers may use different
+     codes to represent characters, and may use different formats for
+     representing lines of text.
+
+  2. Synchronization.  If one computer sends data faster than the other
+     computer can process it, data will be lost.
+
+  3. Errors.  If there is noise, static, electrical interference on the
+     connection, data can be corrupted during transfer.
+
+To overcome these problems, we designed the Kermit File Transfer Protocol in
+1981.  (The Kermit protocol was named after Kermit the Frog, star of the
+television series, THE MUPPET SHOW, and is used by permission of Henson
+Associates, Inc., New York City.)
+
+Kermit is a universal file transfer protocol, in that it can work on any kind
+of computer at all.  In order to have Kermit file transfer between two
+computers, a Kermit program must be written for each computer.  The computer
+user establishes a physical connection between the two computers, activates
+the Kermit program on each computer, and then the two Kermit programs transfer
+the data in special messages called "packets".
+
+The format of the packets is standard, so that any two Kermit programs can
+communicate with each other.  Therefore, the Kermit program for each computer
+only has to know about its own local conventions for data representations and
+the Kermit standard.  It does not need to know anything about any other kind
+of computer.
+
+Kermit packets, and the rules for formatting and transmitting them, allow any
+two computers to transfer information correctly and completely.  The exchange
+of packets provides the necessary synchronization.  The packets include an
+error-checking field, or "checksum", which allows the receiver to determine if
+a packet has been damaged in transmission and if so to request retransmission.
+And textual data within a packet is encoded and formatted in a standard way,
+so that all Kermit programs know how to convert between Kermit's "transfer
+syntax" and their own local data storage conventions.
+
+The Kermit file transfer protocol was designed at Columbia University in 1981
+to allow reliable data transfer among Columbia's computers: CP/M
+microcomputers, the IBM PC, DECSYSTEM-20 timesharing systems, and IBM
+System/370 series mainframes.  The software, documentation, and the protocol
+specification were freely shared with other universities, as well as with
+corporations and government agencies, in the USA and other countries.  Before
+long versions of Kermit appeared for other systems too: the DEC PDP-11 and
+VAX, UNIX, the Apple II and Macintosh, Commodore micromputers, CDC and Cray
+supercomputers, etc.  These new versions were contributed to Columbia
+University in the same spirit in which Columbia shared its original versions.
+
+Kermit has since become one of the most popular and widely implemented
+software programs in existence, owing in large part to Columbia's philosophy
+of sharing.  Program source code is available so that users may make fixes or
+improvements, adapt existing programs to new computers, or ensure that there
+are no hidden viruses.  The protocol specification is open and public.  The
+software is free, and it is not copy-protocted.  In fact, copying and sharing
+of Kermit programs is encouraged.  Kermit programs, however, do bear a
+copyright notice in order to protect the authors and users from entrepreneurs
+who might try to turn Kermit into a commercial product.
+
+After a few years of uncoordinated Kermit development, Columbia University
+established a Center for Kermit Development and Distribution, managed by
+Christine M. Gianone.  Connected by computer network to universities and
+research organizations throughout the world, this center coordinates the
+development and distribution of Kermit programs.  There now exist Kermit
+programs for about 350 different computers and operating systems, from the
+smallest PC to the largest supercomputer.  These programs are obtained by
+organizations in the corporate, government, and private sectors via wide-area
+network connections to Columbia, or else by mail order.  As of June 1989,
+Columbia has sent Kermit programs by mail to about 12,000 sites, about half of
+them corporate, in all states of the USA and more than 60 other countries.
+Countless other sites have obtained Kermit over the networks.  Since copying
+and sharing is encouraged, any given shipment might serve hundreds or
+thousands of people.  For example, a single Kermit disk sent to a US
+government agency is duplicated and furnished to about 10,000 medical research
+scientists and other workers.
+
+As the popularity of Kermit spread, Gianone and the staff of the Kermit
+Development and Distribution Center have been invited to discuss Kermit at
+computer gatherings in the US, Europe, the Far East, and now the Soviet Union.
+
+Further information about Kermit may be obtained by writing to:
+
+  Kermit Distribution
+  Columbia University Center for Computing Activities
+  612 West 115th Street
+  New York, NY  10025
+
+
+APPENDIX B, EXTENSION TO KERMIT PROTOCOL FOR INTERNATIONAL CHARACTER SETS
+
+Kermit has always been able to transfer text files between any two computers,
+no matter how differently they represent text internally.  To do this, Kermit
+transfers text in ASCII, with lines of text terminated by carriage return and
+line feed (CRLF).  This is Kermit's "transfer syntax" for text files:
+
+_____________________________________________________________________________
+
+KERMIT NORMAL TEXT TRANSFER SYNTAX (DEFAULT)
+
+ "SET FILE TYPE TEXT"                         "SET FILE TYPE TEXT"
+      SENDER                                       RECEIVER
+         |                                             ^
+         |                                             |
+    Convert from local                      Convert from ASCII
+    character set to ASCII.                 to local character set.
+    Convert from local record format        Convert from CRLF-terminated lines
+    to CRLF-terminated lines.               to local record format.
+         |                                             |
+         |                 file data                   |
+         +---------------------------------------------+
+                             ASCII
+_____________________________________________________________________________
+
+Using this mechanism, two totally different kinds of computers can exchange
+text files, for example a UNIX system with ASCII stream text files and an IBM
+mainframe with EBCDIC record-oriented text files (ASCII and EBCDIC are two
+totally different code systems for representing alphabetic, numeric,
+punctuation, and other characters).
+
+But ASCII only includes enough letters and symbols for English and the few
+other languages that can be written using only the letters A-Z with no
+diacritical marks (like Dutch, and German without umlauts).
+
+As soon as you want to transfer files containing accented vowels, c-cedillas,
+etc, not to mention files written in Greek, Arabic, Hebrew, Russian, Japanese,
+or Chinese, you will find that Kermit can transfer them OK, but if the
+receiving system is not the same as the originating one, the result will look
+like garbage.  This is because different computer vendors use different codes
+for the same special characters.  For example, an Apple Macintosh, an IBM PC,
+and a DEC VAX use totally different codes for, say, A-umlaut, C-Cedilla,
+E-grave, etc.
+
+Since there are hundreds or thousads of computer vendors in the world and
+nobody controls what codes they use to represent characters, it is clearly
+impractical to require that every computer have knowledge of every other
+computer's codes.  Therefore, only a few standardized codes should be used
+for file transfer.  Then, each computer only has to know its own codes and
+the standard ones, and does not need specific knowledge of any other kind of
+computer.
+
+The extension to Kermit has two levels, the first for files composed of any
+single code other than ASCII, and the second for files made up of a mixture of
+character codes.
+
+LEVEL 1
+
+Level 1 will allow the use of any single character code in the transfer
+syntax.  Such codes include ISO Latin Alphabet 1, which can be used to write
+most Western European languages, or ISO Latin/Cyrillic, which can be used to
+write Russian, Ukrainian, etc, or ISO Latin/Hebrew for Hebrew or Yiddish, or
+JIS X 0208 for Japanese, or any other single character set.  (ISO is the
+International Organization for Standardization, JIS is the Japan Industrial
+Standard).
+
+_____________________________________________________________________________
+
+EXTENSION LEVEL-1 TRANSFER SYNTAX - A SINGLE CHARACTER SET OTHER THAN ASCII
+
+"SET FILE CHARACTER-SET XXX"                "SET FILE CHARACTER-SET YYY"
+"SET TRANSFER-SYNTAX LATIN1-ISO"          "SET TRANSFER-SYNTAX LATIN1-ISO"
+      SENDER                                       RECEIVER
+         |                                             ^
+         |                                             |
+    Convert from local character            Convert from specified character
+    set to specified character set.         set to local character set.
+    Convert from local record format        Convert from CRLF-terminated lines
+    to CRLF-terminated lines                to local record format.
+         |                                             |
+         |               file data                     |
+         +---------------------------------------------+
+                   Selected Character Set
+_____________________________________________________________________________
+
+For example, a French-language document can be exchanged in this way between
+an Apple Macintosh and an IBM PC, both of which have the necessary characters
+for French, but use different codes to represent them.  ISO Latin Alphabet 1
+can be used as the transfer syntax.
+
+Level 1 will accommodate most of today's computers, all over the world, which
+use only a single character set.
+
+LEVEL 2
+
+Level 2 of the Kermit protocol extension will allow for transfer of files in a
+mixture of alphabets, registered in the International Register of Coded
+Character Sets, by embedding the alphabet designation and shift "escape
+sequences" defined in ISO Standard 2022, and the alphabet designators listed
+in the ISO International Register of Coded Character Sets, in the data stream:
+
+_____________________________________________________________________________
+
+EXTENSION LEVEL-2 ISO-2022 TRANSFER SYNTAX - MULTIPLE CHARACTER SETS
+
+"SET TRANSFER-SYNTAX ISO-2022"           "SET TRANSFER-SYNTAX ISO-2022"
+      SENDER                                       RECEIVER
+         |                                             ^
+         |                                             |
+    Convert from local                      Convert from registered 
+    character sets to                       standard character sets
+    registered standard sets.               to local character sets.
+    Convert from local record format        Convert from CRLF-terminated lines
+    to CRLF-terminated lines                to local record format.
+         |                                             |
+         |                                             |
+         |     File data, designators, and shifts      |
+         +---------------------------------------------+
+                    designated character sets
+_____________________________________________________________________________
+
+For example, a file containing Roman, Russian, and Greek characters can use
+the ISO Latin/Cyrillic and ISO Latin/Greek alphabets.  The initial alphabet is
+designated by an escape sequence, and whenever there is a change of alphabet,
+another escape sequence is used to identify the new alphabet:
+
+    <escape sequence for Latin/Cyrillic>characters in Latin/Cyrillic
+    <escape sequence for Latin/Greek>characters in Latin/Greek
+    <escape sequence for Latin/Cyrillic>characters in Latin/Cyrillic
+
+The usefulness of Level 2 will become apparent in the future, as computer
+manufacturers begin to bow to the needs of the international computer market
+and start to employ mechanisms for storing text in multiple alphabets.
+
+
+APPENDIX C, CONFERENCE AGENDA
+
+May 29, 1989:
+
+  Christine Gianone and Frank da Cruz, Columbia University, New York,
+  "Introduction to Kermit"
+
+May 30, 1989:
+
+  C. Gianone and F. da Cruz, "Kermit Protocol, Theory, and Operation"
+
+May 31, 1989:
+
+  C. Gianone, "A Kermit Protocol Extension for International Character Sets"
+
+  A. Gruzdev, NPO Informatika, Ivanovo, USSR,
+  "Use of Kermit Protocol for Interconnection of Homogeneous PC and
+  Minicomputer Networks"
+
+  A. Smirnov and V. Rejma, EstNIINTI, Tallinn, Estonia, USSR,
+  "Adaptation of Kermit Programs for EC and SVM Mainframes and Iskra 1030 PCs"
+
+  A speaker from Moscow Ministry of Radio Industry:
+  "Use of Kermit in a PC Network for Secondary Schools".
+
+  Milan Motl and F. Zednik, Sigma Concern, Olomouc, Czechoslovakia,
+  "Use of Kermit Program Products in Heterogeneous Computer Networks"
+
+  I. Shmeikal, High Economic School, Prague, Czechoslovakia,
+  "Terminal Network and Experience in Implementation of Kermit Programs in the
+  DOS-4 ES Mainframe Environment"
+
+  Gennadiy I. Cherkes, Computer Research Institute, Minsk, USSR,
+  "Asynchronous Data Transmission on the EC-1840 PC"
+
+  Vladimir D. Novikov, VNIIPAS Institute of Automated Systems, Moscow, USSR,
+  "Experiments and Prolems in the Use of Kermit Programs in the National
+  Automatic Data Exchange Centre, USSR"
+
+  Konstantin Vinogradov, International Centre for Scientific and Technical
+  Information (ICSTI), Moscow, USSR, "Development and Implementation of Kermit
+  Programs for PCs, Minicomputers, and Mainframes"
+
+  Juri Gornostaev, ICSTI, Moscow, USSR,
+  "Proposals on the Arrangement of Distribution of Kermit Products to Member
+  Countries of ICSTI".
+
+
+BIBLIOGRAPHY
+
+[1] Gianone, Christine M., "The Kermit User Guide", Columbia University Center
+    for Computing Activities, New York City, 1989.
+
+[2] Gianone, Christine M., and Frank da Cruz, "A Kermit Protocol Extension for
+    International Character Sets", technical paper, Columbia University Center
+    for Computing Activities, New York City, 1989.
+
+[3] da Cruz, Frank, "Kermit, A File Transfer Protocol", Digital Press, Bedford,
+    MA, 1987.
+
+[4] de Broeck, Paul, "Kermit Aids in Giotto Project", Kermit News, Volume 2,
+    Number 1, Columbia University Center for Computing Activities, New York
+    City, November 1987.
+
+[5] Lowe, Sue J., "Kermit to Speak non-ASCII: Greek, Russian, et al.", Data
+    Communications Magazine, June 1989.
+
+[6] "Paketi Prekladnikh Programm Teleobrabotki Dannikh na MikroEVM", ICSTI,
+    Moscow, 1987.
+
+(end)
