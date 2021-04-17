@@ -1,1 +1,1 @@
-MS-DOS Kermit
+# MS-DOS Kermit (PC Kermit)
